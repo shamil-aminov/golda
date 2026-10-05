@@ -142,14 +142,17 @@ fun EntrySheet(
     val toAccount = toAccountId?.let { data.accountById[it] }
 
     // A new purchase starts in the local currency, as voice does; an edit keeps what was stored.
+    // Only an expense has a purchase currency of its own: a voice income in dollars credited to a ruble
+    // account keeps the dollars for its row, but the form edits what the account got.
+    val purchased = op?.type == OpType.EXPENSE && op.purchaseAmountMinor != null && op.purchaseCurrency != null
     var purchaseCurrency by remember {
-        mutableStateOf(op?.purchaseCurrency ?: if (op != null) account?.currency ?: "RUB" else asked?.currency ?: data.settings.localCurrency)
+        mutableStateOf((if (purchased) op.purchaseCurrency else null) ?: if (op != null) account?.currency ?: "RUB" else asked?.currency ?: data.settings.localCurrency)
     }
     var amountText by remember {
         mutableStateOf(
             when {
                 asked != null -> Fmt.editable(asked.amountMinor, asked.currency)
-                op?.purchaseAmountMinor != null && op.purchaseCurrency != null -> Fmt.editable(op.purchaseAmountMinor, op.purchaseCurrency)
+                purchased -> Fmt.editable(op.purchaseAmountMinor, op.purchaseCurrency)
                 outPosting != null && account != null -> Fmt.editable(kotlin.math.abs(outPosting.amountMinor), account.currency)
                 else -> ""
             },
@@ -159,7 +162,7 @@ fun EntrySheet(
     var secondText by remember {
         mutableStateOf(
             when {
-                op?.purchaseCurrency != null && outPosting != null && account != null -> Fmt.editable(-outPosting.amountMinor, account.currency)
+                purchased && outPosting != null && account != null -> Fmt.editable(-outPosting.amountMinor, account.currency)
                 inPosting != null && toAccount != null -> Fmt.editable(inPosting.amountMinor, toAccount.currency)
                 else -> ""
             },
@@ -169,7 +172,7 @@ fun EntrySheet(
     var editingSecond by remember { mutableStateOf(false) }
     var categoryId by remember { mutableStateOf(op?.categoryId) }
     var note by remember { mutableStateOf(op?.note ?: asked?.title.orEmpty()) }
-    var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: LocalDate.now(data.zone)) }
+    var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: data.today) }
     var pickingDate by remember { mutableStateOf(false) }
     var deciding by remember { mutableStateOf(asked != null) }
 
@@ -243,7 +246,10 @@ fun EntrySheet(
 
     fun pickAccount(picked: Long) {
         val newAccount = data.accountById.getValue(picked)
-        if (purchaseCurrency == account?.currency || type != OpType.EXPENSE) purchaseCurrency = newAccount.currency
+        // A purchase in the local currency stays in it on another card (48,5 ₾ charged to the dollar
+        // card, SPEC §1.4); one typed in the old account's own currency follows the account.
+        val keep = type == OpType.EXPENSE && (purchaseCurrency == data.settings.localCurrency || purchaseCurrency != account?.currency)
+        if (!keep) purchaseCurrency = newAccount.currency
         accountId = picked
         if (toAccountId == picked) toAccountId = accounts.firstOrNull { it.id != picked }?.id
         secondEdited = false
@@ -258,6 +264,12 @@ fun EntrySheet(
             } else if (type == OpType.TRANSFER) {
                 accountId = defaultAccount?.id
             }
+        }
+        // Back to an expense, a new one is in the currency it started in again (the local one), not in the
+        // currency of the account the transfer left from.
+        if (value == OpType.EXPENSE && type != OpType.EXPENSE) {
+            purchaseCurrency = if (op == null) asked?.currency ?: data.settings.localCurrency
+            else accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
         }
         type = value
         categoryId = null
@@ -290,6 +302,8 @@ fun EntrySheet(
             when {
                 deciding -> DecideActions(
                     enabled = consider != null,
+                    // "Беру" books it, so it needs what saving needs (an account, a rate for the currency).
+                    buyEnabled = valid,
                     wait = known?.wait,
                     withThink = request.wishId == null,
                     onSkip = { consider?.let { haptics.performHapticFeedback(HapticFeedbackType.Confirm); onSkip(it, request.wishId) } },
@@ -346,6 +360,9 @@ fun EntrySheet(
                     val a = accountId
                     accountId = toAccountId
                     toAccountId = a
+                    // The typed number belongs to the old "from" side: across currencies, what arrived
+                    // becomes what is sent, so 100 $ → 9 130 ₽ turns into 9 130 ₽ → 100 $, not 100 ₽.
+                    if (secondCode != null && second != null) amountText = secondText
                     secondEdited = false
                 },
             )
@@ -381,7 +398,7 @@ fun EntrySheet(
             type == OpType.INCOME -> Unit
             amount == null && type == OpType.TRANSFER -> Unit
             amount == null -> {
-                val budget = remember(data) { Budget.today(data.states, data.operations, data.settings, LocalDate.now(data.zone), data.zone, data.allObligations, data.rates) }
+                val budget = remember(data) { Budget.today(data.states, data.operations, data.settings, data.today, data.zone, data.allObligations, data.rates) }
                 UnderLine(tr("Можно сегодня ", "Safe today ") + data.base.approx(budget.leftTodayRub))
             }
             secondCode != null && type == OpType.TRANSFER -> ReceivedLine(secondCode, secondText, secondEdited, editingSecond, { editingSecond = it }) {
@@ -487,7 +504,7 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
         BigNumber(text, posting.amountMinor, MaterialTheme.colorScheme.onSurface, maxSp = 64f)
         VSpace(Gap.xs)
         Text(
-            data.accountById[posting.accountId]?.name.orEmpty() + " · " + dayLabel(Ledger.localDate(full.op.timestamp, data.zone), LocalDate.now(data.zone)),
+            data.accountById[posting.accountId]?.name.orEmpty() + " · " + dayLabel(Ledger.localDate(full.op.timestamp, data.zone), data.today),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -578,7 +595,7 @@ private fun AccountPill(accounts: List<Account>, account: Account?, onPick: (Lon
 
 @Composable
 private fun DatePill(date: LocalDate, data: AppData, onClick: () -> Unit) {
-    MetaPill(dayLabel(date, LocalDate.now(data.zone)), onClick, painter = painterResource(R.drawable.ic_calendar))
+    MetaPill(dayLabel(date, data.today), onClick, painter = painterResource(R.drawable.ic_calendar))
 }
 
 /** From and to as two tiles with a round swap button over the gap; a tile opens the list of accounts. */
@@ -726,7 +743,7 @@ private fun daysOfBudget(number: String): String {
 /** Three equal choices in one connected group; none of them is the "right" answer, but buying is the filled one. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun RowScope.DecideActions(enabled: Boolean, wait: String?, withThink: Boolean, onSkip: () -> Unit, onThink: () -> Unit, onBuy: () -> Unit) {
+private fun RowScope.DecideActions(enabled: Boolean, buyEnabled: Boolean, wait: String?, withThink: Boolean, onSkip: () -> Unit, onThink: () -> Unit, onBuy: () -> Unit) {
     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
         val tall = Modifier.weight(1f).heightIn(min = 64.dp)
         val padding = androidx.compose.foundation.layout.PaddingValues(horizontal = Gap.s)
@@ -743,7 +760,7 @@ private fun RowScope.DecideActions(enabled: Boolean, wait: String?, withThink: B
             }
         }
         Button(
-            onClick = onBuy, shapes = connectedEnd(), modifier = tall, enabled = enabled, contentPadding = padding,
+            onClick = onBuy, shapes = connectedEnd(), modifier = tall, enabled = enabled && buyEnabled, contentPadding = padding,
             colors = ButtonDefaults.buttonColors(containerColor = actionColor(), contentColor = onActionColor()),
         ) {
             Text(tr("Беру", "Buy"), style = label, maxLines = 1)

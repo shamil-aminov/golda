@@ -30,9 +30,12 @@ class GoldaTestRunner : AndroidJUnitRunner() {
 
 /** The app with its storage swapped: an in-memory database and a separate settings file. */
 class TestGoldaApplication : GoldaApplication() {
+    /** The in-memory database behind [repo], for tests that set up what the UI cannot (old rates). */
+    val db: GoldaDb by lazy { Room.inMemoryDatabaseBuilder(this, GoldaDb::class.java).build() }
+
     override fun createRepo(): Repo = Repo(
         context = this,
-        db = Room.inMemoryDatabaseBuilder(this, GoldaDb::class.java).build(),
+        db = db,
         settings = SettingsStore(this, testSettings(this)),
     )
 

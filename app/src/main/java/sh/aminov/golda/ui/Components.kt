@@ -171,7 +171,7 @@ fun AmountColumn(
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>, accountId: Long? = null, onClick: (OperationFull) -> Unit) {
-    val today = LocalDate.now(data.zone)
+    val today = data.today
     operations.groupBy { Ledger.localDate(it.op.timestamp, data.zone) }.forEach { (date, list) ->
         item(key = "day-$date") { GroupLabel(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
@@ -198,17 +198,23 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
     val own = accountId?.let { id -> full.postings.firstOrNull { it.accountId == id } }
     val ownCode = own?.let { data.accountById[it.accountId]?.currency } ?: code
 
-    val main: String
+    var main: String
     var secondary: String? = null
     var approximate = false
     var supporting: String? = null
     val transfer = op.type == OpType.TRANSFER && into != null && intoAccount != null
+    // The price as said or paid, signed the way the money went: a voice income in dollars is "+100 $".
+    val said = op.purchaseAmountMinor?.let { if (op.type == OpType.INCOME) it else -it }
+    // An estimated amount (a card charge or a received sum worked out at a rate) carries "≈".
+    fun estimated(text: String) = if (op.isEstimate) "≈ $text" else text
     when {
         transfer && own != null -> {
             val incoming = own.amountMinor > 0
             val otherAccount = if (incoming) outAccount else intoAccount
             val otherCode = otherAccount?.currency ?: code
-            main = Fmt.amount(own.amountMinor, ownCode, signed = true)
+            val signed = Fmt.amount(own.amountMinor, ownCode, signed = true)
+            // What arrived is the estimated side of a transfer.
+            main = if (incoming) estimated(signed) else signed
             if (otherCode != ownCode) secondary = Fmt.amount(abs((if (incoming) out else into).amountMinor), otherCode)
             title = "${outAccount?.name} → ${intoAccount.name}"
             supporting = op.note.takeUnless { it.isBlank() || restatesTransfer(it, outAccount?.name, intoAccount.name) }
@@ -225,8 +231,10 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
         }
         own != null -> {
             main = Fmt.amount(own.amountMinor, ownCode, signed = true)
-            if (op.purchaseCurrency != null && op.purchaseAmountMinor != null) {
-                secondary = Fmt.amount(-op.purchaseAmountMinor, op.purchaseCurrency)
+            if (op.purchaseCurrency != null && said != null) {
+                // The account's side was worked out from the price: "≈ −18,99 $" over "−48,50 ₾".
+                main = estimated(main)
+                secondary = Fmt.amount(said, op.purchaseCurrency, signed = op.type == OpType.INCOME)
             } else if (ownCode != data.base.code) {
                 // What the account's own amount comes to in the main currency.
                 secondary = data.base.approx(own.rubMinor)
@@ -234,8 +242,8 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
             }
         }
         // On Home one amount says it: the price in the currency it was paid in.
-        op.purchaseCurrency != null && op.purchaseAmountMinor != null -> {
-            main = Fmt.amount(-op.purchaseAmountMinor, op.purchaseCurrency)
+        op.purchaseCurrency != null && said != null -> {
+            main = Fmt.amount(said, op.purchaseCurrency, signed = op.type == OpType.INCOME)
             supporting = outAccount?.takeIf { it.id != data.usualAccountId }?.name
         }
         else -> {
@@ -286,7 +294,8 @@ fun NumberField(
         value = text,
         onValueChange = { new ->
             text = new
-            Fmt.parseDouble(new)?.let(onValue)
+            // An emptied field is zero, not the last number that parsed; a negative number is not taken.
+            if (new.isBlank()) onValue(0.0) else Fmt.parseDouble(new)?.takeIf { it >= 0 }?.let(onValue)
         },
         modifier = modifier,
         label = label,

@@ -49,7 +49,10 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -98,13 +101,28 @@ fun rememberVoice(
     data: AppData,
     snackbar: SnackbarHostState,
     requests: ReceiveChannel<Unit>,
-    onConsider: (VoiceAction.Consider) -> Unit,
+    onConsider: (List<VoiceAction.Consider>) -> Unit,
 ): VoiceControl {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val recorder = remember { VoiceRecorder(context.applicationContext) }
     val haptics = LocalHapticFeedback.current
     var state by remember { mutableStateOf(VoiceState.Idle) }
+
+    // The microphone never outlives the screen. Leaving the app mid-recording (or the screen going
+    // away) drops the half-said note instead of keeping it: it was never confirmed with a second tap,
+    // in the background Android records only silence anyway, and a kept half would be booked later
+    // beside whatever the user enters again by hand.
+    DisposableEffect(recorder) {
+        onDispose { recorder.cancel() }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        if (state == VoiceState.Recording) {
+            recorder.cancel()
+            state = VoiceState.Idle
+            scope.launch { snackbar.showSnackbar(tr("Запись прервана — приложение свернули. Ничего не записано", "Recording stopped when the app was left. Nothing was saved")) }
+        }
+    }
 
     fun startRecording() {
         runCatching { recorder.start() }
@@ -149,15 +167,17 @@ fun rememberVoice(
         repo.voice.collect { outcome ->
             when (outcome) {
                 is VoiceOutcome.Done -> {
-                    outcome.considering.firstOrNull()?.let(onConsider)
+                    // Every "хочу купить" of the note, one after another.
+                    if (outcome.considering.isNotEmpty()) onConsider(outcome.considering)
                     if (outcome.recorded.isNotEmpty()) {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                         val text = outcome.recorded.joinToString(" · ") { (_, draft) -> describe(draft, latest) } +
-                            (outcome.comment?.let { "\n$it" } ?: "")
+                            (outcome.comment?.let { "\n$it" } ?: "") +
+                            (if (outcome.misunderstood) "\n" + tr("Часть записи не разобрать — допиши через «+»", "Part of the note was unclear; add it with “+”") else "")
                         val prefix = if (outcome.late) tr("Из отложенного: ", "From a saved note: ") else ""
                         val result = snackbar.showSnackbar(prefix + text, actionLabel = tr("Отменить", "Undo"), duration = SnackbarDuration.Long)
-                        if (result == SnackbarResult.ActionPerformed) outcome.recorded.forEach { (id, _) -> repo.deleteOperation(id) }
-                    } else if (outcome.misunderstood && outcome.transcript.isNotBlank()) {
+                        if (result == SnackbarResult.ActionPerformed) repo.undo(outcome.undo)
+                    } else if (outcome.misunderstood && outcome.transcript.isNotBlank() && outcome.considering.isEmpty()) {
                         // A blank transcript is a stray tap: nothing to say about it.
                         snackbar.showSnackbar(tr("Не разобрать: «${outcome.transcript}». Можно записать через «+»", "Couldn’t make out “${outcome.transcript}”. Add it with “+”"), duration = SnackbarDuration.Long)
                     }

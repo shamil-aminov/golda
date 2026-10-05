@@ -96,9 +96,11 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
-    val today = LocalDate.now(data.zone)
+    val today = data.today
     var kind by rememberSaveable { mutableStateOf(PeriodKind.WEEK) }
-    var custom by remember { mutableStateOf<Period?>(null) }
+    // Saved like the kind it belongs to (as two epoch days), so the two never disagree after a restart.
+    var customDays by rememberSaveable { mutableStateOf<LongArray?>(null) }
+    val custom = customDays?.let { (from, to) -> Period(LocalDate.ofEpochDay(from), LocalDate.ofEpochDay(to)) }
     var picking by remember { mutableStateOf(false) }
     var selectedSlice by remember { mutableStateOf<Int?>(null) }
     val palette = sliceColors()
@@ -253,7 +255,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
 
     if (picking) {
         RangeDialog(period, onDismiss = { picking = false }) { from, to ->
-            custom = Period(from, to)
+            customDays = longArrayOf(from.toEpochDay(), to.toEpochDay())
             kind = PeriodKind.CUSTOM
             selectedSlice = null
             picking = false

@@ -9,6 +9,7 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.service.quicksettings.TileService
 import android.widget.RemoteViews
@@ -52,6 +53,9 @@ const val TAB_GOALS = 2
 /** Which tab a notification opens. */
 const val EXTRA_TAB = "golda.tab"
 
+/** The waiting wish a reminder is about: it opens in "Сомневаюсь". */
+const val EXTRA_WISH = "golda.wish"
+
 fun voicePendingIntent(context: Context): PendingIntent = PendingIntent.getActivity(
     context,
     0,
@@ -70,6 +74,9 @@ class MainActivity : ComponentActivity() {
     /** Tabs to open, from notifications. */
     private val tabRequests = Channel<Int>(Channel.CONFLATED)
 
+    /** Wishes to decide on, from their reminders. */
+    private val wishRequests = Channel<Long>(Channel.CONFLATED)
+
     /** Before Android 13 the app's own language is applied here; from 13 the system does it. */
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(AppLanguage.wrap(newBase))
@@ -80,12 +87,15 @@ class MainActivity : ComponentActivity() {
         // Changing the app's language recreates the activity, so this stays current.
         I18n.russian = AppLanguage.russian(this)
         enableEdgeToEdge()
-        if (savedInstanceState == null) handle(intent)
+        // Only a fresh start acts on the intent: a recreated activity (a language switch) got it already.
+        val fresh = savedInstanceState == null
+        if (fresh) handle(intent)
         lifecycleScope.launch {
             repo.ensureSeed()
-            debugCommands(intent)
+            if (fresh) debugCommands(intent)
             repo.refreshRates()
-            repo.processVoiceQueue()
+            // Never lets a note stop the app from starting; it sets aside what it cannot handle.
+            runCatching { repo.processVoiceQueue() }
             ReconcileSchedule.apply(this@MainActivity, repo.settings.flow.first().reconcileReminder)
             repo.wishes.rescheduleReminders()
         }
@@ -94,7 +104,17 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<DebtReminder>(1, TimeUnit.DAYS).build(),
         )
-        setContent { GoldaTheme { GoldaRoot(repo, voiceRequests, tabRequests) } }
+        setContent { GoldaTheme { GoldaRoot(repo, voiceRequests, tabRequests, wishRequests) } }
+    }
+
+    /**
+     * Night mode and window size changes come here instead of recreating the activity (see the
+     * manifest), so an open form and a running recording survive them. Compose follows the new
+     * configuration by itself; the system bars' icons are picked again for the new mode.
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        enableEdgeToEdge()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -106,6 +126,7 @@ class MainActivity : ComponentActivity() {
     private fun handle(intent: Intent) {
         if (intent.action == ACTION_VOICE) voiceRequests.trySend(Unit)
         intent.getIntExtra(EXTRA_TAB, -1).takeIf { it >= 0 }?.let { tabRequests.trySend(it) }
+        intent.getLongExtra(EXTRA_WISH, -1).takeIf { it > 0 }?.let { wishRequests.trySend(it) }
     }
 
     /** adb shell am start -n sh.aminov.golda/.MainActivity --ez golda.demo true */

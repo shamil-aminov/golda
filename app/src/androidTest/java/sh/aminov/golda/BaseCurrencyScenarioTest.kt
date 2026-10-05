@@ -67,11 +67,13 @@ class BaseCurrencyScenarioTest : GoldaUiTest() {
         val total = bigNumber(Tags.ACCOUNTS_TOTAL)
         assertTrue("accounts total is in dollars: $total", total.endsWith(" $"))
 
-        // Back to rubles: exactly the old picture.
+        // Back to rubles: the old big number, and the same currencies under it. (The figures under it may
+        // move by a kopeck's worth: the rates can refresh from the network while the test runs.)
         openTab(tr("Главная", "Home"))
         pickBase("₽ RUB")
         assertEquals(homeBefore, bigNumber(Tags.HOME_BIG))
-        assertEquals(othersBefore, textOf(Tags.HOME_OTHERS))
+        fun symbols(line: String) = line.split(" · ").map { it.substringAfterLast(' ') }
+        assertEquals(symbols(othersBefore), symbols(textOf(Tags.HOME_OTHERS)))
         openTab(tr("Счета", "Accounts"))
         assertTrue(bigNumber(Tags.ACCOUNTS_TOTAL).endsWith(" ₽"))
     }

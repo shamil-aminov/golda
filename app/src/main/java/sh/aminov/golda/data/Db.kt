@@ -72,6 +72,16 @@ interface GoldaDao {
     @Query("DELETE FROM Wish WHERE id = :id")
     suspend fun deleteWish(id: Long)
 
+    // Emptying every table inside a restore's transaction, children first, so a failed restore rolls back.
+    @Query("DELETE FROM Posting") suspend fun clearPostings()
+    @Query("DELETE FROM Operation") suspend fun clearOperations()
+    @Query("DELETE FROM Wish") suspend fun clearWishes()
+    @Query("DELETE FROM Goal") suspend fun clearGoals()
+    @Query("DELETE FROM Obligation") suspend fun clearObligations()
+    @Query("DELETE FROM Account") suspend fun clearAccounts()
+    @Query("DELETE FROM Category") suspend fun clearCategories()
+    @Query("DELETE FROM Rate") suspend fun clearRates()
+
     // Everything at once, for backups.
     @Query("SELECT * FROM Operation") suspend fun operationsAll(): List<Operation>
     @Query("SELECT * FROM Posting") suspend fun postingsAll(): List<Posting>

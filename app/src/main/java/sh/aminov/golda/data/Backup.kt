@@ -70,13 +70,21 @@ class Backups(private val db: GoldaDb, private val settings: SettingsStore) {
     }
 
     /**
-     * Replaces everything with the file's contents. The file is read in full
-     * first, so a broken file changes nothing. The Gemini key stays.
+     * Replaces everything with the file's contents. The file is read in full first, and the old data
+     * is deleted in the same transaction the new one is written in: a file that does not decode, or
+     * does not fit (a posting of a missing account), changes nothing. The Gemini key stays.
      */
     suspend fun import(text: String): Backup {
         val backup = BackupFormat.decode(text)
-        db.clearAllTablesSafely()
         db.withTransaction {
+            dao.clearPostings()
+            dao.clearOperations()
+            dao.clearWishes()
+            dao.clearGoals()
+            dao.clearObligations()
+            dao.clearAccounts()
+            dao.clearCategories()
+            dao.clearRates()
             dao.insertCategories(backup.categories)
             dao.insertAccounts(backup.accounts)
             dao.insertOperations(backup.operations)
@@ -89,9 +97,6 @@ class Backups(private val db: GoldaDb, private val settings: SettingsStore) {
         settings.update { current -> backup.settings.copy(hasGeminiKey = current.hasGeminiKey, onboarded = true) }
         return backup
     }
-
-    private suspend fun GoldaDb.clearAllTablesSafely() =
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { clearAllTables() }
 }
 
 /** Sunday at 19:00, a nudge to compare balances with the bank. */

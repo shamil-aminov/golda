@@ -6,6 +6,7 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -95,20 +96,92 @@ class VoiceRecorder(private val context: Context) {
     }
 }
 
-/** Voice notes waiting to be understood; the file name is the time they were recorded. */
+/**
+ * Voice notes not booked yet. A note's file name is the time it was recorded, plus "-N" once N attempts
+ * at it have failed. The queue is tried on every start; notes that cannot be understood are set aside
+ * in "aside/" and are tried again only when the user asks (Settings → Голос), never on their own.
+ */
 object VoiceQueue {
+    /** Attempts at a note that Gemini keeps failing (busy, over quota) before it is set aside. */
+    const val MAX_ATTEMPTS = 3
+
     fun dir(context: Context) = File(context.filesDir, "voice").apply { mkdirs() }
 
-    fun pending(context: Context): List<File> =
-        dir(context).listFiles { f -> f.extension in AUDIO }.orEmpty().sortedBy { it.name }
+    private fun asideDir(context: Context) = File(dir(context), "aside").apply { mkdirs() }
+
+    /** Waiting their turn, oldest first. */
+    fun pending(context: Context): List<File> = notes(dir(context))
+
+    /** Set aside after a failure, oldest first. */
+    fun setAside(context: Context): List<File> = notes(asideDir(context))
+
+    /** Everything not booked yet, except a note still being recorded. */
+    fun count(context: Context): Int = (pending(context) + setAside(context)).count { !fresh(it) }
+
+    private fun notes(dir: File): List<File> =
+        dir.listFiles { f -> f.isFile && f.extension in AUDIO }.orEmpty().sortedBy { recordedAt(it) }
 
     /** What a note can be: Opus (10+), AAC (8–9), and WAV for tests. */
     private val AUDIO = setOf("ogg", "aac", "m4a", "wav")
 
-    fun recordedAt(file: File): Long = file.nameWithoutExtension.toLongOrNull() ?: file.lastModified()
+    fun recordedAt(file: File): Long = file.nameWithoutExtension.substringBefore('-').toLongOrNull() ?: file.lastModified()
+
+    fun attempts(file: File): Int = file.nameWithoutExtension.substringAfter('-', "").toIntOrNull() ?: 0
+
+    /** Written to in the last moments: a recording still going. */
+    fun fresh(file: File): Boolean = System.currentTimeMillis() - file.lastModified() < 2_000
+
+    /** One more failed attempt, remembered in the name. */
+    fun countAttempt(file: File): File {
+        val target = File(file.parentFile, "${recordedAt(file)}-${attempts(file) + 1}.${file.extension}")
+        return if (file.renameTo(target)) target else file
+    }
+
+    fun putAside(context: Context, file: File) {
+        val target = File(asideDir(context), "${recordedAt(file)}.${file.extension}")
+        if (!file.renameTo(target)) file.delete()
+    }
+
+    /** "Повторить": the notes set aside go back in the queue, and every note starts its attempts over. */
+    fun requeue(context: Context) {
+        for (file in setAside(context) + pending(context).filter { attempts(it) > 0 }) {
+            file.renameTo(File(dir(context), "${recordedAt(file)}.${file.extension}"))
+        }
+    }
+
+    /** "Удалить": every note not booked yet, except one being recorded right now. */
+    fun clear(context: Context) {
+        (pending(context) + setAside(context)).filterNot(::fresh).forEach { it.delete() }
+    }
+
+    /** "Стереть всё": every note, whatever its state. */
+    fun wipe(context: Context) {
+        dir(context).deleteRecursively()
+    }
 }
 
-class GeminiException(message: String, val offline: Boolean) : Exception(message)
+/**
+ * Why a note was not understood. [Kind.OFFLINE]: no network; try again later, as often as it takes.
+ * [Kind.BUSY]: Gemini is overloaded or over quota; try again later, a few times. [Kind.REJECTED]: a
+ * refused request or a reply that cannot be read; trying again would give the same, so the note is
+ * set aside. [Kind.NO_KEY]: there is no key yet.
+ */
+class GeminiException(message: String, val kind: Kind) : Exception(message) {
+    enum class Kind { OFFLINE, BUSY, REJECTED, NO_KEY }
+}
+
+/** What turns a note into items: Gemini with the saved key. The instrumented tests swap in their own. */
+fun interface VoiceParser {
+    /** Throws only [GeminiException]. */
+    suspend fun parse(audio: File, system: String, model: String): VoiceResult
+}
+
+class GeminiParser(private val settings: SettingsStore) : VoiceParser {
+    override suspend fun parse(audio: File, system: String, model: String): VoiceResult {
+        val key = settings.geminiKey() ?: throw GeminiException(tr("нет ключа", "no key"), GeminiException.Kind.NO_KEY)
+        return Gemini.parse(audio, system, key, model)
+    }
+}
 
 object Gemini {
     const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
@@ -157,16 +230,49 @@ object Gemini {
             if (code !in 200..299) {
                 val error = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 val message = runCatching { JSONObject(error).getJSONObject("error").getString("message") }.getOrDefault("HTTP $code")
-                throw GeminiException(message, offline = code >= 500)
+                val busy = code == 429 || code >= 500
+                throw GeminiException(message, if (busy) GeminiException.Kind.BUSY else GeminiException.Kind.REJECTED)
             }
-            val text = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
-                .getJSONArray("candidates").getJSONObject(0)
-                .getJSONObject("content").getJSONArray("parts").getJSONObject(0).getString("text")
-            read(JSONObject(text))
+            readReply(connection.inputStream.bufferedReader().use { it.readText() })
+        } catch (e: GeminiException) {
+            throw e
         } catch (e: IOException) {
-            throw GeminiException(e.message ?: tr("нет сети", "no network"), offline = true)
+            throw GeminiException(e.message ?: tr("нет сети", "no network"), GeminiException.Kind.OFFLINE)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Whatever else goes wrong here is about this note, not the network: never a crash.
+            throw GeminiException(e.message ?: e.javaClass.simpleName, GeminiException.Kind.REJECTED)
         } finally {
             connection.disconnect()
+        }
+    }
+
+    /**
+     * The items of a generateContent reply. A blocked prompt, a reply cut short, an array where an
+     * object belongs, anything not in the expected shape gives [GeminiException] of
+     * [GeminiException.Kind.REJECTED], never another exception.
+     */
+    fun readReply(body: String): VoiceResult {
+        val unreadable = tr("ответ не разобрать", "the reply could not be read")
+        try {
+            val reply = JSONObject(body)
+            val candidate = reply.optJSONArray("candidates")?.optJSONObject(0)
+            if (candidate == null) {
+                val blocked = reply.optJSONObject("promptFeedback")?.optString("blockReason").orEmpty()
+                val message = if (blocked.isNotBlank()) tr("запрос отклонён ($blocked)", "request blocked ($blocked)") else unreadable
+                throw GeminiException(message, GeminiException.Kind.REJECTED)
+            }
+            val text = candidate.optJSONObject("content")?.optJSONArray("parts")?.optJSONObject(0)?.optString("text").orEmpty()
+            if (text.isBlank()) {
+                val reason = candidate.optString("finishReason").takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+                throw GeminiException(unreadable + reason, GeminiException.Kind.REJECTED)
+            }
+            return read(JSONObject(text))
+        } catch (e: GeminiException) {
+            throw e
+        } catch (e: Exception) {
+            throw GeminiException(unreadable, GeminiException.Kind.REJECTED)
         }
     }
 

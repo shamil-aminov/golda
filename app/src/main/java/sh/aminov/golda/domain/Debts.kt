@@ -67,10 +67,16 @@ object Debts {
         )
     }
 
-    /** Monthly debt payments set aside before payday like any other obligation. */
-    fun obligations(accounts: List<Account>): List<Obligation> = accounts
-        .filter { it.isDebt && it.paymentDay != null && (it.paymentMinor ?: 0) > 0 }
-        .map { Obligation(id = -it.id, name = it.name, amountMinor = it.paymentMinor!!, currency = it.currency, dayOfMonth = it.paymentDay!!) }
+    /**
+     * Monthly debt payments set aside before payday like any other obligation: only while something
+     * is owed, and never more than is owed. The id is the account's, negated.
+     */
+    fun obligations(states: Collection<AccountState>): List<Obligation> = states
+        .filter { s -> s.account.isDebt && s.account.paymentDay != null && (s.account.paymentMinor ?: 0) > 0 && s.balanceMinor < 0 }
+        .map { s ->
+            val a = s.account
+            Obligation(id = -a.id, name = a.name, amountMinor = minOf(a.paymentMinor!!, -s.balanceMinor), currency = a.currency, dayOfMonth = a.paymentDay!!)
+        }
 
     /**
      * Which debt to pay off first: the most expensive one, and whether paying

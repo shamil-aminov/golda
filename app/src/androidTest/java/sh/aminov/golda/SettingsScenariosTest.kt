@@ -151,9 +151,9 @@ class SettingsScenariosTest : GoldaUiTest() {
         typeIntoFirstField("15")
         tap(tr("Сохранить", "Save"))
 
+        // Settings stays open across the recreation, showing what was stored.
         scenario.recreate()
         compose.waitForIdle()
-        openSettings()
         compose.onNodeWithText("₾ GEL").assertIsDisplayed()
         compose.onNodeWithText("15 %").assertIsDisplayed()
         val stored = runBlocking { repo.settings.flow.first() }

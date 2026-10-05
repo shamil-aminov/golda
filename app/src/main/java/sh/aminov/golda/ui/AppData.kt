@@ -37,6 +37,8 @@ class AppData(
     val obligations: List<Obligation> = emptyList(),
     val goals: List<Goal> = emptyList(),
     val wishes: List<Wish> = emptyList(),
+    /** The day it is: kept current by [rememberToday], so "Сегодня" and the budget turn over at midnight. */
+    val today: LocalDate = LocalDate.now(),
 ) {
     val rates = Rates(rateList.associate { it.code to it.rubPerUnit }, settings.markup)
     val ratesDate: String? = rateList.maxOfOrNull { it.date }
@@ -49,7 +51,7 @@ class AppData(
     val zone: ZoneId = ZoneId.systemDefault()
 
     /** Monthly payments typed in settings plus the ones debts carry. */
-    val allObligations: List<Obligation> = obligations + Debts.obligations(accounts)
+    val allObligations: List<Obligation> = obligations + Debts.obligations(states.values)
 
     /** Operations worth listing: opening balances are bookkeeping, not events. */
     val visibleOperations = operations.filter { it.op.type != OpType.OPENING }
@@ -88,6 +90,7 @@ fun typeLabel(type: AccountType) = when (type) {
 fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {
     today -> tr("Сегодня", "Today")
     today.minusDays(1) -> tr("Вчера", "Yesterday")
+    today.plusDays(1) -> tr("Завтра", "Tomorrow")
     else -> date.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale))
 }
 

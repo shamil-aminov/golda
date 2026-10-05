@@ -41,12 +41,17 @@ import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.TAB_GOALS
 import sh.aminov.golda.EXTRA_TAB
+import sh.aminov.golda.EXTRA_WISH
 import androidx.work.ExistingWorkPolicy
 
 /** Goals and the wishlist: everything about "хочу купить". */
 class Wishes(private val context: Context, private val repo: Repo, private val dao: GoldaDao) {
     val goals = dao.goals()
     val wishes = dao.wishes()
+
+    companion object {
+        const val REMINDER_TAG = "wish-reminder"
+    }
 
     private class Snapshot(val settings: Settings, val rates: Rates, val today: Today, val mainGoal: Goal?)
 
@@ -57,8 +62,9 @@ class Wishes(private val context: Context, private val repo: Repo, private val d
         val rates = Rates(dao.ratesNow().associate { it.code to it.rubPerUnit }, settings.markup)
         val accounts = dao.accountsNow()
         val states = Ledger.states(accounts, dao.postingsNow())
-        val todayOps = dao.operationsSince(day.atStartOfDay(zone).toInstant().toEpochMilli())
-        val budget = Budget.today(states, todayOps, settings, day, zone, dao.obligationsNow() + Debts.obligations(accounts), rates)
+        // Today's spending, and a month back for the payments already made early.
+        val recent = dao.operationsSince(day.minusMonths(1).minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli())
+        val budget = Budget.today(states, recent, settings, day, zone, dao.obligationsNow() + Debts.obligations(states.values), rates)
         return Snapshot(settings, rates, budget, dao.goalsNow().firstOrNull { it.isMain })
     }
 
@@ -117,6 +123,7 @@ class Wishes(private val context: Context, private val repo: Repo, private val d
             OneTimeWorkRequestBuilder<WishReminder>()
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .setInputData(workDataOf("id" to wish.id))
+                .addTag(REMINDER_TAG)
                 .build(),
         )
     }
@@ -124,6 +131,17 @@ class Wishes(private val context: Context, private val repo: Repo, private val d
     /** Waiting wishes get their reminders back: after a restore, or when an old one is gone. */
     suspend fun rescheduleReminders() {
         dao.wishesAll().filter { it.status == WishStatus.WAITING }.forEach(::remind)
+    }
+
+    /**
+     * Every wish reminder goes, before the wishes are replaced (a restore) or wiped: otherwise an old
+     * "wish-5" would keep its time, and win over the restored wish 5's.
+     */
+    suspend fun cancelReminders() {
+        val work = WorkManager.getInstance(context)
+        work.cancelAllWorkByTag(REMINDER_TAG)
+        // Reminders scheduled before they had a tag.
+        dao.wishesAll().forEach { work.cancelUniqueWork("wish-${it.id}") }
     }
 
     /** "Не беру": the money goes towards the main goal. Returns what that did, short: "+50 $ к «Велосипед»". */
@@ -142,14 +160,18 @@ class Wishes(private val context: Context, private val repo: Repo, private val d
         return tr("+$amount к «${goal.name}»", "+$amount to “${goal.name}”")
     }
 
-    /** "Беру": records the expense; returns its id and what it cost. */
-    suspend fun buy(c: VoiceAction.Consider, wishId: Long? = null): Pair<Long?, String?> {
+    /**
+     * "Купить" on a reached goal: the expense, from the account the goal is saved on when that one
+     * holds enough (see [VoiceMapper.buyGoal]). Returns its id and what it cost; no id when there was
+     * no account to pay from.
+     */
+    suspend fun buyGoal(goal: Goal): Pair<Long?, String?> {
         val s = repo.settings.flow.first()
         val rates = Rates(dao.ratesNow().associate { it.code to it.rubPerUnit }, s.markup)
-        val draft = VoiceMapper.buy(c, dao.accountsNow().sortedBy { it.sort }, s, rates, System.currentTimeMillis())
-            ?: return null to null
-        val id = repo.save(draft)
-        wishId?.let { wid -> dao.wish(wid)?.let { dao.upsertWish(it.copy(status = WishStatus.BOUGHT, decidedAt = System.currentTimeMillis())) } }
+        val accounts = dao.accountsNow().sortedBy { it.sort }
+        val states = Ledger.states(accounts, dao.postingsNow())
+        val draft = VoiceMapper.buyGoal(goal, states, accounts, s, rates, System.currentTimeMillis()) ?: return null to null
+        val id = repo.save(draft) ?: return null to null
         return id to impact(id)
     }
 
@@ -182,7 +204,7 @@ class WishReminder(context: Context, params: WorkerParameters) : CoroutineWorker
         I18n.russian = AppLanguage.russian(app)
         val wish = app.repo.wishes.wish(inputData.getLong("id", 0)) ?: return Result.success()
         if (wish.status != WishStatus.WAITING) return Result.success()
-        notify(app, CHANNEL, tr("Вишлист", "Wishlist"), wish.id.toInt(), wish.title, app.repo.wishes.reminderLine(wish), tab = TAB_GOALS)
+        notify(app, CHANNEL, tr("Вишлист", "Wishlist"), wish.id.toInt(), wish.title, app.repo.wishes.reminderLine(wish), tab = TAB_GOALS, wish = wish.id)
         return Result.success()
     }
 
@@ -192,14 +214,14 @@ class WishReminder(context: Context, params: WorkerParameters) : CoroutineWorker
 }
 
 /** Posts a notification that opens the app, when notifications are allowed. */
-fun notify(context: Context, channel: String, channelName: String, id: Int, title: String, text: String, tab: Int? = null) {
+fun notify(context: Context, channel: String, channelName: String, id: Int, title: String, text: String, tab: Int? = null, wish: Long? = null) {
     // The permission exists from Android 13; before, notifications are simply allowed.
     if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
     val manager = context.getSystemService(NotificationManager::class.java)
     manager.createNotificationChannel(NotificationChannel(channel, channelName, NotificationManager.IMPORTANCE_DEFAULT))
     val open = PendingIntent.getActivity(
         context, id,
-        Intent(context, MainActivity::class.java).putExtra(EXTRA_TAB, tab ?: -1).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        Intent(context, MainActivity::class.java).putExtra(EXTRA_TAB, tab ?: -1).putExtra(EXTRA_WISH, wish ?: -1L).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
     val notification = NotificationCompat.Builder(context, channel)

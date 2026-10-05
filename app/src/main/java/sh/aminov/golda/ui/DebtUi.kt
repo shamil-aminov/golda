@@ -34,7 +34,7 @@ fun DebtDetails(data: AppData, state: AccountState) {
     val account = state.account
     val owed = -state.balanceMinor
     val code = account.currency
-    val today = LocalDate.now(data.zone)
+    val today = data.today
     var prepaying by remember { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium.merge(Tnum)
 
@@ -44,7 +44,7 @@ fun DebtDetails(data: AppData, state: AccountState) {
             val due = Budget.nextDue(account.paymentDay, today)
             Text(
                 tr("Платёж ${Fmt.amount(account.paymentMinor, code)}, следующий — ${dayLabel(due, today).lowercase()}",
-                    "Payment ${Fmt.amount(account.paymentMinor, code)}, next on ${dayLabel(due, today)}"),
+                    "Payment ${Fmt.amount(account.paymentMinor, code)}, next due " + if (due == today || due == today.plusDays(1)) dayLabel(due, today).lowercase() else dayLabel(due, today)),
                 style = body,
             )
         }

@@ -36,7 +36,7 @@ object Analytics {
     fun period(kind: PeriodKind, today: LocalDate, settings: Settings, custom: Period? = null): Period = when (kind) {
         PeriodKind.WEEK -> Period(today.minusDays(6), today)
         PeriodKind.MONTH -> Period(today.minusDays(29), today)
-        PeriodKind.SINCE_PAYDAY -> Period(settings.nextPayday(today).minusMonths(1), today)
+        PeriodKind.SINCE_PAYDAY -> Period(settings.lastPayday(today), today)
         PeriodKind.CUSTOM -> custom ?: Period(today.minusDays(6), today)
     }
 

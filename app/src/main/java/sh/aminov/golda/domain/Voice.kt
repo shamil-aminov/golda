@@ -4,6 +4,7 @@ import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.Category
 import sh.aminov.golda.data.CategoryKind
+import sh.aminov.golda.data.Goal
 import sh.aminov.golda.data.OpType
 import java.time.LocalDate
 import java.time.LocalTime
@@ -136,9 +137,18 @@ object VoiceMapper {
             "income" -> {
                 if (amount == null) return VoiceAction.NotUnderstood(transcript)
                 val account = named(item.accountId) ?: pick(accounts, currency, settings) ?: return VoiceAction.NotUnderstood(transcript)
-                val credited = if (account.currency == currency) amount else rates.convert(amount, currency, account.currency)
-                    ?: return VoiceAction.NotUnderstood(transcript)
-                VoiceAction.Record(Draft(OpType.INCOME, timestamp, account.id, credited, categoryId = categoryId, note = note, voiceText = transcript))
+                if (account.currency == currency) {
+                    VoiceAction.Record(Draft(OpType.INCOME, timestamp, account.id, amount, categoryId = categoryId, note = note, voiceText = transcript))
+                } else {
+                    // Converted at the display rate: an estimate, and the amount as said is kept beside it.
+                    val credited = rates.convert(amount, currency, account.currency) ?: return VoiceAction.NotUnderstood(transcript)
+                    VoiceAction.Record(
+                        Draft(
+                            OpType.INCOME, timestamp, account.id, credited, categoryId = categoryId, note = note,
+                            purchaseAmountMinor = amount, purchaseCurrency = currency, isEstimate = true, voiceText = transcript,
+                        ),
+                    )
+                }
             }
 
             "transfer" -> {
@@ -150,7 +160,8 @@ object VoiceMapper {
                 val received = item.toAmount?.let { Fmt.parseMinor(it, to.currency) }?.takeIf { it > 0 }
                     ?: if (to.currency == from.currency) sent else rates.convert(sent, from.currency, to.currency)
                     ?: return VoiceAction.NotUnderstood(transcript)
-                val guessed = item.toAmount == null && to.currency != from.currency
+                // Either side worked out at the display rate rather than said: an estimate.
+                val guessed = (item.toAmount == null && to.currency != from.currency) || from.currency != currency
                 VoiceAction.Record(
                     Draft(
                         OpType.TRANSFER, timestamp, from.id, sent, toAccountId = to.id, toAmountMinor = received,
@@ -174,6 +185,31 @@ object VoiceMapper {
             OpType.EXPENSE, now, account.id, charged, note = consider.title,
             purchaseAmountMinor = consider.amountMinor, purchaseCurrency = consider.currency, isEstimate = true,
         )
+    }
+
+    /**
+     * The expense for buying a reached goal: from the account the goal is saved on, when it has one and
+     * that account holds enough (converted like a card purchase if the currencies differ); otherwise
+     * as any other purchase ([buy]).
+     */
+    fun buyGoal(goal: Goal, states: Map<Long, AccountState>, accounts: List<Account>, settings: Settings, rates: Rates, now: Long): Draft? {
+        val consider = VoiceAction.Consider(goal.name, goal.targetMinor, goal.currency)
+        val saved = goal.accountId?.let { states[it] }
+        if (saved != null) {
+            val account = saved.account
+            if (account.currency == goal.currency) {
+                if (saved.balanceMinor >= goal.targetMinor) return Draft(OpType.EXPENSE, now, account.id, goal.targetMinor, note = goal.name)
+            } else {
+                val charged = rates.cardCharge(goal.targetMinor, goal.currency, account.currency)
+                if (charged != null && saved.balanceMinor >= charged) {
+                    return Draft(
+                        OpType.EXPENSE, now, account.id, charged, note = goal.name,
+                        purchaseAmountMinor = goal.targetMinor, purchaseCurrency = goal.currency, isEstimate = true,
+                    )
+                }
+            }
+        }
+        return buy(consider, accounts, settings, rates, now)
     }
 
     /**

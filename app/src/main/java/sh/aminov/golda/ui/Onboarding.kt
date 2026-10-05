@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,8 @@ fun Onboarding(
     var editing by remember { mutableStateOf<Account?>(null) }
     var adding by remember { mutableStateOf(false) }
     val steps = 3
+    // System back walks the steps back, like "Назад"; on the first step it leaves the app.
+    BackHandler(enabled = step > 0) { step-- }
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(

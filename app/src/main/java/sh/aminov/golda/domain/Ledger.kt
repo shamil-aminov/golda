@@ -180,7 +180,8 @@ object Budget {
         val payday = settings.nextPayday(today)
         val days = ChronoUnit.DAYS.between(today, payday).toInt().coerceAtLeast(1)
         val due = obligations.filter { nextDue(it.dayOfMonth, today).isBefore(payday) }.sumOf {
-            if (it.currency == "RUB") it.amountMinor else rates?.rubMinor(it.amountMinor, it.currency) ?: 0
+            val left = unpaid(it, operations, today, zone)
+            if (it.currency == "RUB") left else rates?.rubMinor(left, it.currency) ?: 0
         }
         val perDay = (freeRub + spentToday - due) / days
         return Today(freeRub, due, spentToday, days, perDay, perDay - spentToday, payday)
@@ -206,7 +207,7 @@ object Budget {
         rates: Rates? = null,
     ): Long? {
         val next = settings.nextPayday(date)
-        val last = settings.nextPayday(next.minusMonths(1).minusDays(1))
+        val last = settings.lastPayday(date)
         if (last == date) return null
         val freeIds = accounts.filter { it.includeInFree }.map { it.id }.toSet()
         val start = last.atStartOfDay(zone).toInstant().toEpochMilli()
@@ -219,6 +220,38 @@ object Budget {
         }
         val days = ChronoUnit.DAYS.between(last, next).coerceAtLeast(1)
         return today.perDayRub - (freeThen - due) / days
+    }
+
+    /**
+     * What is still to pay of [obligation]'s next payment, given what was paid since it was last due:
+     * paid early, it is not set aside a second time. A debt's payment counts as paid by money moved
+     * into the debt account; any other obligation by an expense or transfer whose note names it
+     * ("Аренда" for the obligation "Аренда").
+     */
+    fun unpaid(obligation: Obligation, operations: List<OperationFull>, today: LocalDate, zone: ZoneId): Long {
+        val next = nextDue(obligation.dayOfMonth, today)
+        val month = YearMonth.from(next).minusMonths(1)
+        val previous = month.atDay(obligation.dayOfMonth.coerceIn(1, month.lengthOfMonth()))
+        val since = operations.filter {
+            val day = Ledger.localDate(it.op.timestamp, zone)
+            day.isAfter(previous) && !day.isAfter(today)
+        }
+        val paid = if (obligation.id < 0) {
+            val debt = -obligation.id
+            since.filter { it.op.type == OpType.TRANSFER || it.op.type == OpType.INCOME }
+                .flatMap { it.postings }
+                .filter { it.accountId == debt && it.amountMinor > 0 }
+                .sumOf { it.amountMinor }
+        } else {
+            val name = obligation.name.trim()
+            val named = since.any { full ->
+                val note = full.op.note.trim()
+                (full.op.type == OpType.EXPENSE || full.op.type == OpType.TRANSFER) && name.isNotEmpty() &&
+                    (note.equals(name, ignoreCase = true) || (name.length >= 4 && note.contains(name, ignoreCase = true)))
+            }
+            if (named) obligation.amountMinor else 0
+        }
+        return (obligation.amountMinor - paid).coerceAtLeast(0)
     }
 
     /** The next time a monthly payment on [day] comes, today included. */

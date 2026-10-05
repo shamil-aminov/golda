@@ -47,10 +47,21 @@ class DebtsTest {
     fun debtPaymentsBecomeObligations() {
         val loan = Account(1, "Кредит", "RUB", AccountType.LOAN, includeInFree = false, interestRate = 24.9, paymentDay = 10, paymentMinor = 750_000)
         val card = Account(2, "Карта", "RUB", AccountType.CARD, includeInFree = true, paymentDay = 5, paymentMinor = 1)
-        val obligations = Debts.obligations(listOf(loan, card))
+        val owed = Ledger.states(listOf(loan, card), listOf(Posting(accountId = 1, amountMinor = -balance, rubMinor = -balance)))
+        val obligations = Debts.obligations(owed.values)
         assertEquals(1, obligations.size)
         assertEquals(750_000L, obligations.single().amountMinor)
         assertEquals(10, obligations.single().dayOfMonth)
+    }
+
+    @Test
+    fun aPaidOffDebtReservesNothingAndNeverMoreThanIsOwed() {
+        val card = Account(1, "Кредитка", "RUB", AccountType.CREDIT, includeInFree = false, paymentDay = 20, paymentMinor = 300_000)
+        // Nothing owed: nothing set aside.
+        assertTrue(Debts.obligations(Ledger.states(listOf(card), emptyList()).values).isEmpty())
+        // Owing 1 000 ₽ of a 3 000 ₽ minimum: 1 000 ₽ set aside.
+        val little = Ledger.states(listOf(card), listOf(Posting(accountId = 1, amountMinor = -100_000, rubMinor = -100_000)))
+        assertEquals(100_000L, Debts.obligations(little.values).single().amountMinor)
     }
 
     @Test

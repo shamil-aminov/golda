@@ -32,6 +32,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -49,6 +51,9 @@ import sh.aminov.golda.data.Goal
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Repo
+import sh.aminov.golda.data.Undo
+import sh.aminov.golda.data.Wish
+import sh.aminov.golda.data.WishStatus
 import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
@@ -62,6 +67,12 @@ private sealed interface Page {
     data class AccountPage(val id: Long) : Page
 }
 
+/** A page survives the activity being recreated (a language switch): Settings as 0, an account by its id. */
+private val PageSaver = Saver<Page?, Long>(
+    save = { page -> when (page) { Page.Settings -> 0L; is Page.AccountPage -> page.id; null -> -1L } },
+    restore = { value -> when { value == 0L -> Page.Settings; value > 0 -> Page.AccountPage(value); else -> null } },
+)
+
 private sealed interface Sheet {
     data class Entry(val request: EntryRequest) : Sheet
     data class Acc(val editing: Account?) : Sheet
@@ -69,7 +80,7 @@ private sealed interface Sheet {
 }
 
 @Composable
-fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: ReceiveChannel<Int>) {
+fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: ReceiveChannel<Int>, wishRequests: ReceiveChannel<Long>) {
     val settings by repo.settings.flow.collectAsStateWithLifecycle(initialValue = null)
     val accounts by repo.accounts.collectAsStateWithLifecycle(initialValue = emptyList())
     val operations by repo.operations.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -78,9 +89,11 @@ fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: Rece
     val obligations by repo.obligations.collectAsStateWithLifecycle(initialValue = emptyList())
     val goals by repo.wishes.goals.collectAsStateWithLifecycle(initialValue = emptyList())
     val wishes by repo.wishes.wishes.collectAsStateWithLifecycle(initialValue = emptyList())
+    // Read before the early return, so the ticker keeps running from the first frame.
+    val today = rememberToday()
     val s = settings ?: return
-    val data = remember(s, accounts, operations, categories, rates, obligations, goals, wishes) {
-        AppData(s, accounts, operations, categories, rates, obligations, goals, wishes)
+    val data = remember(s, accounts, operations, categories, rates, obligations, goals, wishes, today) {
+        AppData(s, accounts, operations, categories, rates, obligations, goals, wishes, today)
     }
     val scope = rememberCoroutineScope()
     val change: ((Settings) -> Settings) -> Unit = { f -> scope.launch { repo.settings.update(f) } }
@@ -93,7 +106,7 @@ fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: Rece
             onDeleteAccount = { id -> scope.launch { repo.deleteAccount(id) } },
         )
     } else {
-        MainScreen(repo, data, change, voiceRequests, tabRequests)
+        MainScreen(repo, data, change, voiceRequests, tabRequests, wishRequests)
     }
 }
 
@@ -105,9 +118,10 @@ private fun MainScreen(
     change: ((Settings) -> Settings) -> Unit,
     voiceRequests: ReceiveChannel<Unit>,
     tabRequests: ReceiveChannel<Int>,
+    wishRequests: ReceiveChannel<Long>,
 ) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    var page by remember { mutableStateOf<Page?>(null) }
+    var page by rememberSaveable(stateSaver = PageSaver) { mutableStateOf<Page?>(null) }
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -115,8 +129,14 @@ private fun MainScreen(
     val haptics = LocalHapticFeedback.current
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     BackHandler(enabled = page != null) { page = null }
-    // "Хочу купить X" said aloud opens the expense sheet already in "Сомневаюсь".
-    val voice = rememberVoice(repo, data, snackbar, voiceRequests) { sheet = Sheet.Entry(EntryRequest(consider = it)) }
+    // "Хочу купить X" said aloud opens the expense sheet already in "Сомневаюсь"; several of them in
+    // one note open one after another, each when the one before is closed.
+    val considerQueue = remember { mutableStateListOf<VoiceAction.Consider>() }
+    LaunchedEffect(sheet, considerQueue.size) {
+        if (sheet == null && considerQueue.isNotEmpty()) sheet = Sheet.Entry(EntryRequest(consider = considerQueue.removeAt(0)))
+    }
+    val voice = rememberVoice(repo, data, snackbar, voiceRequests) { considerQueue.addAll(it) }
+    val voiceBacklog by repo.voiceBacklog.collectAsStateWithLifecycle()
     // Only the Sunday reminder opens Accounts from outside; then each row offers "Сходится" outright.
     var reconciling by remember { mutableStateOf(false) }
     val homeList = rememberLazyListState()
@@ -138,9 +158,24 @@ private fun MainScreen(
             pager.animateScrollToPage(request)
         }
     }
+    // A wish's reminder opens that wish in "Сомневаюсь", if it is still waiting.
+    LaunchedEffect(wishRequests) {
+        for (id in wishRequests) {
+            val wish = repo.wishes.wish(id)?.takeIf { it.status == WishStatus.WAITING } ?: continue
+            page = null
+            sheet = Sheet.Entry(EntryRequest(consider = VoiceAction.Consider(wish.title, wish.amountMinor, wish.currency), wishId = wish.id))
+        }
+    }
+    // Back on another tab goes Home first; only Home's back leaves the app.
+    BackHandler(enabled = page == null && sheet == null && pager.currentPage != 0) {
+        scope.launch { pager.animateScrollToPage(0) }
+    }
 
-    /** "Шаурма · 15 ₾" plus what it cost in work and what is left today, with undo. */
-    suspend fun announce(id: Long, draft: Draft, comment: String?) {
+    /**
+     * "Шаурма · 15 ₾" plus what it cost in work and what is left today, with undo. The undo puts back
+     * all a save did: the markup it learned, the usual account, and a wish it marked bought.
+     */
+    suspend fun announce(id: Long, draft: Draft, comment: String?, undo: Undo, wish: Wish?) {
         val account = data.accountById[draft.accountId]
         val code = draft.purchaseCurrency ?: account?.currency ?: "RUB"
         val shown = draft.purchaseAmountMinor ?: draft.amountMinor
@@ -150,17 +185,26 @@ private fun MainScreen(
             actionLabel = tr("Отменить", "Undo"),
             duration = if (comment != null) SnackbarDuration.Long else SnackbarDuration.Short,
         )
-        if (result == SnackbarResult.ActionPerformed) repo.deleteOperation(id)
+        if (result == SnackbarResult.ActionPerformed) {
+            repo.undo(undo)
+            wish?.let { repo.wishes.restoreWish(it) }
+        }
     }
 
     fun save(draft: Draft, wishId: Long?) {
         sheet = null
         scope.launch {
+            val undo = repo.undoPoint(emptyList())
+            val wish = wishId?.let { repo.wishes.wish(it) }
             val id = repo.save(draft)
+            if (id == null) {
+                snackbar.showSnackbar(tr("Счёт удалён — записать некуда", "The account is gone; nothing was saved"))
+                return@launch
+            }
             wishId?.let { repo.wishes.bought(it) }
             if (draft.id == 0L) {
                 if (draft.type == OpType.EXPENSE) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                announce(id, draft, repo.wishes.impact(id))
+                announce(id, draft, repo.wishes.impact(id), undo.copy(ids = listOf(id)), wish)
             }
         }
     }
@@ -172,7 +216,9 @@ private fun MainScreen(
             repo.deleteOperation(full.op.id)
             val title = full.op.note.ifBlank { full.op.categoryId?.let { data.categoryById[it]?.label() } ?: tr("Запись", "Entry") }
             val result = snackbar.showSnackbar(tr("«$title» удалено", "“$title” deleted"), actionLabel = tr("Вернуть", "Undo"), duration = SnackbarDuration.Long)
-            if (result == SnackbarResult.ActionPerformed) repo.restoreOperation(full)
+            if (result == SnackbarResult.ActionPerformed && !repo.restoreOperation(full)) {
+                snackbar.showSnackbar(tr("Не вернуть: счёта больше нет", "Can't bring it back: the account is gone"))
+            }
         }
     }
 
@@ -215,7 +261,7 @@ private fun MainScreen(
                     scope.launch {
                         val result = runCatching {
                             val text = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } }
-                            repo.backups.import(requireNotNull(text)).also { repo.wishes.rescheduleReminders() }
+                            repo.importBackup(requireNotNull(text))
                         }
                         snackbar.showSnackbar(
                             result.fold(
@@ -234,7 +280,16 @@ private fun MainScreen(
                     scope.launch {
                         repo.settings.setGeminiKey(key)
                         snackbar.showSnackbar(if (key.isBlank()) tr("Ключ удалён", "Key removed") else tr("Ключ сохранён", "Key saved"))
-                        if (key.isNotBlank()) repo.processVoiceQueue()
+                        // A new key is worth another try for the notes set aside, too.
+                        if (key.isNotBlank()) repo.retryVoiceNotes()
+                    }
+                },
+                voiceBacklog = voiceBacklog,
+                onRetryVoice = { scope.launch { repo.retryVoiceNotes() } },
+                onDiscardVoice = {
+                    scope.launch {
+                        repo.discardVoiceNotes()
+                        snackbar.showSnackbar(tr("Записи удалены", "Notes deleted"))
                     }
                 },
             )
@@ -309,7 +364,7 @@ private fun MainScreen(
                             onCelebrated = { id -> change { it.copy(celebratedGoalId = id) } },
                             onBuyGoal = { goal ->
                                 scope.launch {
-                                    val (id, line) = repo.wishes.buy(VoiceAction.Consider(goal.name, goal.targetMinor, goal.currency))
+                                    val (id, line) = repo.wishes.buyGoal(goal)
                                     if (id == null) {
                                         snackbar.showSnackbar(tr("Нет подходящего счёта", "No suitable account"))
                                     } else {

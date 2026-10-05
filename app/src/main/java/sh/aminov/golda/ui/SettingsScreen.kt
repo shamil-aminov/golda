@@ -61,12 +61,13 @@ import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.Settings
+import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Which small sheet is open over the settings. */
-private enum class Edit { Local, Base, Shown, Markup, Rate, TaxHours, Payday, Key, Model, Language }
+private enum class Edit { Local, Base, Shown, Markup, Rate, TaxHours, Payday, Key, Model, Language, Notes }
 
 /**
  * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
@@ -86,6 +87,10 @@ fun SettingsScreen(
     onExport: (Uri) -> Unit,
     onImport: (Uri) -> Unit,
     onWipe: () -> Unit,
+    /** Voice notes not booked yet, with what can be done about them. */
+    voiceBacklog: Int = 0,
+    onRetryVoice: () -> Unit = {},
+    onDiscardVoice: () -> Unit = {},
 ) {
     var edit by remember { mutableStateOf<Edit?>(null) }
     var editingObligation by remember { mutableStateOf<Obligation?>(null) }
@@ -178,8 +183,18 @@ fun SettingsScreen(
             VSpace(Gap.l)
             GroupLabel(tr("Голос", "Voice"))
             val defaultModel = Settings().geminiModel
-            SettingRow(0, 2, tr("Ключ Gemini", "Gemini key"), painter = painterResource(R.drawable.ic_key), value = if (s.hasGeminiKey) tr("сохранён", "saved") else tr("нет", "none")) { edit = Edit.Key }
-            SettingRow(1, 2, tr("Модель", "Model"), painter = painterResource(R.drawable.ic_chip), supporting = s.geminiModel + if (s.geminiModel == defaultModel) tr(" · по умолчанию", " · default") else "") { edit = Edit.Model }
+            val voiceRows = if (voiceBacklog > 0) 3 else 2
+            SettingRow(0, voiceRows, tr("Ключ Gemini", "Gemini key"), painter = painterResource(R.drawable.ic_key), value = if (s.hasGeminiKey) tr("сохранён", "saved") else tr("нет", "none")) { edit = Edit.Key }
+            SettingRow(1, voiceRows, tr("Модель", "Model"), painter = painterResource(R.drawable.ic_chip), supporting = s.geminiModel + if (s.geminiModel == defaultModel) tr(" · по умолчанию", " · default") else "") { edit = Edit.Model }
+            // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
+            if (voiceBacklog > 0) {
+                SettingRow(
+                    2, 3, tr("Не разобрано", "Not worked out"),
+                    painter = painterResource(R.drawable.ic_mic),
+                    value = voiceBacklog.toString(),
+                    supporting = tr("Записи ещё не превратились в операции", "Notes not booked yet"),
+                ) { edit = Edit.Notes }
+            }
 
             VSpace(Gap.l)
             GroupLabel(tr("Данные", "Data"))
@@ -241,6 +256,21 @@ fun SettingsScreen(
         Edit.Key -> KeySheet(s.hasGeminiKey, onDismiss = { edit = null }) { key -> onSaveKey(key); edit = null }
         Edit.Model -> ModelSheet(s.geminiModel, Settings().geminiModel, onDismiss = { edit = null }) { model -> onChange { it.copy(geminiModel = model) }; edit = null }
         Edit.Language -> LanguageSheet(onDismiss = { edit = null })
+        Edit.Notes -> FormSheet(
+            onDismiss = { edit = null },
+            actions = {
+                TonalAction(tr("Удалить", "Delete"), { onDiscardVoice(); edit = null })
+                PrimaryAction(tr("Повторить", "Try again"), { onRetryVoice(); edit = null })
+            },
+        ) {
+            val n = voiceBacklog.toLong()
+            Caption(
+                tr(
+                    "$n ${plural(n, "запись", "записи", "записей", "note", "notes")} не ${plural(n, "разобрана", "разобраны", "разобрано", "", "")}: не было сети или Gemini не справился. Повторить сейчас или удалить, если уже записал вручную?",
+                    "$n ${plural(n, "запись", "записи", "записей", "note", "notes")} not worked out yet: there was no network, or Gemini failed. Try again now, or delete if you already added them by hand?",
+                ),
+            )
+        }
         null -> Unit
     }
     FormPageHost(editingObligation) { obligation ->

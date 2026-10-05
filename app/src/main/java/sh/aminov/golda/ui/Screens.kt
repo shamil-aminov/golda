@@ -64,7 +64,7 @@ fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + G
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun HomeScreen(data: AppData, padding: PaddingValues, listState: LazyListState, onSettings: () -> Unit, onEdit: (OperationFull) -> Unit) {
-    val today = LocalDate.now(data.zone)
+    val today = data.today
     val budget = Budget.today(data.states, data.operations, data.settings, today, data.zone, data.allObligations, data.rates)
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = padding.aboveActions()) {
         item(key = "hero") {
@@ -272,7 +272,7 @@ private fun accountBlocks(accounts: List<Account>): List<Pair<String?, List<Acco
  */
 private fun accountSubline(data: AppData, state: AccountState): String {
     val account = state.account
-    val today = LocalDate.now(data.zone)
+    val today = data.today
     val forecast = if (account.type == AccountType.SAVINGS && account.interestRate != null) {
         Budget.interestForecast(account, data.operations, today, data.zone)?.let {
             interestLine(it, account.currency, today)
@@ -394,7 +394,7 @@ fun AccountScreen(
                         }
                     }
                     if (account.type == AccountType.SAVINGS && account.interestRate != null) {
-                        val today = LocalDate.now(data.zone)
+                        val today = data.today
                         Budget.interestForecast(account, data.operations, today, data.zone)?.let {
                             Text(
                                 interestLine(it, account.currency, today),
@@ -432,9 +432,14 @@ fun AccountScreen(
 @Composable
 fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Long) -> Unit) {
     var text by remember { mutableStateOf("") }
+    // A debt is checked the way the bank shows it: what is owed. "15 000" on a credit card is a balance
+    // of −15 000; only "+…" means money on it. Any other account takes the number as it is, "−" included.
+    val debt = state.account.type == AccountType.CREDIT || state.account.type == AccountType.LOAN
     val negative = text.startsWith("-") || text.startsWith("−")
+    val plus = text.startsWith("+")
+    val typed = Fmt.parseMinor(text.removePrefix("-").removePrefix("−").removePrefix("+"), state.currency)
     val value = if (text.isBlank()) state.balanceMinor
-    else Fmt.parseMinor(text.removePrefix("-").removePrefix("−"), state.currency)?.let { if (negative) -it else it }
+    else typed?.let { if (debt) (if (plus) it else -it) else (if (negative) -it else it) }
     val diff = value?.minus(state.balanceMinor)
     FormSheet(
         onDismiss = onDismiss,
@@ -446,10 +451,14 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
             }
         },
     ) {
-        Caption(tr("${state.account.name} · сколько на самом деле?", "${state.account.name} · how much is really there?"), Modifier.fillMaxWidth())
+        Caption(
+            if (debt) tr("${state.account.name} · сколько должен на самом деле?", "${state.account.name} · how much is really owed?")
+            else tr("${state.account.name} · сколько на самом деле?", "${state.account.name} · how much is really there?"),
+            Modifier.fillMaxWidth(),
+        )
         VSpace(Gap.l)
         // Not focused: a glance and "Сходится" is the common case. Typing replaces the balance shown.
-        val (whole, fraction) = Fmt.split(state.balanceMinor, state.currency)
+        val (whole, fraction) = Fmt.split(if (debt) -state.balanceMinor else state.balanceMinor, state.currency)
         HeroAmountField(
             text = text,
             onText = { text = it },

@@ -74,18 +74,28 @@ object Fmt {
     fun number(value: Double, decimals: Int = 2): String =
         DecimalFormat("0." + "#".repeat(decimals), symbols).format(value)
 
-    /** Accepts "15", "15,5", "1 500.25". Null for anything that is not a positive amount. */
+    /**
+     * The most an amount can be: a trillion in major units. Anything bigger is a stuck key, a paste or
+     * a misheard number, and would overflow the sums.
+     */
+    const val MAX_MAJOR = 1_000_000_000_000L
+
+    /**
+     * Accepts "15", "15,5", "1 500.25". Null for anything that is not a positive amount, and for an
+     * absurd one (over [MAX_MAJOR], or too long to be typed on purpose). Never throws.
+     */
     fun parseMinor(text: String, code: String): Long? {
         val clean = text.replace(" ", "").replace(NBSP.toString(), "").replace(' '.toString(), "")
             .replace(',', '.')
-        if (clean.isEmpty()) return null
+        if (clean.isEmpty() || clean.length > 32) return null
         val value = clean.toBigDecimalOrNull() ?: return null
-        if (value.signum() < 0) return null
-        return value.movePointRight(Currencies.digits(code)).setScale(0, RoundingMode.HALF_UP).longValueExact()
+        if (value.signum() < 0 || value > BigDecimal.valueOf(MAX_MAJOR)) return null
+        return runCatching { value.movePointRight(Currencies.digits(code)).setScale(0, RoundingMode.HALF_UP).longValueExact() }.getOrNull()
     }
 
+    /** A plain finite number ("10,5"), or null. */
     fun parseDouble(text: String): Double? =
-        text.replace(" ", "").replace(',', '.').toDoubleOrNull()
+        text.replace(" ", "").replace(NBSP.toString(), "").replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 
     /** The text a field starts with for an existing amount. */
     fun editable(minor: Long, code: String): String =

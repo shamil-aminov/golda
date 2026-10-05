@@ -252,9 +252,9 @@ private fun MainGoalTile(data: AppData, main: Goal, skippedRub: Long, onEdit: ()
         }
     }
     if (buying) {
-        // The same account the purchase will come from, named up front.
-        val consider = VoiceAction.Consider(main.name, main.targetMinor, main.currency)
-        val from = VoiceMapper.buy(consider, data.accounts.sortedBy { it.sort }, data.settings, data.rates, System.currentTimeMillis())?.let { data.accountById[it.accountId] }
+        // The same account the purchase will come from, named up front: the one the goal is saved on
+        // when it holds enough, else the usual one.
+        val from = VoiceMapper.buyGoal(main, data.states, data.accounts.sortedBy { it.sort }, data.settings, data.rates, System.currentTimeMillis())?.let { data.accountById[it.accountId] }
         val amount = Fmt.amount(main.targetMinor, main.currency)
         AlertDialog(
             onDismissRequest = { buying = false },

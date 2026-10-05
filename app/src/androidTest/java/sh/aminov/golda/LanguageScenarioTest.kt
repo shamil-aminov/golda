@@ -1,6 +1,7 @@
 package sh.aminov.golda
 
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
@@ -25,11 +26,16 @@ class LanguageScenarioTest : GoldaUiTest() {
         openRow(from.languageRow)
         tap(to.optionName)
 
-        // The activity is recreated in the new language: Home's controls speak it.
+        // The activity is recreated in the new language, still on Settings, which speaks it now.
         compose.waitUntil(10_000) {
-            runCatching { compose.onNodeWithContentDescription(to.home).assertExists(); true }.getOrDefault(false)
+            runCatching { compose.onNodeWithText(to.languageRow).assertExists(); true }.getOrDefault(false)
         }
         assertEquals(to.tag, AppLanguage.tag(app))
+        // Back to Home by the page's own arrow (a key event could reach Android 8 before the recreated
+        // window has focus): Home's controls speak the new language too.
+        compose.onNodeWithContentDescription(to.back).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(to.home).assertExists()
 
         scenario.recreate()
         compose.waitForIdle()
@@ -44,10 +50,10 @@ class LanguageScenarioTest : GoldaUiTest() {
         if (AppLanguage.tag(app) != tag) scenario.onActivity { AppLanguage.set(it, tag) }
     }
 
-    private class Ui(val tag: String, val home: String, val settings: String, val languageRow: String, val optionName: String) {
+    private class Ui(val tag: String, val home: String, val settings: String, val languageRow: String, val optionName: String, val back: String) {
         companion object {
-            val RU = Ui("ru", "Главная", "Настройки", "Язык приложения", "Русский")
-            val EN = Ui("en", "Home", "Settings", "App language", "English")
+            val RU = Ui("ru", "Главная", "Настройки", "Язык приложения", "Русский", "Назад")
+            val EN = Ui("en", "Home", "Settings", "App language", "English", "Back")
         }
     }
 }

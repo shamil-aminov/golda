@@ -61,4 +61,10 @@ data class Settings(
         val thisMonth = inMonth(YearMonth.from(today))
         return if (thisMonth.isAfter(today)) thisMonth else inMonth(YearMonth.from(today).plusMonths(1))
     }
+
+    /**
+     * The payday the current pay period started on, today included. Not simply a month before the
+     * next one: with payday on the 31st, the one before 28 February is 31 January, not the 28th.
+     */
+    fun lastPayday(today: LocalDate): LocalDate = nextPayday(nextPayday(today).minusMonths(1).minusDays(1))
 }
