@@ -54,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -141,6 +142,9 @@ fun rememberVoice(
         for (request in requests) if (state == VoiceState.Idle) toggle()
     }
 
+    // The collector below lives as long as the screen; it must read today's accounts, not the ones it
+    // started with, or a lari purchase is announced in rubles because its account wasn't loaded yet.
+    val latest by rememberUpdatedState(data)
     LaunchedEffect(repo) {
         repo.voice.collect { outcome ->
             when (outcome) {
@@ -148,7 +152,7 @@ fun rememberVoice(
                     outcome.considering.firstOrNull()?.let(onConsider)
                     if (outcome.recorded.isNotEmpty()) {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                        val text = outcome.recorded.joinToString(" · ") { (_, draft) -> describe(draft, data) } +
+                        val text = outcome.recorded.joinToString(" · ") { (_, draft) -> describe(draft, latest) } +
                             (outcome.comment?.let { "\n$it" } ?: "")
                         val prefix = if (outcome.late) tr("Из отложенного: ", "From a saved note: ") else ""
                         val result = snackbar.showSnackbar(prefix + text, actionLabel = tr("Отменить", "Undo"), duration = SnackbarDuration.Long)

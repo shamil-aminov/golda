@@ -5,6 +5,14 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- After a voice note, the message at the bottom named the amount in rubles
+  when the purchase was in the account's own currency, e.g. lari. It read the
+  accounts as they were when the screen opened instead of the current ones.
+
 ## [0.15.0] — 2026-10-02
 
 ### Added
