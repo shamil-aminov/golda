@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -65,7 +67,7 @@ fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + G
 @Composable
 fun HomeScreen(data: AppData, padding: PaddingValues, listState: LazyListState, onSettings: () -> Unit, onEdit: (OperationFull) -> Unit) {
     val today = data.today
-    val budget = Budget.today(data.states, data.operations, data.settings, today, data.zone, data.allObligations, data.rates)
+    val budget = data.budget
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = padding.aboveActions()) {
         item(key = "hero") {
             // One vivid tile holds the day: the number, how much of it is left, and how long it has to last.
@@ -95,43 +97,41 @@ fun HomeScreen(data: AppData, padding: PaddingValues, listState: LazyListState, 
                 // What is still left of today's budget, like the number above; flat and full once it is spent.
                 val left = when {
                     over -> 1f
-                    budget.perDayRub > 0 -> (budget.leftTodayRub.toFloat() / budget.perDayRub).coerceIn(0f, 1f)
+                    budget.limitRub > 0 -> (budget.leftTodayRub.toFloat() / budget.limitRub).coerceIn(0f, 1f)
                     else -> 0f
                 }
                 // The tile's quiet ink, not black: a black line with no visible track reads as a divider.
                 WavyBar(left, ink = quiet, hero = true, flat = over || left >= 1f)
                 VSpace(Gap.s)
-                val perDay = base.approx(budget.perDayRub)
-                val days = budget.daysLeft.toLong()
-                val dayWord = plural(days, "день", "дня", "дней", "day", "days")
-                // What the bar is measured against, how it compares with the start of the pay period
-                // (▲ ahead, ▼ behind), and how long it has to last.
-                val pace = Budget.pace(budget, data.accounts, data.operations, data.settings, today, data.zone, data.allObligations, data.rates)
                 val body = MaterialTheme.typography.bodyMedium.merge(Tnum)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("$perDay в день", "$perDay a day"), style = body, color = quiet, maxLines = 1)
-                    if (pace != null) {
-                        val arrow = if (pace >= 0) "▲" else "▼"
-                        RollingNumber(" $arrow" + base.approx(kotlin.math.abs(pace)).removeSuffix(" " + base.symbol), pace, body, color = if (pace >= 0) ink else quiet)
-                    }
+                // What the bar is measured against: the limit set, or the usual pace while none is.
+                Text(
+                    when {
+                        budget.limitRub <= 0 -> tr("Лимит появится после первого дня трат", "The limit appears after the first day of spending")
+                        budget.autoLimit -> tr("${base.approx(budget.limitRub)} в день · как обычно", "${base.approx(budget.limitRub)} a day · as usual")
+                        else -> tr("${base.approx(budget.limitRub)} в день", "${base.approx(budget.limitRub)} a day")
+                    },
+                    style = body,
+                    color = quiet,
+                    maxLines = 1,
+                )
+                // How long the money lasts at this burn: the reserve over the pace plus the regular payments.
+                val runway = budget.runwayDays
+                if (runway != null && budget.reserveRub > 0) {
+                    val days = plural(runway, "день", "дня", "дней", "day", "days")
+                    val until = dayLabel(budget.runwayUntil(today)!!, today)
                     Text(
-                        tr(" · $days $dayWord до зарплаты", " · $days $dayWord to payday"),
-                        modifier = Modifier.weight(1f, fill = false).testTag(Tags.HOME_PAYDAY),
+                        tr("Запас ${base.approx(budget.reserveRub)} · хватит на $runway $days, до $until",
+                            "Reserve ${base.approx(budget.reserveRub)} · lasts $runway $days, until $until"),
+                        modifier = Modifier.testTag(Tags.HOME_RUNWAY),
                         style = body,
                         color = quiet,
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
-                }
-                if (budget.obligationsRub > 0) {
-                    Text(
-                        tr("Отложено на платежи: ", "Set aside for payments: ") + base.approx(budget.obligationsRub),
-                        style = body,
-                        color = quiet,
-                    )
                 }
             }
         }
@@ -156,7 +156,8 @@ fun AccountsScreen(
     padding: PaddingValues,
     onOpen: (Long) -> Unit,
     onAdd: () -> Unit,
-    onReconcile: (Long, Long) -> Unit,
+    /** The account, the balance the bank shows, and whether a shortfall is unrecorded everyday spending. */
+    onReconcile: (Long, Long, Boolean) -> Unit,
     reconcileMode: Boolean = false,
     onAllReconciled: () -> Unit = {},
 ) {
@@ -164,8 +165,8 @@ fun AccountsScreen(
     var reconciling by remember { mutableStateOf<AccountState?>(null) }
     // In reconcile mode, the accounts already checked this round: true when the balance matched.
     var checked by remember(reconcileMode) { mutableStateOf(mapOf<Long, Boolean>()) }
-    fun done(state: AccountState, actual: Long) {
-        onReconcile(state.account.id, actual)
+    fun done(state: AccountState, actual: Long, asSpending: Boolean = false) {
+        onReconcile(state.account.id, actual, asSpending)
         if (reconcileMode) {
             checked = checked + (state.account.id to (actual == state.balanceMinor))
             if (checked.keys.containsAll(data.accounts.map { it.id })) onAllReconciled()
@@ -230,9 +231,9 @@ fun AccountsScreen(
         }
     }
     reconciling?.let { state ->
-        ReconcileSheet(state, onDismiss = { reconciling = null }) { actual ->
+        ReconcileSheet(state, onDismiss = { reconciling = null }) { actual, asSpending ->
             reconciling = null
-            done(state, actual)
+            done(state, actual, asSpending)
         }
     }
 }
@@ -348,7 +349,7 @@ fun AccountScreen(
     onBack: () -> Unit,
     onEditAccount: () -> Unit,
     onEditOperation: (OperationFull) -> Unit,
-    onReconcile: (Long) -> Unit,
+    onReconcile: (Long, Boolean) -> Unit,
 ) {
     val state = data.states[accountId] ?: return
     val account = state.account
@@ -422,7 +423,7 @@ fun AccountScreen(
             operationItems(data, operations, accountId, onEditOperation)
         }
     }
-    if (reconciling) ReconcileSheet(state, onDismiss = { reconciling = false }) { reconciling = false; onReconcile(it) }
+    if (reconciling) ReconcileSheet(state, onDismiss = { reconciling = false }) { actual, asSpending -> reconciling = false; onReconcile(actual, asSpending) }
 }
 
 /**
@@ -430,8 +431,11 @@ fun AccountScreen(
  * one pill says "Сходится" — until a different number is typed, then it says what will be recorded.
  */
 @Composable
-fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Long) -> Unit) {
+fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Long, Boolean) -> Unit) {
     var text by remember { mutableStateOf("") }
+    // Less money than recorded is usually spending nobody wrote down: by default it is booked as
+    // everyday spending, so the pace stays honest (SPEC §5). A debt's difference is never spending.
+    var asSpending by remember { mutableStateOf(true) }
     // A debt is checked the way the bank shows it: what is owed. "15 000" on a credit card is a balance
     // of −15 000; only "+…" means money on it. Any other account takes the number as it is, "−" included.
     val debt = state.account.type == AccountType.CREDIT || state.account.type == AccountType.LOAN
@@ -441,13 +445,14 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
     val value = if (text.isBlank()) state.balanceMinor
     else typed?.let { if (debt) (if (plus) it else -it) else (if (negative) -it else it) }
     val diff = value?.minus(state.balanceMinor)
+    val shortfall = !debt && diff != null && diff < 0
     FormSheet(
         onDismiss = onDismiss,
         actions = {
             val label = if (diff == null || diff == 0L) tr("Сходится", "It matches")
             else tr("Записать ", "Record ") + Fmt.amount(diff, state.currency, signed = true)
             AnimatedContent(label, Modifier.weight(1f), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "reconcile") { text ->
-                Row(Modifier.fillMaxWidth()) { PrimaryAction(text, { value?.let(onReconcile) }, enabled = value != null) }
+                Row(Modifier.fillMaxWidth()) { PrimaryAction(text, { value?.let { onReconcile(it, shortfall && asSpending) } }, enabled = value != null) }
             }
         },
     ) {
@@ -468,12 +473,27 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
         )
         VSpace(Gap.s)
         Text(
-            if (diff == null || diff == 0L) " " else tr("Разница ", "Difference ") + Fmt.amount(diff, state.currency, signed = true) + tr(" запишется корректировкой", " goes in as an adjustment"),
+            when {
+                diff == null || diff == 0L -> " "
+                shortfall && asSpending -> tr("Разница ", "Difference ") + Fmt.amount(diff, state.currency, signed = true) + tr(" запишется тратой «Не записано»", " goes in as spending “Not recorded”")
+                else -> tr("Разница ", "Difference ") + Fmt.amount(diff, state.currency, signed = true) + tr(" запишется корректировкой", " goes in as an adjustment")
+            },
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.titleMedium.merge(Tnum),
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         )
+        if (shortfall) {
+            VSpace(Gap.s)
+            // The whole line flips the switch.
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(asSpending, role = Role.Switch) { asSpending = it },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(tr("Это ежедневные траты", "This was everyday spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                CheckSwitch(asSpending) { asSpending = it }
+            }
+        }
     }
 }
 

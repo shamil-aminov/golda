@@ -4,18 +4,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
-import sh.aminov.golda.data.Obligation
+import sh.aminov.golda.data.Bucket
+import sh.aminov.golda.data.Category
+import sh.aminov.golda.data.CategoryKind
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.Operation
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Posting
 import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.Budget
-import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.PeriodKind
 import sh.aminov.golda.domain.Rates
-import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
 import java.time.ZoneOffset
 
@@ -53,9 +53,9 @@ class AnalyticsTest {
 
     @Test
     fun weekReport() {
-        val period = Analytics.period(PeriodKind.WEEK, today, Settings())
+        val period = Analytics.period(PeriodKind.WEEK, today)
         assertEquals(Period(LocalDate.of(2026, 9, 26), today), period)
-        val r = Analytics.report(ops, accounts, period, today, zone, rates)
+        val r = Analytics.report(ops, accounts, emptyMap(), period, today, zone, rates)
         assertEquals(7, r.days.size)
         assertEquals(142_000L, r.days.last().second) // 500 ₽ + 10 $ that cost 920 ₽
         assertEquals(30_000L, r.days[r.days.size - 2].second)
@@ -70,28 +70,31 @@ class AnalyticsTest {
     @Test
     fun averageCountsOnlyDaysThatHappened() {
         val period = Period(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31))
-        val r = Analytics.report(ops, accounts, period, today, zone, rates)
+        val r = Analytics.report(ops, accounts, emptyMap(), period, today, zone, rates)
         assertEquals(31, r.days.size)
         assertEquals(172_000L / 2, r.averagePerDayRub)
     }
 
     @Test
-    fun sinceLastPayday() {
-        assertEquals(LocalDate.of(2026, 9, 15), Analytics.period(PeriodKind.SINCE_PAYDAY, today, Settings(payday = 15)).from)
-    }
-
-    @Test
-    fun obligationsBeforePaydayAreSetAside() {
-        val states = Ledger.states(listOf(rubCard), listOf(Posting(accountId = 1, amountMinor = 13_000_000, rubMinor = 13_000_000)))
-        val obligations = listOf(
-            Obligation(1, "Кредит", 2_600_000, "RUB", 10), // Oct 10: before payday
-            Obligation(2, "Подписка", 1_000, "USD", 20), // Oct 20: after payday, not yet
-            Obligation(3, "Аренда", 50_000, "GEL", 2), // today: still due
-        )
-        val t = Budget.today(states, emptyList(), Settings(payday = 15), today, zone, obligations, rates)
-        // 26 000 ₽ + 500 ₾ × 35.156 = 17 577.84 ₽
-        assertEquals(2_600_000L + 1_757_784L, t.obligationsRub)
-        assertEquals((13_000_000L - t.obligationsRub) / 13, t.perDayRub)
+    fun rentAndBigPurchasesAreApartFromEverydaySpending() {
+        val categories = listOf(
+            Category(1, "groceries", "Продукты", "", CategoryKind.EXPENSE),
+            Category(2, "housing", "Жильё", "", CategoryKind.EXPENSE),
+        ).associateBy { it.id }
+        val period = Analytics.period(PeriodKind.WEEK, today)
+        val withBig = ops + op(OpType.EXPENSE, at(1), 1, Posting(accountId = 1, amountMinor = -500_000, rubMinor = -500_000)).let {
+            it.copy(op = it.op.copy(bucket = Bucket.BIG))
+        }
+        val r = Analytics.report(withBig, accounts, categories, period, today, zone, rates)
+        // Groceries: 500 + 300 ₽; the 10 $ lunch is in "housing" here, so regular; the 5 000 ₽ is big.
+        assertEquals(80_000L, r.dailyRub)
+        assertEquals(92_000L, r.regularRub)
+        assertEquals(500_000L, r.bigRub)
+        assertEquals(r.spentRub, r.dailyRub + r.regularRub + r.bigRub)
+        // The average and the bars are everyday spending only.
+        assertEquals(80_000L / 7, r.averagePerDayRub)
+        assertEquals(50_000L, r.days.last().second)
+        assertEquals(30_000L, r.days[r.days.size - 2].second)
     }
 
     @Test

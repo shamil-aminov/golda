@@ -247,7 +247,8 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
             supporting = outAccount?.takeIf { it.id != data.usualAccountId }?.name
         }
         else -> {
-            main = Fmt.amount(out.amountMinor, code, signed = true)
+            // A voice amount the words did not back up is "≈" until it is checked.
+            main = estimated(Fmt.amount(out.amountMinor, code, signed = true))
             supporting = outAccount?.takeIf { it.id != data.usualAccountId }?.name
         }
     }
@@ -302,46 +303,6 @@ fun NumberField(
         suffix = suffix,
         keyboardType = if (decimals) KeyboardType.Decimal else KeyboardType.Number,
     )
-}
-
-/** Hourly or monthly pay, tax, hours and payday: onboarding's first step. */
-@Composable
-fun IncomeFields(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(Gap.s)) {
-        ChoiceGroup(
-            options = listOf(true, false),
-            selected = settings.incomeHourly,
-            onSelect = { hourly -> onChange { it.copy(incomeHourly = hourly) } },
-            modifier = Modifier.fillMaxWidth(),
-        ) { ChoiceText(if (it) tr("В час", "Hourly") else tr("В месяц", "Monthly")) }
-        if (settings.incomeHourly) {
-            NumberField(settings.hourlyRate, { v -> onChange { it.copy(hourlyRate = v) } }, Modifier.fillMaxWidth(), tr("Ставка в час", "Rate per hour"), "₽")
-        } else {
-            NumberField(settings.monthlySalary, { v -> onChange { it.copy(monthlySalary = v) } }, Modifier.fillMaxWidth(), tr("Зарплата в месяц", "Salary per month"), "₽")
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-            NumberField(settings.taxPercent, { v -> onChange { it.copy(taxPercent = v) } }, Modifier.weight(1f), tr("Налог", "Tax"), "%")
-            NumberField(settings.hoursPerWeek, { v -> onChange { it.copy(hoursPerWeek = v) } }, Modifier.weight(1f), tr("Часов в неделю", "Hours a week"))
-        }
-        NumberField(
-            settings.payday.toDouble(),
-            { v -> onChange { it.copy(payday = v.toInt().coerceIn(1, 31)) } },
-            Modifier.fillMaxWidth(),
-            tr("День зарплаты", "Payday"),
-            decimals = false,
-        )
-        Text(
-            tr("Час на руки ", "An hour after tax ") + Fmt.approx(settings.hourNet, "RUB"),
-            modifier = Modifier.padding(top = Gap.s),
-            style = MaterialTheme.typography.titleMedium.merge(Tnum),
-        )
-    }
-}
-
-/** What last month's pay came to, for the income group in settings. */
-fun lastMonthPay(settings: Settings): String {
-    val lastMonth = YearMonth.now().minusMonths(1)
-    return tr("за ${monthName(lastMonth.atDay(1))} ≈ ", "${monthName(lastMonth.atDay(1))} ≈ ") + Fmt.approx(settings.salaryFor(lastMonth), "RUB")
 }
 
 /** Toggling a currency in the shown ones; the ruble always stays, and the local one follows. */

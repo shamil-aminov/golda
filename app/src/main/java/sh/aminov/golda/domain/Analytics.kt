@@ -1,6 +1,8 @@
 package sh.aminov.golda.domain
 
 import sh.aminov.golda.data.Account
+import sh.aminov.golda.data.Bucket
+import sh.aminov.golda.data.Category
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import java.time.LocalDate
@@ -13,16 +15,21 @@ data class Period(val from: LocalDate, val to: LocalDate) {
     val days: List<LocalDate> get() = generateSequence(from) { it.plusDays(1) }.takeWhile { !it.isAfter(to) }.toList()
 }
 
-enum class PeriodKind { WEEK, MONTH, SINCE_PAYDAY, CUSTOM }
+enum class PeriodKind { WEEK, MONTH, CUSTOM }
 
 data class CategorySpend(val categoryId: Long?, val rubMinor: Long)
 
 data class Report(
     val period: Period,
-    /** Spending per day of the period, in rubles (kopecks), oldest first. */
+    /** Everyday spending per day of the period, in rubles (kopecks), oldest first. */
     val days: List<Pair<LocalDate, Long>>,
     val spentRub: Long,
+    /** Everyday spending a day: regular payments and big one-offs would only make it jump. */
     val averagePerDayRub: Long,
+    /** The period's spending by bucket; the three add up to [spentRub]. */
+    val dailyRub: Long,
+    val regularRub: Long,
+    val bigRub: Long,
     /** Biggest first. */
     val categories: List<CategorySpend>,
     val incomeRub: Long,
@@ -33,16 +40,16 @@ data class Report(
 )
 
 object Analytics {
-    fun period(kind: PeriodKind, today: LocalDate, settings: Settings, custom: Period? = null): Period = when (kind) {
+    fun period(kind: PeriodKind, today: LocalDate, custom: Period? = null): Period = when (kind) {
         PeriodKind.WEEK -> Period(today.minusDays(6), today)
         PeriodKind.MONTH -> Period(today.minusDays(29), today)
-        PeriodKind.SINCE_PAYDAY -> Period(settings.lastPayday(today), today)
         PeriodKind.CUSTOM -> custom ?: Period(today.minusDays(6), today)
     }
 
     fun report(
         operations: List<OperationFull>,
         accounts: Map<Long, Account>,
+        categories: Map<Long, Category>,
         period: Period,
         today: LocalDate,
         zone: ZoneId,
@@ -55,8 +62,12 @@ object Analytics {
         val expenses = inPeriod.filter { it.op.type == OpType.EXPENSE }
         fun cost(full: OperationFull) = -full.postings.sumOf { it.rubMinor }
 
-        val byDay = expenses.groupBy { Ledger.localDate(it.op.timestamp, zone) }.mapValues { (_, list) -> list.sumOf(::cost) }
         val spent = expenses.sumOf(::cost)
+        val byBucket = expenses.groupBy { Buckets.of(it.op, categories) }.mapValues { (_, list) -> list.sumOf(::cost) }
+        val daily = byBucket[Bucket.DAILY] ?: 0
+        // The bars show everyday spending only: one rent would dwarf every other day.
+        val byDay = expenses.filter { Buckets.of(it.op, categories) == Bucket.DAILY }
+            .groupBy { Ledger.localDate(it.op.timestamp, zone) }.mapValues { (_, list) -> list.sumOf(::cost) }
         val lastCounted = minOf(period.to, today)
         val countedDays = (ChronoUnit.DAYS.between(period.from, lastCounted) + 1).coerceAtLeast(1)
 
@@ -80,7 +91,10 @@ object Analytics {
             period = period,
             days = period.days.map { it to (byDay[it] ?: 0L) },
             spentRub = spent,
-            averagePerDayRub = spent / countedDays,
+            averagePerDayRub = daily / countedDays,
+            dailyRub = daily,
+            regularRub = byBucket[Bucket.REGULAR] ?: 0,
+            bigRub = byBucket[Bucket.BIG] ?: 0,
             categories = expenses.groupBy { it.op.categoryId }
                 .map { (id, list) -> CategorySpend(id, list.sumOf(::cost)) }
                 .sortedByDescending { it.rubMinor },

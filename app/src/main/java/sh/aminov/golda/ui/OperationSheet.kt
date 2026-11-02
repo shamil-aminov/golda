@@ -74,13 +74,14 @@ import kotlinx.coroutines.delay
 import sh.aminov.golda.R
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.Category
+import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.data.CategoryKind
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Draft
-import sh.aminov.golda.domain.Facts
+import sh.aminov.golda.domain.Buckets
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.VoiceAction
@@ -93,42 +94,31 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 
-/** What opens the entry sheet: an operation to edit, or a purchase to decide on (from voice or the wishlist). */
+/** What opens the entry sheet: an operation to edit, or nothing for a new one. */
 data class EntryRequest(
     val editing: OperationFull? = null,
-    val consider: VoiceAction.Consider? = null,
-    /** A waiting wish being decided: there is no "Подумаю" then, it has already been thought about. */
-    val wishId: Long? = null,
 )
 
-/**
- * Manual entry and editing of expenses, income and transfers. An expense has a second state,
- * "Сомневаюсь": the same amount stays on top and the form below turns into what the price means,
- * with "Не беру · Подумаю · Беру" at the bottom. Voice ("хочу купить X") and the wishlist open it there.
- */
+/** Manual entry and editing of expenses, income and transfers. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun EntrySheet(
     data: AppData,
     request: EntryRequest,
-    facts: suspend (VoiceAction.Consider) -> Facts,
     onDismiss: () -> Unit,
-    onSave: (Draft, Long?) -> Unit,
+    onSave: (Draft) -> Unit,
     onDelete: (OperationFull) -> Unit,
-    onSkip: (VoiceAction.Consider, Long?) -> Unit,
-    onThink: (VoiceAction.Consider) -> Unit,
 ) {
     val editing = request.editing
     val op = editing?.op
-    val asked = request.consider
     val accounts = data.accounts
     val outPosting = editing?.postings?.firstOrNull { it.amountMinor < 0 } ?: editing?.postings?.firstOrNull()
     val inPosting = editing?.postings?.firstOrNull { it.amountMinor > 0 && it !== outPosting }
     // A new purchase is paid from where voice would pay it: the last account if it is in the purchase's
-    // currency (the local one, or what is being decided on), else a free-money account in that currency,
+    // currency (the local one), else a free-money account in that currency,
     // else the last one anyway, and the charge is converted. So changing the local currency moves the
     // default account too, not only the currency.
-    val defaultAccount = VoiceMapper.pick(accounts.sortedBy { it.sort }, asked?.currency ?: data.settings.localCurrency, data.settings)
+    val defaultAccount = VoiceMapper.pick(accounts.sortedBy { it.sort }, data.settings.localCurrency, data.settings)
 
     if (op != null && op.type !in listOf(OpType.EXPENSE, OpType.INCOME, OpType.TRANSFER)) {
         BookkeepingSheet(data, editing, onDismiss, onDelete)
@@ -146,12 +136,11 @@ fun EntrySheet(
     // account keeps the dollars for its row, but the form edits what the account got.
     val purchased = op?.type == OpType.EXPENSE && op.purchaseAmountMinor != null && op.purchaseCurrency != null
     var purchaseCurrency by remember {
-        mutableStateOf((if (purchased) op.purchaseCurrency else null) ?: if (op != null) account?.currency ?: "RUB" else asked?.currency ?: data.settings.localCurrency)
+        mutableStateOf((if (purchased) op.purchaseCurrency else null) ?: if (op != null) account?.currency ?: "RUB" else data.settings.localCurrency)
     }
     var amountText by remember {
         mutableStateOf(
             when {
-                asked != null -> Fmt.editable(asked.amountMinor, asked.currency)
                 purchased -> Fmt.editable(op.purchaseAmountMinor, op.purchaseCurrency)
                 outPosting != null && account != null -> Fmt.editable(kotlin.math.abs(outPosting.amountMinor), account.currency)
                 else -> ""
@@ -171,10 +160,11 @@ fun EntrySheet(
     var secondEdited by remember { mutableStateOf(op != null && !op.isEstimate) }
     var editingSecond by remember { mutableStateOf(false) }
     var categoryId by remember { mutableStateOf(op?.categoryId) }
-    var note by remember { mutableStateOf(op?.note ?: asked?.title.orEmpty()) }
+    // An expense's own bucket, set only when it differs from its category's.
+    var ownBucket by remember { mutableStateOf(op?.bucket) }
+    var note by remember { mutableStateOf(op?.note.orEmpty()) }
     var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: data.today) }
     var pickingDate by remember { mutableStateOf(false) }
-    var deciding by remember { mutableStateOf(asked != null) }
 
     val amountCode = if (type == OpType.EXPENSE) purchaseCurrency else account?.currency ?: "RUB"
     val amount = Fmt.parseMinor(amountText, amountCode)?.takeIf { it > 0 }
@@ -219,21 +209,11 @@ fun EntrySheet(
             purchaseCurrency = if (foreignPurchase) purchaseCurrency else null,
             isEstimate = secondCode != null && !secondEdited,
             voiceText = op?.voiceText,
+            bucket = if (type == OpType.EXPENSE) ownBucket else null,
         )
     }
 
-    fun save() { if (valid) onSave(draft(), null) }
-
-    val consider = amount?.let {
-        VoiceAction.Consider(note.trim().ifBlank { categoryId?.let { id -> data.categoryById[id]?.label() } ?: tr("Покупка", "Purchase") }, it, purchaseCurrency)
-    }
-    var known by remember { mutableStateOf<Facts?>(null) }
-    LaunchedEffect(deciding, amount, purchaseCurrency) {
-        val c = consider
-        if (!deciding || c == null) { known = null; return@LaunchedEffect }
-        delay(150) // let the typing settle
-        known = facts(c)
-    }
+    fun save() { if (valid) onSave(draft()) }
 
     // Where the latest transfer went from and to: the next one is usually the same trip.
     val lastTransfer = remember(data.operations) {
@@ -268,86 +248,51 @@ fun EntrySheet(
         // Back to an expense, a new one is in the currency it started in again (the local one), not in the
         // currency of the account the transfer left from.
         if (value == OpType.EXPENSE && type != OpType.EXPENSE) {
-            purchaseCurrency = if (op == null) asked?.currency ?: data.settings.localCurrency
+            purchaseCurrency = if (op == null) data.settings.localCurrency
             else accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
         }
         type = value
         categoryId = null
+        ownBucket = null
         editingSecond = false
         secondEdited = false
         if (value != OpType.EXPENSE) purchaseCurrency = accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
     }
 
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { if (editing == null && asked == null) focus.requestFocus() }
+    LaunchedEffect(Unit) { if (editing == null) focus.requestFocus() }
     val keyboard = LocalSoftwareKeyboardController.current
-    val haptics = LocalHapticFeedback.current
 
     FormPage(
         onClose = onDismiss,
-        // "Сомневаюсь" opened from the form goes back to the form first; otherwise ✕ closes.
-        navigation = {
-            if (deciding && asked == null) {
-                IconButton(onClick = { deciding = false }) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) }
-            } else {
-                CloseButton(onDismiss)
-            }
-        },
+        navigation = { CloseButton(onDismiss) },
         topActions = {
             if (editing != null) DeleteAction { onDelete(editing) }
         },
-        // The actions are one connected group: the pair here, three in "Сомневаюсь".
-        actionGap = ButtonGroupDefaults.ConnectedSpaceBetween,
         actions = {
-            when {
-                deciding -> DecideActions(
-                    enabled = consider != null,
-                    // "Беру" books it, so it needs what saving needs (an account, a rate for the currency).
-                    buyEnabled = valid,
-                    wait = known?.wait,
-                    withThink = request.wishId == null,
-                    onSkip = { consider?.let { haptics.performHapticFeedback(HapticFeedbackType.Confirm); onSkip(it, request.wishId) } },
-                    onThink = { consider?.let(onThink) },
-                    onBuy = {
-                        if (valid) {
-                            val d = draft()
-                            onSave(if (d.note.isBlank() && d.categoryId == null) d.copy(note = tr("Покупка", "Purchase")) else d, request.wishId)
-                        }
-                    },
-                )
-                op == null && type == OpType.EXPENSE -> {
-                    TonalAction(tr("Сомневаюсь", "Not sure"), { keyboard?.hide(); deciding = true }, enabled = amount != null, shapes = connectedStart())
-                    PrimaryAction(tr("Записать", "Save"), ::save, valid, weight = 1.4f, shapes = connectedEnd())
-                }
-                else -> PrimaryAction(if (op == null) tr("Записать", "Save") else tr("Сохранить", "Save"), ::save, valid)
-            }
+            PrimaryAction(if (op == null) tr("Записать", "Save") else tr("Сохранить", "Save"), ::save, valid)
         },
     ) {
-        // Back from "Сомневаюсь" opened from the form goes back to the form.
-        BackHandler(enabled = deciding && asked == null && !WindowInsets.isImeVisible) { deciding = false }
-
-        // The header: the type. "Сомневаюсь" has none: its way back is the top bar's arrow.
-        AnimatedVisibility(!deciding, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-            Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-                ChoiceGroup(
-                    options = listOf(OpType.EXPENSE, OpType.INCOME, OpType.TRANSFER),
-                    selected = type,
-                    onSelect = ::pickType,
-                    fill = false,
-                    height = 40.dp,
-                    minWidth = 88.dp,
-                ) {
-                    ChoiceText(
-                        when (it) {
-                            OpType.INCOME -> tr("Доход", "Income")
-                            OpType.TRANSFER -> tr("Перевод", "Transfer")
-                            else -> tr("Расход", "Expense")
-                        },
-                    )
-                }
+        // The header: the type.
+        Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
+            ChoiceGroup(
+                options = listOf(OpType.EXPENSE, OpType.INCOME, OpType.TRANSFER),
+                selected = type,
+                onSelect = ::pickType,
+                fill = false,
+                height = 40.dp,
+                minWidth = 88.dp,
+            ) {
+                ChoiceText(
+                    when (it) {
+                        OpType.INCOME -> tr("Доход", "Income")
+                        OpType.TRANSFER -> tr("Перевод", "Transfer")
+                        else -> tr("Расход", "Expense")
+                    },
+                )
             }
         }
-        VSpace(if (deciding) Gap.s else Gap.l)
+        VSpace(Gap.l)
 
         if (type == OpType.TRANSFER) {
             RouteBento(
@@ -378,9 +323,8 @@ fun EntrySheet(
             symbol = Currencies.symbol(amountCode),
             focusRequester = focus,
             maxSp = 80f,
-            onDone = { if (!deciding) save() else keyboard?.hide() },
-            // In "Сомневаюсь" there is no currency row; the symbol itself switches it.
-            onSymbolClick = if (deciding) ({ currencyMenu = true }) else null,
+            onDone = { save() },
+            onSymbolClick = null,
             symbolMenu = {
                 DropdownMenu(expanded = currencyMenu, onDismissRequest = { currencyMenu = false }, properties = KeepKeyboard) {
                     currencyChoices.forEach { code ->
@@ -398,16 +342,21 @@ fun EntrySheet(
             type == OpType.INCOME -> Unit
             amount == null && type == OpType.TRANSFER -> Unit
             amount == null -> {
-                val budget = remember(data) { Budget.today(data.states, data.operations, data.settings, data.today, data.zone, data.allObligations, data.rates) }
-                UnderLine(tr("Можно сегодня ", "Safe today ") + data.base.approx(budget.leftTodayRub))
+                UnderLine(tr("Можно сегодня ", "Safe today ") + data.base.approx(data.budget.leftTodayRub))
             }
             secondCode != null && type == OpType.TRANSFER -> ReceivedLine(secondCode, secondText, secondEdited, editingSecond, { editingSecond = it }) {
                 secondText = it
                 secondEdited = true
             }
-            secondCode != null && type == OpType.EXPENSE && !deciding -> ChargedLine(secondCode, secondText, secondEdited, editingSecond, { editingSecond = it }) {
-                secondText = it
-                secondEdited = true
+            secondCode != null && type == OpType.EXPENSE -> {
+                ChargedLine(secondCode, secondText, secondEdited, editingSecond, { editingSecond = it }) {
+                    secondText = it
+                    secondEdited = true
+                }
+                // The price in every shown currency too, as for a purchase in the account's own currency:
+                // what is charged is one line, what it is worth the other.
+                val rub = data.rates.rubMinor(amount, amountCode)
+                rub?.let { data.others(it, amountCode) }?.takeIf { it.isNotBlank() }?.let { UnderLine(it) }
             }
             else -> {
                 val rub = if (amountCode == "RUB") amount else data.rates.rubMinor(amount, amountCode)
@@ -415,50 +364,42 @@ fun EntrySheet(
             }
         }
 
-        val fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-        val fadeOutSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
-        AnimatedContent(
-            targetState = deciding,
-            transitionSpec = { (fadeIn(fadeInSpec) togetherWith fadeOut(fadeOutSpec)).using(SizeTransform(clip = false)) },
-            label = "state",
-        ) { d ->
-            Column {
-                if (d) {
+        Column {
+            when (type) {
+                OpType.TRANSFER -> {
                     VSpace(Gap.l)
-                    FactsBento(data, known, consider != null)
-                    VSpace(Gap.s)
-                    TonalField(note, { note = it }, Modifier.fillMaxWidth(), placeholder = tr("Что это", "What is it"))
-                } else when (type) {
-                    OpType.TRANSFER -> {
-                        VSpace(Gap.l)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                            TonalField(note, { note = it }, Modifier.weight(1f), placeholder = tr("Комментарий", "Note"))
-                            DatePill(date, data) { pickingDate = true }
-                        }
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                        TonalField(note, { note = it }, Modifier.weight(1f), placeholder = tr("Комментарий", "Note"))
+                        DatePill(date, data) { pickingDate = true }
                     }
-                    else -> {
-                        if (type == OpType.EXPENSE) {
-                            VSpace(Gap.m)
-                            CurrencyPicker(currencyChoices, purchaseCurrency, { purchaseCurrency = it; secondEdited = false }, Modifier.align(Alignment.CenterHorizontally))
-                        }
+                }
+                else -> {
+                    if (type == OpType.EXPENSE) {
+                        VSpace(Gap.m)
+                        CurrencyPicker(currencyChoices, purchaseCurrency, { purchaseCurrency = it; secondEdited = false }, Modifier.align(Alignment.CenterHorizontally))
+                    }
+                    VSpace(Gap.l)
+                    // The placeholder says what the line is for, never the type picked above it.
+                    val fallback = categoryId?.let { data.categoryById[it]?.label() } ?: if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Покупка", "Purchase")
+                    TonalField(note, { note = it }, Modifier.fillMaxWidth(), placeholder = fallback, onDone = { if (valid) save() })
+                    VSpace(Gap.s)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                        AccountPill(accounts, account, ::pickAccount, Modifier.weight(1f, fill = false))
+                        DatePill(date, data) { pickingDate = true }
+                    }
+                    VSpace(Gap.l)
+                    // Always open: every category at once. With the keyboard up the form simply
+                    // scrolls under the action bar.
+                    CategoryGrid(
+                        data = data,
+                        kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
+                        selected = categoryId,
+                        onPick = { categoryId = if (categoryId == it) null else it },
+                    )
+                    if (type == OpType.EXPENSE) {
                         VSpace(Gap.l)
-                        // The placeholder says what the line is for, never the type picked above it.
-                        val fallback = categoryId?.let { data.categoryById[it]?.label() } ?: if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Покупка", "Purchase")
-                        TonalField(note, { note = it }, Modifier.fillMaxWidth(), placeholder = fallback, onDone = { if (valid) save() })
-                        VSpace(Gap.s)
-                        Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                            AccountPill(accounts, account, ::pickAccount, Modifier.weight(1f, fill = false))
-                            DatePill(date, data) { pickingDate = true }
-                        }
-                        VSpace(Gap.l)
-                        // Always open: every category at once. With the keyboard up the form simply
-                        // scrolls under the action bar.
-                        CategoryGrid(
-                            data = data,
-                            kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
-                            selected = categoryId,
-                            onPick = { categoryId = if (categoryId == it) null else it },
-                        )
+                        val ofCategory = Buckets.of(categoryId?.let { data.categoryById[it] })
+                        BucketPicker(ownBucket ?: ofCategory) { picked -> ownBucket = picked.takeIf { it != ofCategory } }
                     }
                 }
             }
@@ -682,88 +623,21 @@ private fun CategoryTile(icon: Int, label: String, on: Boolean, modifier: Modifi
     }
 }
 
+
 /**
- * What the price means, as neutral tiles: hours of work big on the left, the share of the main goal
- * and days of the budget stacked on the right. Dashes until it is known.
+ * Which bucket an expense is in: "Каждый день" counts against the day's limit, "Регулярно" and
+ * "Крупное" do not. It starts at the category's; picking another sets this expense's own.
  */
 @Composable
-private fun FactsBento(data: AppData, facts: Facts?, priced: Boolean) {
-    val goal = data.goals.firstOrNull { it.isMain }
-    val ofGoal = tr("от цели", "of the goal")
-    val all = if (facts == null) {
-        // Until there is a price (or while it is being worked out) the tiles stand with dashes.
-        listOfNotNull(
-            Fact("—", tr("ч работы", "h of work")).takeIf { data.settings.hourNet > 0 },
-            Fact("— %", ofGoal).takeIf { goal != null },
-            Fact("—", tr("дня бюджета", "days of budget")),
-        )
-    } else {
-        listOfNotNull(
-            facts.hoursValue?.let { Fact(Fmt.number(it, 1), tr("ч работы", "h of work")) },
-            facts.goalShare?.let { Fact(Fmt.percent(it), ofGoal) },
-            facts.daysValue?.let { Fmt.number(it, 1).let { n -> Fact(n, daysOfBudget(n)) } },
-        )
-    }
-    if (all.isEmpty()) return
-    val alpha = if (priced) 1f else 0.6f
-    Row(Modifier.fillMaxWidth().height(136.dp), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-        val big = all.first()
-        Tile(Modifier.weight(2f).fillMaxHeight()) {
-            Spacer(Modifier.weight(1f))
-            Text(big.value, Modifier.testTag(Tags.DECIDE_HOURS), style = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum), maxLines = 1, color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha))
-            Text(big.label, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        val rest = all.drop(1)
-        if (rest.isNotEmpty()) {
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(Gap.s)) {
-                rest.forEach { fact -> SmallFact(fact, Modifier.weight(1f).fillMaxWidth()) }
-            }
-        }
-    }
-}
-
-private class Fact(val value: String, val label: String)
-
-@Composable
-private fun SmallFact(fact: Fact, modifier: Modifier) {
-    Tile(modifier, padding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = Gap.s)) {
-        Spacer(Modifier.weight(1f))
-        Text(fact.value, style = MaterialTheme.typography.titleLarge.merge(Tnum), maxLines = 1)
-        Text(fact.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-/** "дня бюджета" after "3,6", "дней" after "5". */
-private fun daysOfBudget(number: String): String {
-    val whole = number.toLongOrNull()
-    val word = if (whole == null) tr("дня", "days") else plural(whole, "день", "дня", "дней", "day", "days")
-    return word + tr(" бюджета", " of budget")
-}
-
-/** Three equal choices in one connected group; none of them is the "right" answer, but buying is the filled one. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun RowScope.DecideActions(enabled: Boolean, buyEnabled: Boolean, wait: String?, withThink: Boolean, onSkip: () -> Unit, onThink: () -> Unit, onBuy: () -> Unit) {
-    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
-        val tall = Modifier.weight(1f).heightIn(min = 64.dp)
-        val padding = androidx.compose.foundation.layout.PaddingValues(horizontal = Gap.s)
-        val label = MaterialTheme.typography.titleMedium
-        FilledTonalButton(onClick = onSkip, shapes = connectedStart(), modifier = tall, enabled = enabled, contentPadding = padding) {
-            Text(tr("Не беру", "Skip"), style = label, maxLines = 1)
-        }
-        if (withThink) {
-            FilledTonalButton(onClick = onThink, shapes = connectedMiddle(), modifier = tall, enabled = enabled, contentPadding = padding) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(tr("Подумаю", "Think"), style = label, maxLines = 1)
-                    Text(wait ?: "…", style = MaterialTheme.typography.labelMedium.merge(Tnum), maxLines = 1)
-                }
-            }
-        }
-        Button(
-            onClick = onBuy, shapes = connectedEnd(), modifier = tall, enabled = enabled && buyEnabled, contentPadding = padding,
-            colors = ButtonDefaults.buttonColors(containerColor = actionColor(), contentColor = onActionColor()),
-        ) {
-            Text(tr("Беру", "Buy"), style = label, maxLines = 1)
-        }
+private fun BucketPicker(selected: Bucket, onPick: (Bucket) -> Unit) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        ChoiceGroup(
+            options = listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG),
+            selected = selected,
+            onSelect = onPick,
+            fill = false,
+            height = 40.dp,
+            minWidth = 88.dp,
+        ) { ChoiceText(bucketLabel(it)) }
     }
 }

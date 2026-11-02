@@ -132,3 +132,47 @@ dependencies {
         implementation(libs.androidx.concurrent.futures.ktx)
     }
 }
+
+// Mutation testing of the domain (SPEC §10): Pitest changes the compiled code one small way at a time
+// (a + for a −, a < for a <=, a branch dropped) and runs the unit tests against each change. A change
+// no test notices is a gap in the tests. ./gradlew pitest; the report is in build/reports/pitest.
+val pitest: Configuration by configurations.creating
+dependencies { pitest(libs.pitest.command.line) }
+
+tasks.register<JavaExec>("pitest") {
+    group = "verification"
+    description = "Mutation-tests the domain logic against the unit tests."
+    val unitTest = tasks.named<Test>("testDebugUnitTest")
+    dependsOn(unitTest)
+    mainClass.set("org.pitest.mutationtest.commandline.MutationCoverageReport")
+    classpath = pitest
+    val testClasspath = files(unitTest.map { it.classpath })
+    val sources = file("src/main/java")
+    val report = layout.buildDirectory.dir("reports/pitest")
+    val classPathFile = layout.buildDirectory.file("tmp/pitest/classpath.txt")
+    outputs.dir(report)
+    argumentProviders.add(
+        CommandLineArgumentProvider {
+            // One entry per line in a file: the test classpath is too long for a Windows command line.
+            val list = classPathFile.get().asFile.apply { parentFile.mkdirs() }
+            list.writeText(testClasspath.files.joinToString("\n") { it.path })
+            listOf(
+                "--reportDir", report.get().asFile.path,
+                "--targetClasses", "sh.aminov.golda.domain.*",
+                // Wording and the prompt are text, not logic.
+                "--excludedClasses", "sh.aminov.golda.domain.I18n*,sh.aminov.golda.domain.VoicePrompt*,sh.aminov.golda.domain.CategoriesKt*,sh.aminov.golda.domain.*\$\$serializer",
+                // What Kotlin generates for data classes.
+                "--excludedMethods", "equals,hashCode,toString,component*,copy*,copy\$default",
+                "--targetTests", "sh.aminov.golda.*Test",
+                "--sourceDirs", sources.path,
+                "--classPathFile", list.path,
+                // The app's own classes reach the unit tests as a jar, which Pitest would not mutate by itself.
+                "--mutableCodePaths", testClasspath.files.filter { "runtime_app_classes_jar" in it.path }.joinToString(",") { it.path },
+                "--outputFormats", "HTML,CSV",
+                "--timestampedReports", "false",
+                "--threads", "4",
+            )
+        },
+    )
+}
+

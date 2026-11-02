@@ -5,6 +5,38 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **"Safe to spend today" is a daily limit, not money until payday.** Set it
+  in Settings → Budget, or leave it empty and it follows your own pace of
+  everyday spending over the last 30 days.
+- **Three buckets of spending.** Every expense category is everyday, regular
+  (rent, phone, subscriptions) or big (clothes, travel, health); change them
+  in Settings → Budget. Only everyday spending counts against the day and
+  the pace; any single expense can be moved to another bucket on its page.
+- **Reserve.** Home shows how long the money on the accounts "in the reserve"
+  lasts at your pace plus the regular payments and debts.
+- **Reconciling a shortfall books it as everyday spending** "Not recorded"
+  by default, so the pace is honest. Switch it off for a plain adjustment.
+- Insights split the period into the three buckets; the bars and the daily
+  average are everyday spending only.
+- Voice: the amount is checked against the numbers in the transcript.
+  "80,84" read as 8,84 or "10.50" as 1 050 is put right when the phrase has
+  one amount, and marked ≈ with "check the amount" when it has several. An
+  item left without a category takes the category its note had last time.
+- A purchase in a currency other than the account's also shows its price in
+  every shown currency, not only the card's charge.
+- Pitest mutation testing of the domain: `./gradlew pitest`.
+
+### Removed
+
+- Income (rate, tax, hours, payday), "Not sure", goals and the wishlist.
+  Their data stays in backups, and old wishlist reminders are cancelled.
+- Monthly payments typed in settings: regular spending is counted from what
+  is recorded.
+
 ## [0.16.0] — 2026-10-05
 
 ### Changed

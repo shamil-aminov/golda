@@ -73,8 +73,72 @@ class VoiceMapperTest {
     }
 
     @Test
-    fun wantingIsNotSpending() {
-        assertEquals(VoiceAction.Consider("Бургер", 5_000, "USD"), map(item("consider", "50", "USD", "бургер")).single())
+    fun wantingIsNoLongerAnIntent() {
+        // "Сомневаюсь" is gone: an old model reply with "consider" books nothing.
+        assertTrue(map(item("consider", "50", "USD", "бургер")).single() is VoiceAction.NotUnderstood)
+    }
+
+    private fun said(transcript: String, vararg items: VoiceItem, categories: List<Category> = listOf(food), history: Map<String, Long> = emptyMap()) =
+        VoiceMapper.actions(VoiceResult(transcript, items.toList()), accounts, categories, settings, rates, now, zone, history)
+            .map { (it as VoiceAction.Record).draft }
+
+    @Test
+    fun aSeparatorTheModelLostIsPutBackFromTheWords() {
+        // From a real export: "80,84 продукт" was booked as 8,84 ₾.
+        val draft = said("80,84 продукт", item("expense", "8.84", "GEL", "продукты")).single()
+        assertEquals(8_084L, draft.amountMinor)
+        assertTrue(draft.isEstimate)
+        // And the other way round: "10.50" read as 1050.
+        assertEquals(1_050L, said("кофе 10.50", item("expense", "1050", "GEL", "кофе")).single().amountMinor)
+    }
+
+    @Test
+    fun anAmountTheWordsBackUpStands() {
+        val draft = said("Хачапури 17,48", item("expense", "17.48", "GEL", "хачапури")).single()
+        assertEquals(1_748L, draft.amountMinor)
+        assertEquals(false, draft.isEstimate)
+        // The recognizer wrote "1850" for 18.50: the model's 18.50 stands, not 1 850 ₾.
+        assertEquals(1_850L, said("столовая 1850", item("expense", "18.5", "GEL", "столовая")).single().amountMinor)
+        // Lari and tetri, and tetri alone.
+        assertEquals(1_120L, said("такси 11 лари 20 тетри", item("expense", "11.2", "GEL", "такси")).single().amountMinor)
+        assertEquals(70L, said("проезд в автобусе 70 тетри", item("expense", "0.7", "GEL", "автобус")).single().amountMinor)
+        // Amounts in words are the model's to read.
+        assertEquals(false, said("кэшбэк ноль запятая тридцать шесть", item("income", "0.36", "GEL", "кэшбэк")).single().isEstimate)
+    }
+
+    @Test
+    fun withSeveralAmountsADoubtfulOneIsOnlyMarked() {
+        val drafts = said("9 лари выпечка, 2 лари кока-кола", item("expense", "9", "GEL", "выпечка"), item("expense", "20", "GEL", "кока-кола"))
+        assertEquals(listOf(900L, 2_000L), drafts.map { it.amountMinor })
+        assertEquals(listOf(false, true), drafts.map { it.isEstimate })
+    }
+
+    @Test
+    fun aFractionSaidIsNeverReadAsTheWholeNumber() {
+        // "10.50" said and 10 returned: the separator in the words decides.
+        assertEquals(1_050L, said("кофе 10.50", item("expense", "10", "GEL", "кофе")).single().amountMinor)
+    }
+
+    @Test
+    fun historyRemembersTheLatestCategoryOfEachNote() {
+        fun op(id: Long, time: Long, note: String, category: Long?) =
+            sh.aminov.golda.data.OperationFull(sh.aminov.golda.data.Operation(id, OpType.EXPENSE, time, category, note = note), emptyList())
+        val history = VoiceMapper.history(
+            listOf(op(2, 20, "Кола", 5), op(1, 10, "Кола", 4), op(3, 30, "  ", 6), op(4, 40, "Хлеб", null)),
+        )
+        assertEquals(mapOf("кола" to 5L), history)
+    }
+
+    @Test
+    fun anItemLeftWithoutACategoryTakesTheOneItsNoteHadBefore() {
+        val groceries = Category(8, "groceries", "Продукты", "🛒", CategoryKind.EXPENSE)
+        val drafts = said(
+            "9 лари выпечка, 2 лари кока-кола",
+            item("expense", "9", "GEL", "выпечка"), item("expense", "2", "GEL", "кока-кола"),
+            categories = listOf(food, groceries),
+            history = mapOf("кока-кола" to groceries.id, "выпечка" to 99L), // 99: a category since deleted
+        )
+        assertEquals(listOf(null, groceries.id), drafts.map { it.categoryId })
     }
 
     @Test

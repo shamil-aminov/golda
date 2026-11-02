@@ -113,6 +113,9 @@ interface GoldaDao {
     @Insert
     suspend fun insertCategories(categories: List<Category>)
 
+    @Update
+    suspend fun updateCategory(category: Category)
+
     @Upsert
     suspend fun upsertRates(rates: List<Rate>)
 
@@ -163,8 +166,8 @@ interface GoldaDao {
 
 @Database(
     entities = [Account::class, Category::class, Operation::class, Posting::class, Rate::class, Obligation::class, Goal::class, Wish::class],
-    version = 4,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    version = 5,
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class GoldaDb : RoomDatabase() {
     abstract fun dao(): GoldaDao

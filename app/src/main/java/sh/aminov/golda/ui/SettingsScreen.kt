@@ -55,7 +55,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import sh.aminov.golda.R
-import sh.aminov.golda.data.Obligation
+import sh.aminov.golda.data.Bucket
+import sh.aminov.golda.data.Category
+import sh.aminov.golda.data.CategoryKind
+import sh.aminov.golda.domain.Buckets
+import sh.aminov.golda.domain.label
 import sh.aminov.golda.data.ReconcileSchedule
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
@@ -67,7 +71,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Which small sheet is open over the settings. */
-private enum class Edit { Local, Base, Shown, Markup, Rate, TaxHours, Payday, Key, Model, Language, Notes }
+private enum class Edit { Local, Base, Shown, Markup, Limit, Buckets, Key, Model, Language, Notes }
 
 /**
  * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
@@ -81,8 +85,8 @@ fun SettingsScreen(
     onChange: ((Settings) -> Settings) -> Unit,
     snackbar: SnackbarHostState,
     onRefreshRates: () -> Unit,
-    onSaveObligation: (Obligation) -> Unit,
-    onDeleteObligation: (Obligation) -> Unit,
+    /** A category with its bucket changed. */
+    onSaveCategory: (Category) -> Unit,
     onSaveKey: (String) -> Unit,
     onExport: (Uri) -> Unit,
     onImport: (Uri) -> Unit,
@@ -93,7 +97,6 @@ fun SettingsScreen(
     onDiscardVoice: () -> Unit = {},
 ) {
     var edit by remember { mutableStateOf<Edit?>(null) }
-    var editingObligation by remember { mutableStateOf<Obligation?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
@@ -153,32 +156,21 @@ fun SettingsScreen(
             }
 
             VSpace(Gap.l)
-            GroupLabel(tr("Доход", "Income"))
-            val rate = if (s.incomeHourly) Fmt.approx(s.hourlyRate, "RUB") + tr("/ч", "/h") else Fmt.approx(s.monthlySalary, "RUB") + tr("/мес", "/mo")
-            SettingRow(0, 4, if (s.incomeHourly) tr("Ставка", "Rate") else tr("Зарплата", "Salary"), painter = painterResource(R.drawable.ic_hourglass), value = rate) { edit = Edit.Rate }
-            SettingRow(1, 4, tr("Налог и часы", "Tax and hours"), painter = painterResource(R.drawable.ic_timer), value = "${Fmt.number(s.taxPercent, 1)} % · ${Fmt.number(s.hoursPerWeek, 1)} ${tr("ч/нед", "h/wk")}") { edit = Edit.TaxHours }
-            SettingRow(2, 4, tr("День зарплаты", "Payday"), painter = painterResource(R.drawable.ic_calendar), value = dayOfMonth(s.payday)) { edit = Edit.Payday }
-            GroupRow(
-                3, 4,
-                leading = { GlyphSpace() },
-                supporting = { Text(lastMonthPay(s), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                trailing = { Text(Fmt.approx(s.hourNet, "RUB"), Modifier.testTag(Tags.HOUR_NET), style = MaterialTheme.typography.headlineSmall.merge(Tnum)) },
-            ) { Text(tr("Час на руки", "An hour after tax"), style = MaterialTheme.typography.titleMedium) }
-
-            VSpace(Gap.l)
-            GroupLabel(tr("Платежи", "Payments"))
-            val payments = data.obligations
-            val payCount = payments.size + 1
-            payments.forEachIndexed { i, obligation ->
-                GroupRow(
-                    i, payCount,
-                    onClick = { editingObligation = obligation },
-                    leading = { RowIcon(painter = painterResource(R.drawable.ic_calendar)) },
-                    supporting = { Text(dayOfMonth(obligation.dayOfMonth)) },
-                    trailing = { Text(Fmt.amount(obligation.amountMinor, obligation.currency), style = MaterialTheme.typography.titleMedium.merge(Tnum)) },
-                ) { Text(obligation.name, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-            }
-            AddRow(payCount - 1, payCount, tr("Платёж", "Payment"), { editingObligation = Obligation(name = "", amountMinor = 0, currency = s.localCurrency, dayOfMonth = 0) }, Modifier)
+            GroupLabel(tr("Бюджет", "Budget"))
+            val budget = data.budget
+            SettingRow(
+                0, 2, tr("Лимит в день", "Daily limit"),
+                painter = painterResource(R.drawable.ic_calendar),
+                value = if (s.dailyLimitRub > 0) data.base.approx(s.dailyLimitRub) else tr("как обычно", "as usual"),
+                supporting = budget.paceRub?.let { tr("Обычно ", "Usually ") + data.base.approx(it) + tr(" в день", " a day") }
+                    ?: tr("Ежедневные траты за 30 дней", "Everyday spending over 30 days"),
+            ) { edit = Edit.Limit }
+            val expenseCategories = data.categories.filter { it.kind == CategoryKind.EXPENSE }
+            SettingRow(
+                1, 2, tr("Корзины категорий", "Category buckets"),
+                painter = painterResource(R.drawable.ic_coins),
+                supporting = tr("Регулярно: ", "Regular: ") + expenseCategories.filter { Buckets.of(it) == Bucket.REGULAR }.joinToString(", ") { it.label() }.ifBlank { "—" },
+            ) { edit = Edit.Buckets }
 
             VSpace(Gap.l)
             GroupLabel(tr("Голос", "Voice"))
@@ -248,10 +240,16 @@ fun SettingsScreen(
             under = tr("Обновляется сама после обмена рублей", "Updates itself after each ruble exchange"),
             onDismiss = { edit = null },
         ) { v -> onChange { it.copy(markup = v / 100) } }
-        Edit.Rate -> RateSheet(s, onDismiss = { edit = null }, onChange = onChange)
-        Edit.TaxHours -> TaxHoursSheet(s, onDismiss = { edit = null }, onChange = onChange)
-        Edit.Payday -> PickSheet(tr("День зарплаты", "Payday"), onDismiss = { edit = null }) {
-            DayGrid(s.payday) { day -> onChange { it.copy(payday = day) }; edit = null }
+        Edit.Limit -> NumberSheet(
+            caption = tr("Сколько можно тратить в день на ежедневное", "How much may go on everyday things a day"),
+            initial = if (s.dailyLimitRub > 0) data.base.major(s.dailyLimitRub) else 0.0,
+            symbol = data.base.symbol,
+            under = tr("Пусто или 0 — как обычно", "Empty or 0: as usual") + (data.budget.paceRub?.let { " (" + data.base.approx(it) + ")" } ?: ""),
+            allowEmpty = true,
+            onDismiss = { edit = null },
+        ) { v -> onChange { it.copy(dailyLimitRub = limitRub(v, data)) } }
+        Edit.Buckets -> PickSheet(tr("Что считается в «можно сегодня»: только «Каждый день»", "What counts in “safe today”: only “Everyday”"), onDismiss = { edit = null }, done = true) {
+            BucketChoices(data.categories.filter { it.kind == CategoryKind.EXPENSE }, onSaveCategory)
         }
         Edit.Key -> KeySheet(s.hasGeminiKey, onDismiss = { edit = null }) { key -> onSaveKey(key); edit = null }
         Edit.Model -> ModelSheet(s.geminiModel, Settings().geminiModel, onDismiss = { edit = null }) { model -> onChange { it.copy(geminiModel = model) }; edit = null }
@@ -272,15 +270,6 @@ fun SettingsScreen(
             )
         }
         null -> Unit
-    }
-    FormPageHost(editingObligation) { obligation ->
-        ObligationSheet(
-            data = data,
-            obligation = obligation,
-            onSave = { onSaveObligation(it); editingObligation = null },
-            onDelete = { onDeleteObligation(obligation); editingObligation = null },
-            onDismiss = { editingObligation = null },
-        )
     }
     pendingImport?.let { uri ->
         AlertDialog(
@@ -366,9 +355,18 @@ private fun PickSheet(caption: String, onDismiss: () -> Unit, done: Boolean = fa
 
 /** One number, big, with its unit: the markup, a rate. */
 @Composable
-private fun NumberSheet(caption: String, initial: Double, symbol: String, under: String? = null, onDismiss: () -> Unit, onSave: (Double) -> Unit) {
+private fun NumberSheet(
+    caption: String,
+    initial: Double,
+    symbol: String,
+    under: String? = null,
+    /** An empty field saves 0. */
+    allowEmpty: Boolean = false,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit,
+) {
     var text by remember { mutableStateOf(if (initial == 0.0) "" else Fmt.number(initial)) }
-    val value = Fmt.parseDouble(text)?.takeIf { it >= 0 }
+    val value = (if (allowEmpty && text.isBlank()) 0.0 else Fmt.parseDouble(text))?.takeIf { it >= 0 }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Сохранить", "Save"), { value?.let { onSave(it); onDismiss() } }, value != null) }) {
@@ -379,63 +377,6 @@ private fun NumberSheet(caption: String, initial: Double, symbol: String, under:
     }
 }
 
-/** Hourly or monthly, and how much. */
-@Composable
-private fun RateSheet(s: Settings, onDismiss: () -> Unit, onChange: ((Settings) -> Settings) -> Unit) {
-    var hourly by remember { mutableStateOf(s.incomeHourly) }
-    var text by remember { mutableStateOf(Fmt.number(if (s.incomeHourly) s.hourlyRate else s.monthlySalary).takeIf { it != "0" }.orEmpty()) }
-    val value = Fmt.parseDouble(text)?.takeIf { it >= 0 }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    fun save() {
-        val v = value ?: return
-        onChange { if (hourly) it.copy(incomeHourly = true, hourlyRate = v) else it.copy(incomeHourly = false, monthlySalary = v) }
-        onDismiss()
-    }
-    FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Сохранить", "Save"), ::save, value != null) }) {
-        ChoiceGroup(listOf(true, false), hourly, { hourly = it }, Modifier.fillMaxWidth()) {
-            ChoiceText(if (it) tr("В час", "Hourly") else tr("В месяц", "Monthly"))
-        }
-        VSpace(Gap.l)
-        HeroAmountField(text, { text = it }, "₽", focusRequester = focus, onDone = ::save)
-        VSpace(Gap.xs)
-        UnderLine(if (hourly) tr("в час, до налога", "an hour, before tax") else tr("в месяц, до налога", "a month, before tax"))
-    }
-}
-
-/** Tax and hours a week, as two tiles side by side. */
-@Composable
-private fun TaxHoursSheet(s: Settings, onDismiss: () -> Unit, onChange: ((Settings) -> Settings) -> Unit) {
-    var tax by remember { mutableStateOf(Fmt.number(s.taxPercent)) }
-    var hours by remember { mutableStateOf(Fmt.number(s.hoursPerWeek)) }
-    val taxValue = (if (tax.isBlank()) 0.0 else Fmt.parseDouble(tax))?.takeIf { it in 0.0..100.0 }
-    val hoursValue = Fmt.parseDouble(hours)?.takeIf { it in 0.0..168.0 }
-    val valid = taxValue != null && hoursValue != null
-    FormSheet(
-        onDismiss = onDismiss,
-        actions = {
-            PrimaryAction(tr("Сохранить", "Save"), {
-                onChange { it.copy(taxPercent = taxValue!!, hoursPerWeek = hoursValue!!) }
-                onDismiss()
-            }, valid)
-        },
-    ) {
-        Bento {
-            Tile(Modifier.weight(1f)) {
-                Caption(tr("Налог", "Tax"))
-                VSpace(Gap.xs)
-                BareField(tax, { tax = it }, "0", suffix = "%", keyboardType = KeyboardType.Decimal, style = MaterialTheme.typography.headlineLarge.merge(Tnum))
-            }
-            Tile(Modifier.weight(1f)) {
-                Caption(tr("Часов в неделю", "Hours a week"))
-                VSpace(Gap.xs)
-                BareField(hours, { hours = it }, "40", suffix = tr("ч", "h"), keyboardType = KeyboardType.Decimal, style = MaterialTheme.typography.headlineLarge.merge(Tnum))
-            }
-        }
-    }
-}
-
-/** The days of a month as a 7-wide grid of circles: one tap picks. */
 @Composable
 fun DayGrid(selected: Int?, onPick: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(Gap.xs)) {
@@ -530,41 +471,33 @@ private fun LanguageSheet(onDismiss: () -> Unit) {
 }
 
 /** A monthly payment: what, how much, which day. ⋮ deletes it (with undo). */
-@Composable
-private fun ObligationSheet(data: AppData, obligation: Obligation, onSave: (Obligation) -> Unit, onDelete: () -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf(obligation.name) }
-    var currency by remember { mutableStateOf(obligation.currency) }
-    var amountText by remember { mutableStateOf(if (obligation.amountMinor > 0) Fmt.editable(obligation.amountMinor, obligation.currency) else "") }
-    var day by remember { mutableStateOf(obligation.dayOfMonth.takeIf { it in 1..31 }) }
-    val amount = Fmt.parseMinor(amountText, currency)?.takeIf { it > 0 }
-    val valid = name.isNotBlank() && amount != null && day != null
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { if (obligation.id == 0L) focus.requestFocus() }
-    FormPage(
-        onClose = onDismiss,
-        title = if (obligation.id == 0L) tr("Новый платёж", "New payment") else tr("Платёж", "Payment"),
-        topActions = { if (obligation.id != 0L) DeleteAction(onDelete) },
-        actions = {
-            PrimaryAction(if (obligation.id == 0L) tr("Добавить", "Add") else tr("Сохранить", "Save"), {
-                onSave(obligation.copy(name = name.trim(), amountMinor = amount!!, currency = currency, dayOfMonth = day!!))
-            }, valid)
-        },
-    ) {
-        BareField(name, { name = it }, tr("Что это", "What is it"), focusRequester = focus)
-        VSpace(Gap.l)
-        HeroAmountField(amountText, { amountText = it }, Currencies.symbol(currency))
-        VSpace(Gap.m)
-        CurrencyPicker(data.currencyChoices(currency), currency, { currency = it }, Modifier.align(Alignment.CenterHorizontally))
-        VSpace(Gap.l)
-        Caption(tr("Какого числа", "Day of the month"))
-        VSpace(Gap.s)
-        DayGrid(day) { day = it }
-    }
-}
 
 /** The activity behind a Compose context, through any wrappers. */
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
+}
+
+/** The limit typed in the main currency, as kopecks; 0 turns it off. */
+private fun limitRub(major: Double, data: AppData): Long {
+    if (major <= 0) return 0
+    val code = data.base.code
+    return if (code == "RUB") Currencies.toMinor(major, "RUB") else data.rates.rubMinor(Currencies.toMinor(major, code), code) ?: 0
+}
+
+/** Each expense category with its bucket: three or four regular ones, a few big ones, the rest everyday. */
+@Composable
+private fun BucketChoices(categories: List<Category>, onSave: (Category) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(Gap.m)) {
+        categories.forEach { category ->
+            Column {
+                Text(category.label(), style = MaterialTheme.typography.titleMedium)
+                VSpace(Gap.xs)
+                ChoiceGroup(listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), Buckets.of(category), { onSave(category.copy(bucket = it)) }, Modifier.fillMaxWidth()) {
+                    ChoiceText(bucketLabel(it))
+                }
+            }
+        }
+    }
 }

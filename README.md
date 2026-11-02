@@ -22,10 +22,9 @@
   <img src="docs/screenshots/home.png" width="19%" alt="Home: safe to spend today">
   <img src="docs/screenshots/entry.png" width="19%" alt="Recording an expense">
   <img src="docs/screenshots/accounts.png" width="19%" alt="Accounts">
-  <img src="docs/screenshots/goals.png" width="19%" alt="Goals and the wishlist">
   <img src="docs/screenshots/insights.png" width="19%" alt="Insights">
 </p>
-<p align="center"><sub>Demo data. Home, a new expense, accounts, goals, insights. <a href="docs/screenshots/home-dark.png">Dark theme</a>.</sub></p>
+<p align="center"><sub>Demo data, from before 0.17. Home, a new expense, accounts, insights. <a href="docs/screenshots/home-dark.png">Dark theme</a>.</sub></p>
 
 ---
 
@@ -55,13 +54,16 @@ loud is the moment you notice you are spending.
 - **Card purchases in another currency.** For "48.5 lari" paid from a dollar
   card, the charge is estimated at the CBR cross rate + 2 % and marked **≈**
   until you correct it.
-- **Safe to spend today.** Your spendable money, minus the payments due before
-  payday (rent, subscriptions, loan payments), split over the days left.
-- **"Not sure".** Before buying, see the price as hours of work, a share of
-  your main goal and days of budget. Then buy it, think about it (a wishlist
-  with a 24 h, 3 day or 1 week timer), or skip it, and the money goes to your
-  goal.
-- **Goals**, linked to an account, plus whatever you didn't buy.
+- **Safe to spend today.** A daily limit for everyday spending: the one you
+  set, or your own pace over the last 30 days. Income does not come into it.
+- **Three buckets.** Everyday, regular (rent, phone, subscriptions) and big
+  (clothes, travel). Only everyday spending counts against the day, so two
+  months of rent paid at once no longer sinks it. Each category has its
+  bucket, and any expense can have its own.
+- **Reserve.** How many days your money lasts at the same pace plus the
+  regular payments and debts: "lasts 94 days, until 4 February".
+- **Honest reconciling.** Less money on an account than recorded is booked as
+  everyday spending "Not recorded", so the pace is not flattered.
 - **Debts.** Credit cards and loans have a rate, a payment day and a grace
   period. You get reminders, a payoff estimate, an early-repayment calculator
   and a hint on which debt to pay first.
@@ -126,7 +128,7 @@ switched in Settings.
 
 ## Privacy
 
-- Accounts, operations, goals and settings stay in the app's private storage
+- Accounts, operations and settings stay in the app's private storage
   on your phone. There is no server, no account and no analytics.
 - Voice notes are sent to Google's Gemini API with **your own** key, only to
   be turned into text and numbers. Google's terms for the Gemini API apply to
@@ -156,9 +158,11 @@ signed with the debug key.
 ```
 
 The unit tests need no device. They cover the ledger and cost basis, rates
-and card-charge estimates, the budget and its pace, savings interest, debts
-and the prepayment calculator, goals, analytics, and how voice answers turn
-into operations.
+and card-charge estimates, the daily limit, pace, buckets and reserve, savings
+interest, debts and the prepayment calculator, analytics, how voice answers
+turn into operations, and the amounts read back from the transcript.
+`./gradlew pitest` mutation-tests the domain against them: it breaks the code
+one small way at a time and reports every break no test noticed.
 
 Debug builds can fill the app with a made-up demo, which **erases everything
 in the app first**. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to run it
@@ -168,7 +172,7 @@ next to a real install safely.
 
 ```
 domain/   Money maths with no Android dependency: rates, ledger, budget,
-          interest, debts, goals, the voice-answer mapper. Covered by JVM tests.
+          interest, debts, the voice-answer mapper. Covered by JVM tests.
 data/     Room database, DataStore settings, CBR rates, Gemini client,
           Keystore vault, backups, reminders, the demo fill.
 ui/       Jetpack Compose screens, the toolbar and the palette.

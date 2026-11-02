@@ -2,7 +2,6 @@ package sh.aminov.golda
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
@@ -15,10 +14,8 @@ import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Rates
-import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
 import java.time.ZoneOffset
-import java.time.YearMonth
 
 class LedgerTest {
     private val rates = Rates(mapOf("USD" to 83.2454, "GEL" to 31.9597, "THB" to 2.47438), markup = 0.10)
@@ -99,71 +96,6 @@ class LedgerTest {
     fun cardChargeUsesOfficialCrossPlusCardMarkup() {
         // 80 ฿ from a USD card: 80 × 2.47438 / 83.2454 × 1.02 = 2.43 $
         assertEquals(243L, rates.cardCharge(8_000, "THB", "USD"))
-    }
-
-    @Test
-    fun todaySplitsFreeMoneyUntilPayday() {
-        val settings = Settings(payday = 15)
-        val today = LocalDate.of(2026, 10, 2)
-        val morning = today.atTime(9, 0).toInstant(zone).toEpochMilli()
-        book(Draft(OpType.OPENING, 0, rubCard.id, 13_000_000)) // 130 000 ₽
-        book(Draft(OpType.EXPENSE, morning, rubCard.id, 300_000)) // 3 000 ₽ today
-        val t = Budget.today(Ledger.states(accounts, ops.flatMap { it.postings }), ops, settings, today, zone)
-        assertEquals(13, t.daysLeft)
-        assertEquals(1_000_000, t.perDayRub) // 130 000 / 13
-        assertEquals(700_000, t.leftTodayRub)
-    }
-
-    /** Free money before payday, the salary on Sep 15, then [spent] rubles over the next weeks; today is Oct 2. */
-    private fun paceAfter(spent: Long): Long? {
-        val settings = Settings(payday = 15)
-        val today = LocalDate.of(2026, 10, 2)
-        fun at(month: Int, day: Int) = LocalDate.of(2026, month, day).atTime(12, 0).toInstant(zone).toEpochMilli()
-        book(Draft(OpType.OPENING, at(9, 10), rubCard.id, 10_000_000)) // 100 000 ₽
-        book(Draft(OpType.INCOME, at(9, 15), rubCard.id, 9_000_000)) // salary 90 000 ₽ → 190 000 ₽ over 30 days
-        book(Draft(OpType.EXPENSE, at(9, 20), rubCard.id, spent))
-        val t = Budget.today(Ledger.states(accounts, ops.flatMap { it.postings }), ops, settings, today, zone)
-        return Budget.pace(t, accounts, ops, settings, today, zone)
-    }
-
-    @Test
-    fun spendingSlowerThanThePeriodAllowsIsAhead() {
-        // 60 000 ₽ in 17 days: 130 000 ₽ left for 13 days is 10 000 ₽ a day against 6 333,33 at the start.
-        assertEquals(1_000_000L - 633_333L, paceAfter(6_000_000))
-    }
-
-    @Test
-    fun spendingFasterThanThePeriodAllowsIsBehind() {
-        // 150 000 ₽ gone: 40 000 ₽ for 13 days is about 3 077 ₽ a day, under the 6 333 ₽ baseline.
-        assertTrue(paceAfter(15_000_000)!! < 0)
-    }
-
-    @Test
-    fun noPaceWithoutHistoryOrOnPayday() {
-        val settings = Settings(payday = 15)
-        val today = LocalDate.of(2026, 10, 2)
-        // Started using the app after the last payday: nothing to compare with.
-        book(Draft(OpType.OPENING, LocalDate.of(2026, 9, 20).atStartOfDay().toInstant(zone).toEpochMilli(), rubCard.id, 10_000_000))
-        val states = Ledger.states(accounts, ops.flatMap { it.postings })
-        assertNull(Budget.pace(Budget.today(states, ops, settings, today, zone), accounts, ops, settings, today, zone))
-        val payday = LocalDate.of(2026, 10, 15)
-        assertNull(Budget.pace(Budget.today(states, ops, settings, payday, zone), accounts, ops, settings, payday, zone))
-    }
-
-    @Test
-    fun paydayRollsOverToNextMonth() {
-        val s = Settings(payday = 15)
-        assertEquals(LocalDate.of(2026, 10, 15), s.nextPayday(LocalDate.of(2026, 10, 2)))
-        assertEquals(LocalDate.of(2026, 11, 15), s.nextPayday(LocalDate.of(2026, 10, 15)))
-        assertEquals(LocalDate.of(2027, 2, 28), Settings(payday = 31).nextPayday(LocalDate.of(2027, 1, 31)))
-    }
-
-    @Test
-    fun salaryAndHourAreAfterTax() {
-        val s = Settings(incomeHourly = true, hourlyRate = 1000.0, taxPercent = 10.0, hoursPerWeek = 40.0)
-        assertEquals(900.0, s.hourNet, 0.01)
-        // September 2026 has 22 weekdays → 176 h → 176 000 ₽ → 158 400 ₽ after tax.
-        assertEquals(158_400.0, s.salaryFor(YearMonth.of(2026, 9)), 0.1)
     }
 
     @Test

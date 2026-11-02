@@ -29,6 +29,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import sh.aminov.golda.data.DebtReminder
+import sh.aminov.golda.data.cancelWishReminders
 import sh.aminov.golda.data.ReconcileSchedule
 import kotlinx.coroutines.flow.first
 import androidx.work.OneTimeWorkRequestBuilder
@@ -48,13 +49,9 @@ open class GoldaApplication : Application() {
 
 const val ACTION_VOICE = "sh.aminov.golda.VOICE"
 const val TAB_ACCOUNTS = 1
-const val TAB_GOALS = 2
 
 /** Which tab a notification opens. */
 const val EXTRA_TAB = "golda.tab"
-
-/** The waiting wish a reminder is about: it opens in "Сомневаюсь". */
-const val EXTRA_WISH = "golda.wish"
 
 fun voicePendingIntent(context: Context): PendingIntent = PendingIntent.getActivity(
     context,
@@ -73,9 +70,6 @@ class MainActivity : ComponentActivity() {
 
     /** Tabs to open, from notifications. */
     private val tabRequests = Channel<Int>(Channel.CONFLATED)
-
-    /** Wishes to decide on, from their reminders. */
-    private val wishRequests = Channel<Long>(Channel.CONFLATED)
 
     /** Before Android 13 the app's own language is applied here; from 13 the system does it. */
     override fun attachBaseContext(newBase: Context) {
@@ -97,14 +91,14 @@ class MainActivity : ComponentActivity() {
             // Never lets a note stop the app from starting; it sets aside what it cannot handle.
             runCatching { repo.processVoiceQueue() }
             ReconcileSchedule.apply(this@MainActivity, repo.settings.flow.first().reconcileReminder)
-            repo.wishes.rescheduleReminders()
+            cancelWishReminders(this@MainActivity)
         }
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "debts",
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<DebtReminder>(1, TimeUnit.DAYS).build(),
         )
-        setContent { GoldaTheme { GoldaRoot(repo, voiceRequests, tabRequests, wishRequests) } }
+        setContent { GoldaTheme { GoldaRoot(repo, voiceRequests, tabRequests) } }
     }
 
     /**
@@ -126,7 +120,6 @@ class MainActivity : ComponentActivity() {
     private fun handle(intent: Intent) {
         if (intent.action == ACTION_VOICE) voiceRequests.trySend(Unit)
         intent.getIntExtra(EXTRA_TAB, -1).takeIf { it >= 0 }?.let { tabRequests.trySend(it) }
-        intent.getLongExtra(EXTRA_WISH, -1).takeIf { it > 0 }?.let { wishRequests.trySend(it) }
     }
 
     /** adb shell am start -n sh.aminov.golda/.MainActivity --ez golda.demo true */

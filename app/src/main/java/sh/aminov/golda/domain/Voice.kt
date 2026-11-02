@@ -4,7 +4,7 @@ import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.Category
 import sh.aminov.golda.data.CategoryKind
-import sh.aminov.golda.data.Goal
+import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.OpType
 import java.time.LocalDate
 import java.time.LocalTime
@@ -29,8 +29,6 @@ data class VoiceResult(val transcript: String, val items: List<VoiceItem>)
 
 sealed interface VoiceAction {
     data class Record(val draft: Draft) : VoiceAction
-    /** "Хочу купить бургер за 50 $": not spent yet. */
-    data class Consider(val title: String, val amountMinor: Long, val currency: String) : VoiceAction
     data class NotUnderstood(val what: String) : VoiceAction
 }
 
@@ -40,7 +38,7 @@ object VoicePrompt {
         {"type":"object","properties":{
           "transcript":{"type":"string"},
           "items":{"type":"array","items":{"type":"object","properties":{
-            "intent":{"type":"string","enum":["expense","income","transfer","consider","unknown"]},
+            "intent":{"type":"string","enum":["expense","income","transfer","unknown"]},
             "amount":{"type":"string","nullable":true},
             "currency":{"type":"string","nullable":true},
             "note":{"type":"string"},
@@ -70,11 +68,10 @@ object VoicePrompt {
             Правила:
             - Каждая трата, доход или перевод — отдельный элемент items. «Кофе 8 и круассан 6» — два расхода.
             - Если человек оговорился и поправился («15 бат, ой, лари»), бери исправленное.
-            - «Хочу купить», «стоит ли брать», «думаю купить» — intent consider.
             - Перевод между своими счетами или снятие наличных — transfer: account_id откуда, to_account_id куда, to_amount — сколько пришло, если сказано.
-            - amount и to_amount — число строкой с точкой: "15", "1500.5". Валюта — код ISO: лари GEL, бат THB, доллар/бакс USD, рубль RUB, евро EUR. Не названа — null.
+            - amount и to_amount — число строкой с точкой: "15", "1500.5". Дробные суммы: «10.50», «10,50», «10 запятая 50», «10 лари 50 тетри» — это "10.5", а не "1050". «70 тетри» — "0.7". Валюта — код ISO: лари GEL, бат THB, доллар/бакс USD, рубль RUB, евро EUR. Не названа — null.
             - account_id только из списка выше и только если счёт явно назван или однозначно следует из сказанного («наличкой», «с кредитки»), иначе null.
-            - category — ключ из списка или null. note — коротко, что купил, с маленькой буквы.
+            - category — ключ из списка или null, у каждого элемента свой, даже когда в одной фразе несколько покупок. note — коротко, что купил, с маленькой буквы.
             - date в формате YYYY-MM-DD, только если назван день («вчера», «в понедельник»), иначе null.
             - Если не про деньги или не разобрать — один элемент с intent unknown.
         """.trimIndent()
@@ -90,39 +87,57 @@ object VoiceMapper {
         rates: Rates,
         recordedAt: Long,
         zone: ZoneId,
+        /** Categories of earlier entries by their note, for an item the model left without one ([history]). */
+        history: Map<String, Long> = emptyMap(),
     ): List<VoiceAction> {
         if (result.items.isEmpty()) return listOf(VoiceAction.NotUnderstood(result.transcript))
-        return result.items.map { item -> action(item, result.transcript, accounts, categories, settings, rates, recordedAt, zone) }
+        val said = SpokenAmounts.parse(result.transcript)
+        val single = result.items.size == 1
+        return result.items.map { item -> action(item, result.transcript, said, single, accounts, categories, settings, rates, recordedAt, zone, history) }
     }
+
+    /**
+     * The category last used for each note ("кока-кола" → groceries), newest winning: the model
+     * sometimes leaves the items of a phrase with several purchases without one.
+     */
+    fun history(operations: List<OperationFull>): Map<String, Long> = operations
+        .filter { it.op.categoryId != null && it.op.note.isNotBlank() }
+        .sortedBy { it.op.timestamp }
+        .associate { it.op.note.trim().lowercase() to it.op.categoryId!! }
 
     private fun action(
         item: VoiceItem,
         transcript: String,
+        said: List<SpokenAmounts.Said>,
+        single: Boolean,
         accounts: List<Account>,
         categories: List<Category>,
         settings: Settings,
         rates: Rates,
         recordedAt: Long,
         zone: ZoneId,
+        history: Map<String, Long>,
     ): VoiceAction {
         val byId = accounts.associateBy { it.id }
         fun named(id: String?) = id?.toLongOrNull()?.let { byId[it] }
         val currency = item.currency?.uppercase()?.takeIf { it.length == 3 } ?: settings.localCurrency
-        val amount = item.amount?.let { Fmt.parseMinor(it, currency) }?.takeIf { it > 0 }
+        val parsed = item.amount?.let { Fmt.parseMinor(it, currency) }?.takeIf { it > 0 }
+        // The model's number checked against the words: 80,84 said and 8.84 returned is put right when
+        // the phrase has one amount, and marked ≈ to check when it is not clear which one was meant.
+        val checked = parsed?.let { SpokenAmounts.check(it, currency, said, single) }
+        val amount = checked?.minor
+        val doubtful = checked?.doubtful == true
         val note = item.note.trim().replaceFirstChar { it.uppercase() }
         val timestamp = timestamp(item.date, recordedAt, zone)
         val categoryId = item.category?.let { key -> categories.firstOrNull { it.key == key }?.id }
+            ?: history[note.lowercase()]?.takeIf { id -> categories.any { it.id == id } }
 
         return when (item.intent) {
-            "consider" ->
-                if (amount == null) VoiceAction.NotUnderstood(transcript)
-                else VoiceAction.Consider(note.ifBlank { tr("Покупка", "Purchase") }, amount, currency)
-
             "expense" -> {
                 if (amount == null) return VoiceAction.NotUnderstood(transcript)
                 val account = named(item.accountId) ?: pick(accounts, currency, settings) ?: return VoiceAction.NotUnderstood(transcript)
                 if (account.currency == currency) {
-                    VoiceAction.Record(Draft(OpType.EXPENSE, timestamp, account.id, amount, categoryId = categoryId, note = note, voiceText = transcript))
+                    VoiceAction.Record(Draft(OpType.EXPENSE, timestamp, account.id, amount, categoryId = categoryId, note = note, isEstimate = doubtful, voiceText = transcript))
                 } else {
                     val charged = rates.cardCharge(amount, currency, account.currency) ?: return VoiceAction.NotUnderstood(transcript)
                     VoiceAction.Record(
@@ -138,7 +153,7 @@ object VoiceMapper {
                 if (amount == null) return VoiceAction.NotUnderstood(transcript)
                 val account = named(item.accountId) ?: pick(accounts, currency, settings) ?: return VoiceAction.NotUnderstood(transcript)
                 if (account.currency == currency) {
-                    VoiceAction.Record(Draft(OpType.INCOME, timestamp, account.id, amount, categoryId = categoryId, note = note, voiceText = transcript))
+                    VoiceAction.Record(Draft(OpType.INCOME, timestamp, account.id, amount, categoryId = categoryId, note = note, isEstimate = doubtful, voiceText = transcript))
                 } else {
                     // Converted at the display rate: an estimate, and the amount as said is kept beside it.
                     val credited = rates.convert(amount, currency, account.currency) ?: return VoiceAction.NotUnderstood(transcript)
@@ -174,44 +189,6 @@ object VoiceMapper {
         }
     }
 
-    /** The expense for a purchase decided on after a [VoiceAction.Consider]. */
-    fun buy(consider: VoiceAction.Consider, accounts: List<Account>, settings: Settings, rates: Rates, now: Long): Draft? {
-        val account = pick(accounts, consider.currency, settings) ?: return null
-        if (account.currency == consider.currency) {
-            return Draft(OpType.EXPENSE, now, account.id, consider.amountMinor, note = consider.title)
-        }
-        val charged = rates.cardCharge(consider.amountMinor, consider.currency, account.currency) ?: return null
-        return Draft(
-            OpType.EXPENSE, now, account.id, charged, note = consider.title,
-            purchaseAmountMinor = consider.amountMinor, purchaseCurrency = consider.currency, isEstimate = true,
-        )
-    }
-
-    /**
-     * The expense for buying a reached goal: from the account the goal is saved on, when it has one and
-     * that account holds enough (converted like a card purchase if the currencies differ); otherwise
-     * as any other purchase ([buy]).
-     */
-    fun buyGoal(goal: Goal, states: Map<Long, AccountState>, accounts: List<Account>, settings: Settings, rates: Rates, now: Long): Draft? {
-        val consider = VoiceAction.Consider(goal.name, goal.targetMinor, goal.currency)
-        val saved = goal.accountId?.let { states[it] }
-        if (saved != null) {
-            val account = saved.account
-            if (account.currency == goal.currency) {
-                if (saved.balanceMinor >= goal.targetMinor) return Draft(OpType.EXPENSE, now, account.id, goal.targetMinor, note = goal.name)
-            } else {
-                val charged = rates.cardCharge(goal.targetMinor, goal.currency, account.currency)
-                if (charged != null && saved.balanceMinor >= charged) {
-                    return Draft(
-                        OpType.EXPENSE, now, account.id, charged, note = goal.name,
-                        purchaseAmountMinor = goal.targetMinor, purchaseCurrency = goal.currency, isEstimate = true,
-                    )
-                }
-            }
-        }
-        return buy(consider, accounts, settings, rates, now)
-    }
-
     /**
      * The account a phrase most likely means when it names none: the last one
      * used if it is in the right currency, else a free-money account in that
@@ -232,5 +209,65 @@ object VoiceMapper {
         val recordedDay = Ledger.localDate(recordedAt, zone)
         return if (day == recordedDay || day.isAfter(recordedDay)) recordedAt
         else day.atTime(LocalTime.NOON).atZone(zone).toInstant().toEpochMilli()
+    }
+}
+
+/**
+ * The amounts a transcript says, read by code rather than by the model: "80,84", "11.94",
+ * "30 запятая 21", "11 лари 20 тетри", "70 тетри", "1850". Only digits are read; amounts in words
+ * ("ноль запятая тридцать шесть") are left to the model.
+ */
+object SpokenAmounts {
+    /** One amount said: in hundredths of a unit, and whether it was a bare whole number ("1850"). */
+    data class Said(val hundredths: Long, val whole: Boolean)
+
+    data class Checked(val minor: Long, val doubtful: Boolean)
+
+    private const val MAJOR = """(?:лари|лар|бат\w*|доллар\w*|бакс\w*|руб\w*|евро|₾|\$|€|₽|฿)"""
+    private const val MINOR = """(?:тетри|сатанг\w*|цент\w*|коп\w*)"""
+
+    /** Most specific first: each match is blanked out before the next pattern reads the rest. */
+    private val patterns = listOf<Pair<Regex, (MatchResult) -> Said>>(
+        Regex("""(\d+)\s*$MAJOR\s+(\d{1,2})\s*$MINOR""") to { m -> Said(m.groupValues[1].toLong() * 100 + m.groupValues[2].toLong(), false) },
+        Regex("""(\d+)\s+(?:запятая|точка)\s+(\d{1,2})(?!\d)""") to { m -> Said(m.groupValues[1].toLong() * 100 + cents(m.groupValues[2]), false) },
+        Regex("""(\d+)[.,](\d{1,2})(?!\d)""") to { m -> Said(m.groupValues[1].toLong() * 100 + cents(m.groupValues[2]), false) },
+        Regex("""(\d{1,2})\s*$MINOR""") to { m -> Said(m.groupValues[1].toLong(), false) },
+        Regex("""\d+""") to { m -> Said(m.value.toLong() * 100, true) },
+    )
+
+    /** "5" after a separator is 50 hundredths, "05" is 5. */
+    private fun cents(digits: String): Long = if (digits.length == 1) digits.toLong() * 10 else digits.toLong()
+
+    fun parse(transcript: String): List<Said> {
+        var rest = transcript.lowercase()
+        val found = mutableListOf<Pair<Int, Said>>()
+        for ((regex, read) in patterns) {
+            for (m in regex.findAll(rest)) {
+                val value = runCatching { read(m) }.getOrNull() ?: continue
+                found += m.range.first to value
+            }
+            // Blanked out, so "80,84" is not read again as 80 and 84.
+            rest = regex.replace(rest) { " ".repeat(it.value.length) }
+        }
+        return found.sortedBy { it.first }.map { it.second }
+    }
+
+    /**
+     * [minor] as the model read it, against what the transcript says. It stands if the transcript says
+     * it, or says nothing in digits; a bare "1850" for 18.50 stands too (the recognizer drops a
+     * separator more often than the model invents one). If the phrase is one item with one amount that
+     * differs, that amount is taken instead, marked doubtful; with several amounts the model's stays,
+     * doubtful.
+     */
+    fun check(minor: Long, currency: String, said: List<Said>, single: Boolean): Checked {
+        val digits = Currencies.digits(currency)
+        if (said.isEmpty() || digits > 2) return Checked(minor, false)
+        // Hundredths per minor unit: 1 for lari and dollars, 100 for a currency without fractions.
+        val scale = if (digits == 2) 1L else if (digits == 1) 10L else 100L
+        fun asMinor(s: Said): Long? = if (s.hundredths % scale == 0L) s.hundredths / scale else null
+        val matches = said.any { s -> asMinor(s) == minor || (s.whole && digits == 2 && s.hundredths / 100 == minor) }
+        if (matches) return Checked(minor, false)
+        val only = said.singleOrNull()?.let(::asMinor)
+        return if (single && only != null && only > 0) Checked(only, true) else Checked(minor, true)
     }
 }

@@ -18,12 +18,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Rates
-import sh.aminov.golda.domain.Settings
-import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
 import sh.aminov.golda.ui.Tags
-import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 /** "I changed X in settings, and it really changed": each test goes Settings → change → back → look where it shows. */
 @RunWith(AndroidJUnit4::class)
@@ -86,42 +82,16 @@ class SettingsScenariosTest : GoldaUiTest() {
         textOf(Tags.HOME_OTHERS).split(" · ").map { it.trim().substringAfterLast(' ') }.toSet()
 
     @Test
-    fun paydayMovesTheDaysLeft() {
-        val today = LocalDate.now()
-        val day = ((today.dayOfMonth + 9) % 28 + 1).let { if (it == 15) 16 else it }
+    fun theDailyLimitIsWhatTheDayIsMeasuredAgainst() {
         openSettings()
-        openRow(tr("День зарплаты", "Payday"))
-        compose.onNodeWithText(day.toString(), useUnmergedTree = true).performClick()
-        compose.waitForIdle()
-        back()
-
-        val days = ChronoUnit.DAYS.between(today, Settings(payday = day).nextPayday(today)).coerceAtLeast(1)
-        val word = plural(days, "день", "дня", "дней", "day", "days")
-        assertEquals(tr(" · $days $word до зарплаты", " · $days $word to payday"), textOf(Tags.HOME_PAYDAY))
-    }
-
-    @Test
-    fun rateAndTaxMoveTheHourAndTheHoursOfWork() {
-        openSettings()
-        openRow(tr("Ставка", "Rate"))
-        typeIntoFirstField("3000")
+        openRow(tr("Лимит в день", "Daily limit"))
+        typeIntoFirstField("1500")
         tap(tr("Сохранить", "Save"))
-        openRow(tr("Налог и часы", "Tax and hours"))
-        typeIntoFirstField("20")
-        tap(tr("Сохранить", "Save"))
-        // 3 000 ₽ an hour, 20 % tax: 2 400 ₽ on hand.
-        assertEquals(Fmt.approx(2_400.0, "RUB"), textOf(Tags.HOUR_NET))
+        assertEquals(150_000L, runBlocking { repo.settings.flow.first() }.dailyLimitRub)
         back()
-
-        // 4 800 ₽ is two hours of that work.
-        openEntry()
-        typeIntoFirstField("4800")
-        back() // the keyboard
-        tap(tr("Сомневаюсь", "Not sure"))
-        compose.waitUntil(5_000) { runCatching { textOf(Tags.DECIDE_HOURS) != "—" }.getOrDefault(false) }
-        assertEquals(Fmt.number(2.0, 1), textOf(Tags.DECIDE_HOURS))
-        back() // back to the form
-        back() // close
+        // Nothing spent today in the seed: the whole limit is left, and the line under the bar says it.
+        val line = Fmt.approx(1_500.0, "RUB")
+        waitForText(tr("$line в день", "$line a day"))
     }
 
     @Test
@@ -160,6 +130,5 @@ class SettingsScenariosTest : GoldaUiTest() {
         assertEquals("GEL", stored.localCurrency)
         assertEquals(0.15, stored.markup, 1e-9)
         assertFalse(stored.displayCurrencies.isEmpty())
-        compose.onNodeWithTag(Tags.HOUR_NET, useUnmergedTree = true).assertExists()
     }
 }

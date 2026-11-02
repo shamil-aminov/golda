@@ -92,19 +92,4 @@ class BugHuntScenarioTest : GoldaUiTest() {
         compose.waitUntil(5_000) { compose.onAllNodes(hasText(tr("Можно сегодня", "Safe to spend today"))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag(Tags.HOME_OTHERS, useUnmergedTree = true).assertIsDisplayed()
     }
-
-    /** Polish: a wish's reminder opens that wish in "Сомневаюсь". */
-    @Test
-    fun aWishReminderOpensTheWish() {
-        val id = runBlocking {
-            repo.wishes.think(VoiceAction.Consider("Наушники", 1_500_000, "RUB"))
-            repo.wishes.wishes.first().single().id
-        }
-        scenario.close()
-        val intent = Intent(InstrumentationRegistry.getInstrumentation().targetContext, MainActivity::class.java).putExtra(EXTRA_WISH, id)
-        scenario = ActivityScenario.launch(intent)
-        waitForText(tr("Беру", "Buy"))
-        assertTrue(compose.onAllNodes(hasText("Наушники")).fetchSemanticsNodes().isNotEmpty())
-        runBlocking { repo.wishes.cancelReminders() }
-    }
 }

@@ -16,6 +16,13 @@ enum class CategoryKind { EXPENSE, INCOME }
 
 enum class WishStatus { WAITING, BOUGHT, SKIPPED }
 
+/**
+ * What kind of spending an expense is. Only everyday spending counts against the day's limit and its
+ * pace; regular payments (rent, phone, subscriptions) and big one-offs (clothes, travel) are shown
+ * apart, so a rent paid for two months does not sink one day.
+ */
+enum class Bucket { DAILY, REGULAR, BIG }
+
 @Entity
 @Serializable
 data class Account(
@@ -47,6 +54,8 @@ data class Category(
     val emoji: String,
     val kind: CategoryKind,
     val sort: Int = 0,
+    /** The expense bucket; null means the default for [key] (see Buckets). */
+    val bucket: Bucket? = null,
 )
 
 @Entity(
@@ -70,6 +79,8 @@ data class Operation(
     /** CBR rates of both sides of a currency exchange when it happened, to measure what it cost. */
     val cbrFrom: Double? = null,
     val cbrTo: Double? = null,
+    /** An expense's own bucket, when it differs from its category's ("this one is not everyday"). */
+    val bucket: Bucket? = null,
 )
 
 /** A payment that comes every month (loan, rent, subscription) and is set aside before "можно сегодня". */

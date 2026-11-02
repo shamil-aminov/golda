@@ -11,17 +11,12 @@ import java.time.LocalDate
  * Both wipe everything first. All names and numbers here are made up.
  */
 object Demo {
-    /** A made-up person: paid by the hour, a ruble card, savings, a multi-currency card abroad, cash and two debts. */
+    /** A made-up person: a ruble card, savings, a multi-currency card abroad, cash and two debts. */
     suspend fun fill(repo: Repo) {
         repo.resetAll()
         repo.settings.update {
             it.copy(
                 onboarded = true,
-                incomeHourly = true,
-                hourlyRate = 1000.0,
-                taxPercent = 10.0,
-                hoursPerWeek = 40.0,
-                payday = 10,
                 displayCurrencies = listOf("RUB", "USD", "GEL"),
                 localCurrency = "GEL",
             )
@@ -57,7 +52,7 @@ object Demo {
         )
     }
 
-    /** [fill] plus a couple of weeks of made-up life abroad, a goal and a wishlist, so the screens look lived in. */
+    /** [fill] plus a couple of weeks of made-up life abroad, so the screens look lived in. */
     suspend fun samples(repo: Repo, now: Long = System.currentTimeMillis()) {
         fill(repo)
         val hour = 3_600_000L
@@ -107,13 +102,5 @@ object Demo {
                 purchaseAmountMinor = 4_850, purchaseCurrency = "GEL", isEstimate = true,
             ),
         )
-
-        repo.saveObligation(Obligation(name = "Аренда", amountMinor = 90_000, currency = "GEL", dayOfMonth = 1))
-        repo.saveObligation(Obligation(name = "Подписки", amountMinor = 69_900, currency = "RUB", dayOfMonth = 1))
-
-        repo.wishes.saveGoal(Goal(name = "Велосипед", targetMinor = 8_000_000, currency = "RUB", savedMinor = 2_150_000, isMain = true))
-        repo.wishes.saveGoal(Goal(name = "Подушка", targetMinor = 30_000_000, currency = "RUB", accountId = account.getValue("Накопительный")))
-        repo.wishes.skip(VoiceAction.Consider("Кроссовки", 25_000, "GEL"))
-        repo.wishes.think(VoiceAction.Consider("Наушники", 12_000, "USD"))
     }
 }

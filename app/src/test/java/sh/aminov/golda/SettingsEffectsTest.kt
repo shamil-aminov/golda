@@ -61,26 +61,14 @@ class SettingsEffectsTest {
     }
 
     @Test
-    fun paydaySetsTheDaysLeft() {
+    fun theDailyLimitSetsWhatIsLeftToday() {
         val today = LocalDate.of(2026, 10, 2)
-        assertEquals(LocalDate.of(2026, 10, 15), Settings(payday = 15).nextPayday(today))
-        // On payday itself the next one is a month away.
-        assertEquals(LocalDate.of(2026, 11, 2), Settings(payday = 2).nextPayday(today))
-        assertEquals(LocalDate.of(2026, 11, 1), Settings(payday = 1).nextPayday(today))
-        // The 31st in a 30-day month is its last day.
-        assertEquals(LocalDate.of(2026, 11, 30), Settings(payday = 31).nextPayday(LocalDate.of(2026, 11, 2)))
-
         val states = Ledger.states(accounts, emptyList())
-        fun daysLeft(payday: Int) = Budget.today(states, emptyList(), Settings(payday = payday), today, ZoneOffset.UTC).daysLeft
-        assertEquals(13, daysLeft(15))
-        assertEquals(8, daysLeft(10))
-        assertEquals(31, daysLeft(2))
-    }
-
-    @Test
-    fun rateAndTaxSetTheHourOnHand() {
-        assertEquals(2_400.0, Settings(incomeHourly = true, hourlyRate = 3_000.0, taxPercent = 20.0).hourNet, 1e-9)
-        // A salary of 173 333 ₽ over 40 h a week (173.33 h a month), 13 % tax: about 870 ₽ an hour.
-        assertEquals(870.0, Settings(incomeHourly = false, monthlySalary = 173_333.0, taxPercent = 13.0, hoursPerWeek = 40.0).hourNet, 0.5)
+        fun left(limit: Long) = Budget.today(states, emptyList(), emptyMap(), Settings(dailyLimitRub = limit), today, ZoneOffset.UTC)
+        assertEquals(150_000L, left(150_000).leftTodayRub)
+        assertEquals(false, left(150_000).autoLimit)
+        // Zero means no limit: the pace, here none yet.
+        assertEquals(0L, left(0).limitRub)
+        assertEquals(true, left(0).autoLimit)
     }
 }

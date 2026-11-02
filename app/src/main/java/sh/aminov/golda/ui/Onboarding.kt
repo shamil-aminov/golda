@@ -46,7 +46,7 @@ fun Onboarding(
     var step by rememberSaveable { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf<Account?>(null) }
     var adding by remember { mutableStateOf(false) }
-    val steps = 3
+    val steps = 2
     // System back walks the steps back, like "Назад"; on the first step it leaves the app.
     BackHandler(enabled = step > 0) { step-- }
 
@@ -73,14 +73,6 @@ fun Onboarding(
                 LinearWavyProgressIndicator(progress = { (step + 1f) / steps }, modifier = Modifier.fillMaxWidth())
                 when (step) {
                     0 -> {
-                        Text(tr("Доход", "Income"), style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            tr("Нужен, чтобы считать «можно сегодня» до следующей зарплаты и переводить покупки в часы работы.", "Used to work out what is safe to spend until the next payday and to turn prices into hours of work."),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        IncomeFields(data.settings, onChange)
-                    }
-                    1 -> {
                         Text(tr("Валюты", "Currencies"), style = MaterialTheme.typography.headlineSmall)
                         Text(
                             tr("Любая сумма будет видна сразу во всех выбранных валютах. Рубль — основная.", "Every amount shows in all the chosen currencies at once. The ruble is the main one."),
@@ -91,7 +83,7 @@ fun Onboarding(
                     else -> {
                         Text(tr("Счета", "Accounts"), style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            tr("Карты, наличные, накопительные счета и долги с текущими балансами. Неточные цифры потом легко поправить сверкой.", "Cards, cash, savings and debts with their balances now. Rough numbers are easy to fix later by reconciling."),
+                            tr("Карты, наличные, накопительные счета и долги с текущими балансами. Неточные цифры потом легко поправить сверкой. «Можно сегодня» само подстроится под твои траты; лимит на день можно задать в настройках.", "Cards, cash, savings and debts with their balances now. Rough numbers are easy to fix later by reconciling. “Safe today” adapts to your spending by itself; a daily limit can be set in settings."),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         val count = data.accounts.size + 1

@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -22,12 +21,7 @@ private val Context.dataStore by preferencesDataStore("settings")
 class SettingsStore(context: Context, private val store: DataStore<Preferences> = context.dataStore) {
     private object K {
         val onboarded = booleanPreferencesKey("onboarded")
-        val incomeHourly = booleanPreferencesKey("incomeHourly")
-        val hourlyRate = doublePreferencesKey("hourlyRate")
-        val monthlySalary = doublePreferencesKey("monthlySalary")
-        val taxPercent = doublePreferencesKey("taxPercent")
-        val hoursPerWeek = doublePreferencesKey("hoursPerWeek")
-        val payday = intPreferencesKey("payday")
+        val dailyLimitRub = longPreferencesKey("dailyLimitRub")
         val displayCurrencies = stringPreferencesKey("displayCurrencies")
         val localCurrency = stringPreferencesKey("localCurrency")
         val baseCurrency = stringPreferencesKey("baseCurrency")
@@ -36,7 +30,6 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val geminiModel = stringPreferencesKey("geminiModel")
         val geminiKey = stringPreferencesKey("geminiKey")
         val reconcileReminder = booleanPreferencesKey("reconcileReminder")
-        val celebratedGoalId = longPreferencesKey("celebratedGoalId")
         val reconciledAt = stringPreferencesKey("reconciledAt")
     }
 
@@ -62,12 +55,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val d = Settings()
         return Settings(
             onboarded = this[K.onboarded] ?: d.onboarded,
-            incomeHourly = this[K.incomeHourly] ?: d.incomeHourly,
-            hourlyRate = this[K.hourlyRate] ?: d.hourlyRate,
-            monthlySalary = this[K.monthlySalary] ?: d.monthlySalary,
-            taxPercent = this[K.taxPercent] ?: d.taxPercent,
-            hoursPerWeek = this[K.hoursPerWeek] ?: d.hoursPerWeek,
-            payday = this[K.payday] ?: d.payday,
+            dailyLimitRub = this[K.dailyLimitRub] ?: d.dailyLimitRub,
             displayCurrencies = this[K.displayCurrencies]?.split(',')?.filter { it.isNotBlank() } ?: d.displayCurrencies,
             localCurrency = this[K.localCurrency] ?: d.localCurrency,
             baseCurrency = this[K.baseCurrency] ?: d.baseCurrency,
@@ -76,7 +64,6 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             geminiModel = this[K.geminiModel] ?: d.geminiModel,
             hasGeminiKey = this[K.geminiKey] != null,
             reconcileReminder = this[K.reconcileReminder] ?: d.reconcileReminder,
-            celebratedGoalId = this[K.celebratedGoalId],
             reconciledAt = this[K.reconciledAt].orEmpty().split(',').mapNotNull { pair ->
                 pair.split(':').takeIf { it.size == 2 }?.let { (id, at) -> id.toLongOrNull()?.let { key -> at.toLongOrNull()?.let { key to it } } }
             }.toMap(),
@@ -85,12 +72,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
 
     private fun MutablePreferences.write(s: Settings) {
         this[K.onboarded] = s.onboarded
-        this[K.incomeHourly] = s.incomeHourly
-        this[K.hourlyRate] = s.hourlyRate
-        this[K.monthlySalary] = s.monthlySalary
-        this[K.taxPercent] = s.taxPercent
-        this[K.hoursPerWeek] = s.hoursPerWeek
-        this[K.payday] = s.payday
+        this[K.dailyLimitRub] = s.dailyLimitRub
         this[K.displayCurrencies] = s.displayCurrencies.joinToString(",")
         this[K.localCurrency] = s.localCurrency
         this[K.baseCurrency] = s.baseCurrency
@@ -98,7 +80,6 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         if (s.lastAccountId != null) this[K.lastAccountId] = s.lastAccountId else remove(K.lastAccountId)
         this[K.geminiModel] = s.geminiModel
         this[K.reconcileReminder] = s.reconcileReminder
-        if (s.celebratedGoalId != null) this[K.celebratedGoalId] = s.celebratedGoalId else remove(K.celebratedGoalId)
         this[K.reconciledAt] = s.reconciledAt.entries.joinToString(",") { "${it.key}:${it.value}" }
     }
 }

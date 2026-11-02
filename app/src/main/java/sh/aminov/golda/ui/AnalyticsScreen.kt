@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.Base
 import androidx.compose.ui.platform.testTag
@@ -104,17 +105,16 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
     var picking by remember { mutableStateOf(false) }
     var selectedSlice by remember { mutableStateOf<Int?>(null) }
     val palette = sliceColors()
-    val period = Analytics.period(kind, today, data.settings, custom)
-    val report = remember(data, period) { Analytics.report(data.operations, data.accountById, period, today, data.zone, data.rates) }
+    val period = Analytics.period(kind, today, custom)
+    val report = remember(data, period) { Analytics.report(data.operations, data.accountById, data.categoryById, period, today, data.zone, data.rates) }
     fun toggleSlice(slice: Int) { selectedSlice = if (selectedSlice == slice) null else slice }
-    val lastPayday = Analytics.period(PeriodKind.SINCE_PAYDAY, today, data.settings).from
 
     // The whole page, not just the content: a short list left the pager without a back swipe here.
     LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
         item(key = "period") {
             Column(Modifier.padding(horizontal = Gap.m)) {
-                // The pay period says which day it starts; the calendar is a range of your own.
-                val options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.SINCE_PAYDAY, PeriodKind.CUSTOM)
+                // The calendar is a range of your own.
+                val options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM)
                 Row(Modifier.fillMaxWidth()) {
                     ChoiceGroup(
                         options = options,
@@ -128,7 +128,6 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
                         when (it) {
                             PeriodKind.WEEK -> ChoiceText(tr("Неделя", "Week"))
                             PeriodKind.MONTH -> ChoiceText(tr("Месяц", "Month"))
-                            PeriodKind.SINCE_PAYDAY -> ChoiceText(tr("С ", "Since ") + shortDate(lastPayday))
                             PeriodKind.CUSTOM -> Icon(painterResource(R.drawable.ic_calendar), tr("Свой период", "Custom range"), Modifier.size(20.dp))
                         }
                     }
@@ -180,11 +179,23 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
                         label?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         BigNumber(data.base.approx(rub), data.base.minor(rub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL), maxSp = 56f, alignment = Alignment.Center)
                         Text(
-                            if (focus == null) tr("≈ ${data.base.approx(report.averagePerDayRub)}/день", "≈ ${data.base.approx(report.averagePerDayRub)}/day")
+                            if (focus == null) tr("≈ ${data.base.approx(report.averagePerDayRub)}/день на ежедневное", "≈ ${data.base.approx(report.averagePerDayRub)}/day on everyday things")
                             else if (report.spentRub > 0) wholePercent(rub.toDouble() / report.spentRub) else "",
                             style = MaterialTheme.typography.bodyMedium.merge(Tnum),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                    }
+                }
+            }
+            // The period split by bucket: everyday spending apart from rent and one-offs.
+            item(key = "buckets") {
+                Bento(Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
+                    listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
+                        Tile(Modifier.weight(1f).fillMaxHeight()) {
+                            Caption(bucketLabel(bucket))
+                            VSpace(Gap.xs)
+                            Text(data.base.approx(rub), style = MaterialTheme.typography.titleMedium.merge(Tnum), maxLines = 1)
+                        }
                     }
                 }
             }
@@ -225,9 +236,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
                 }
             }
             item(key = "chart") {
-                val budget = remember(data) { Budget.today(data.states, data.operations, data.settings, today, data.zone, data.allObligations, data.rates) }
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    DayBars(report.days, today, kind, budget.perDayRub.takeIf { it > 0 }, data.base)
+                    DayBars(report.days, today, kind, data.budget.limitRub.takeIf { it > 0 }, data.base)
                 }
             }
         }

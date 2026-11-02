@@ -19,6 +19,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import sh.aminov.golda.domain.AccountState
+import sh.aminov.golda.domain.Base
+import sh.aminov.golda.domain.Budget
+import sh.aminov.golda.domain.Buckets
 import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Rates
@@ -29,10 +32,9 @@ sealed interface VoiceOutcome {
     data class Done(
         val transcript: String,
         val recorded: List<Pair<Long, Draft>>,
-        val considering: List<VoiceAction.Consider>,
         val misunderstood: Boolean,
         val late: Boolean,
-        /** What the last expense cost in work and what is left for today. */
+        /** What is left for today after the last expense. */
         val comment: String? = null,
         /** What "Отменить" puts back. */
         val undo: Undo = Undo(recorded.map { it.first }, 0.0, null),
@@ -66,12 +68,14 @@ class Repo(
     val categories = dao.categories()
     val rates = dao.rates()
     val obligations = dao.obligations()
-    val wishes = Wishes(context, this, dao)
     val backups = Backups(db, settings)
 
     suspend fun saveObligation(obligation: Obligation) = write { dao.upsertObligation(obligation) }
 
     suspend fun deleteObligation(id: Long) = write { dao.deleteObligation(id) }
+
+    /** A category with its bucket changed in settings. */
+    suspend fun saveCategory(category: Category) = write { dao.updateCategory(category) }
 
     /**
      * Writes finish even when the screen that started them goes away (wiping
@@ -161,6 +165,7 @@ class Repo(
             purchaseAmountMinor = draft.purchaseAmountMinor,
             purchaseCurrency = draft.purchaseCurrency,
             isEstimate = draft.isEstimate,
+            bucket = draft.bucket.takeIf { draft.type == OpType.EXPENSE },
             cbrFrom = cbr?.first,
             cbrTo = cbr?.second,
         )
@@ -298,15 +303,14 @@ class Repo(
                         }
                     }
                 }
-                val actions = VoiceMapper.actions(result, accounts, categories, s, ratesNow(), recordedAt, zone)
+                val actions = VoiceMapper.actions(result, accounts, categories, s, ratesNow(), recordedAt, zone, VoiceMapper.history(dao.operationsSince(0)))
                 val recorded = actions.filterIsInstance<VoiceAction.Record>().mapNotNull { action -> save(action.draft)?.let { it to action.draft } }
                 file.delete()
-                val comment = recorded.lastOrNull { it.second.type == OpType.EXPENSE }?.let { wishes.impact(it.first) }
+                val comment = recorded.lastOrNull { it.second.type == OpType.EXPENSE }?.let { impact(it.first) }
                 VoiceOutcome.Done(
                     comment = comment,
                     transcript = result.transcript,
                     recorded = recorded,
-                    considering = actions.filterIsInstance<VoiceAction.Consider>(),
                     misunderstood = actions.any { it is VoiceAction.NotUnderstood },
                     late = late,
                     undo = Undo(recorded.map { it.first }, s.markup, s.lastAccountId),
@@ -323,33 +327,58 @@ class Repo(
         return outcome
     }
 
-    /** "На самом деле на счёте X": books the difference as an adjustment. */
-    /** Brings [accountId] to what the bank shows; a match records nothing but the time it was checked. */
-    suspend fun reconcile(accountId: Long, actualMinor: Long) = write {
+    /**
+     * Brings [accountId] to what the bank shows; a match records nothing but the time it was checked.
+     * Less money than the records say is, when [asSpending], everyday spending that was never written
+     * down (SPEC §5): an expense "Не записано" in the everyday bucket, so the pace is not flattered.
+     * Otherwise, and for more money than recorded, the difference is a plain adjustment.
+     */
+    suspend fun reconcile(accountId: Long, actualMinor: Long, asSpending: Boolean = false) = write {
         val state = Ledger.states(dao.accountsNow(), dao.postingsNow()).getValue(accountId)
         val delta = actualMinor - state.balanceMinor
         val now = System.currentTimeMillis()
-        if (delta != 0L) save(Draft(OpType.ADJUSTMENT, now, accountId, delta))
+        when {
+            delta == 0L -> Unit
+            delta < 0 && asSpending -> {
+                val other = dao.categoriesNow().firstOrNull { it.key == "other" && it.kind == CategoryKind.EXPENSE }
+                save(Draft(OpType.EXPENSE, now, accountId, -delta, categoryId = other?.id, note = tr("Не записано", "Not recorded"), bucket = Bucket.DAILY))
+            }
+            else -> save(Draft(OpType.ADJUSTMENT, now, accountId, delta))
+        }
         settings.update { it.copy(reconciledAt = it.reconciledAt + (accountId to now)) }
     }
 
+    /** What is left for today after an expense just recorded: "на сегодня осталось 503 ₽", or that it is not everyday spending. */
+    suspend fun impact(operationId: Long): String? {
+        val full = dao.operation(operationId)?.takeIf { it.op.type == OpType.EXPENSE } ?: return null
+        val s = settings.flow.first()
+        val zone = ZoneId.systemDefault()
+        val day = LocalDate.now(zone)
+        val rates = ratesNow()
+        val categories = dao.categoriesNow().associateBy { it.id }
+        if (Buckets.of(full.op, categories) != Bucket.DAILY) return tr("не в дневной бюджет", "not in the daily budget")
+        val states = Ledger.states(dao.accountsNow(), dao.postingsNow())
+        val recent = dao.operationsSince(day.minusDays(Budget.REGULAR_DAYS).atStartOfDay(zone).toInstant().toEpochMilli())
+        val left = Budget.today(states, recent, categories, s, day, zone, rates).leftTodayRub
+        val base = Base.of(s, rates)
+        return if (left >= 0) tr("на сегодня осталось ", "left for today ") + base.approx(left)
+        else tr("перерасход ", "over budget by ") + base.approx(-left)
+    }
+
     /**
-     * A restore: the backup's data, then its wishes' reminders and its own reconcile-reminder setting.
-     * Throws when the file does not fit, and nothing changes then (old reminders come back too).
+     * A restore: the backup's data, then its own reconcile-reminder setting.
+     * Throws when the file does not fit, and nothing changes then.
      */
     suspend fun importBackup(text: String): Backup = write {
-        wishes.cancelReminders()
         try {
             backups.import(text)
         } finally {
-            wishes.rescheduleReminders()
             ReconcileSchedule.apply(context, settings.flow.first().reconcileReminder)
         }
     }
 
     suspend fun resetAll() = write {
-        // Nothing of the old data may come back: no reminders for its wishes, no notes booked into the new data.
-        wishes.cancelReminders()
+        // Nothing of the old data may come back: no notes booked into the new data.
         VoiceQueue.wipe(context)
         refreshVoiceBacklog()
         withContext(Dispatchers.IO) { db.clearAllTables() }

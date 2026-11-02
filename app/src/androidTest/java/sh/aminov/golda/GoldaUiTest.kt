@@ -110,19 +110,14 @@ abstract class GoldaUiTest {
                 ?: config.getOrNull(SemanticsProperties.EditableText)?.text.orEmpty()
 
         /**
-         * Known data: onboarded, an hourly income of 2 000 ₽ with 10 % tax, payday on the 15th, rubles,
-         * dollars and lari shown, rubles local, and one free-money account per currency.
+         * Known data: onboarded, no daily limit, rubles, dollars and lari shown, rubles local, and one
+         * reserve account per currency.
          */
         suspend fun seed(repo: Repo) {
             repo.resetAll()
             repo.settings.update {
                 it.copy(
                     onboarded = true,
-                    incomeHourly = true,
-                    hourlyRate = 2_000.0,
-                    taxPercent = 10.0,
-                    hoursPerWeek = 40.0,
-                    payday = 15,
                     displayCurrencies = listOf("RUB", "USD", "GEL"),
                     localCurrency = "RUB",
                     markup = 0.10,

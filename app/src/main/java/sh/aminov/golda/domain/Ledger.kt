@@ -1,7 +1,10 @@
 package sh.aminov.golda.domain
 
 import sh.aminov.golda.data.Account
-import sh.aminov.golda.data.Obligation
+import sh.aminov.golda.data.AccountType
+import sh.aminov.golda.data.Bucket
+import sh.aminov.golda.data.Category
+import sh.aminov.golda.data.Operation
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Posting
@@ -75,6 +78,8 @@ data class Draft(
     val purchaseCurrency: String? = null,
     val isEstimate: Boolean = false,
     val voiceText: String? = null,
+    /** An expense's own bucket, when it is not its category's. */
+    val bucket: Bucket? = null,
     val id: Long = 0,
 )
 
@@ -145,113 +150,103 @@ object Ledger {
 }
 
 data class Today(
-    val freeRub: Long,
-    /** Monthly payments due before payday, already set aside. */
-    val obligationsRub: Long,
+    /** What may be spent on everyday things in a day: the limit set, or the usual pace when none is. */
+    val limitRub: Long,
+    /** No limit is set: [limitRub] follows the pace of the last 30 days. */
+    val autoLimit: Boolean,
+    /** Everyday spending today, from any account. */
     val spentTodayRub: Long,
-    val daysLeft: Int,
-    val perDayRub: Long,
     val leftTodayRub: Long,
-    val nextPayday: LocalDate,
-)
+    /** Everyday spending a day over the last 30 days before today; null with no full day recorded yet. */
+    val paceRub: Long?,
+    /** Regular payments (rent, phone, debts) spread over the days: what they cost a day on average. */
+    val regularPerDayRub: Long,
+    /** Money on the accounts counted in the reserve, debts left out. */
+    val reserveRub: Long,
+    /** How many days the reserve lasts at the current pace plus the regular payments; null if nothing is spent. */
+    val runwayDays: Long?,
+) {
+    /** The day the reserve runs out at this burn. */
+    fun runwayUntil(today: LocalDate): LocalDate? = runwayDays?.let { today.plusDays(it) }
+}
+
+object Buckets {
+    /** Rent, phone and subscriptions are regular; clothes, travel and health big one-offs; the rest everyday. */
+    fun default(key: String?): Bucket = when (key) {
+        "housing", "telecom", "subscriptions" -> Bucket.REGULAR
+        "clothes", "travel", "health" -> Bucket.BIG
+        else -> Bucket.DAILY
+    }
+
+    fun of(category: Category?): Bucket = category?.bucket ?: default(category?.key)
+
+    fun of(op: Operation, categories: Map<Long, Category>): Bucket = op.bucket ?: of(op.categoryId?.let { categories[it] })
+}
 
 object Budget {
+    /** Days the pace is measured over. */
+    const val PACE_DAYS = 30L
+
+    /** Days regular payments are averaged over, and the fewest they are ever spread across. */
+    const val REGULAR_DAYS = 90L
+    const val REGULAR_MIN_DAYS = 30L
+
+    /** Each expense with its day, bucket and ruble cost. */
+    private class Spend(val day: LocalDate, val bucket: Bucket, val rub: Long)
+
+    private fun spends(operations: List<OperationFull>, categories: Map<Long, Category>, zone: ZoneId): List<Spend> = operations
+        .filter { it.op.type == OpType.EXPENSE }
+        .map { Spend(Ledger.localDate(it.op.timestamp, zone), Buckets.of(it.op, categories), -it.postings.sumOf { p -> p.rubMinor }) }
+
     /**
-     * "Можно сегодня": free money at the start of the day split evenly over
-     * the days left until payday, minus what is already spent today.
+     * "Можно сегодня": the day's limit minus the everyday spending of today. The limit is the one set
+     * in settings, or the pace of the last 30 days when none is. The reserve is the money on the
+     * accounts counted in it, and the runway is how long it lasts at the pace (the limit before there
+     * is one) plus the regular payments, debts' monthly payments included.
      */
     fun today(
         states: Map<Long, AccountState>,
         operations: List<OperationFull>,
+        categories: Map<Long, Category>,
         settings: Settings,
         today: LocalDate,
         zone: ZoneId,
-        obligations: List<Obligation> = emptyList(),
         rates: Rates? = null,
     ): Today {
-        val free = states.values.filter { it.account.includeInFree }
-        val freeIds = free.map { it.account.id }.toSet()
-        val freeRub = free.sumOf { it.rubMinor }
-        val spentToday = operations
-            .filter { it.op.type == OpType.EXPENSE && Ledger.localDate(it.op.timestamp, zone) == today }
-            .flatMap { it.postings }
-            .filter { it.accountId in freeIds }
-            .sumOf { -it.rubMinor }
-        val payday = settings.nextPayday(today)
-        val days = ChronoUnit.DAYS.between(today, payday).toInt().coerceAtLeast(1)
-        val due = obligations.filter { nextDue(it.dayOfMonth, today).isBefore(payday) }.sumOf {
-            val left = unpaid(it, operations, today, zone)
-            if (it.currency == "RUB") left else rates?.rubMinor(left, it.currency) ?: 0
-        }
-        val perDay = (freeRub + spentToday - due) / days
-        return Today(freeRub, due, spentToday, days, perDay, perDay - spentToday, payday)
-    }
+        val spends = spends(operations, categories, zone)
+        val daily = spends.filter { it.bucket == Bucket.DAILY }
+        val spentToday = daily.filter { it.day == today }.sumOf { it.rub }
+        val first = spends.minOfOrNull { it.day }
 
-    /**
-     * Whether the pay period is going to plan: today's per-day budget minus the one the period
-     * started with. That baseline is the free money as of the end of the last payday (so the
-     * salary booked that day counts), less the payments due before the next payday, spread over
-     * the whole period. Positive means spending slower than the period allows.
-     *
-     * Null when there is nothing to compare with: payday is today, or no free money had been
-     * recorded before the last payday (a new user).
-     */
-    fun pace(
-        today: Today,
-        accounts: List<Account>,
-        operations: List<OperationFull>,
-        settings: Settings,
-        date: LocalDate,
-        zone: ZoneId,
-        obligations: List<Obligation> = emptyList(),
-        rates: Rates? = null,
-    ): Long? {
-        val next = settings.nextPayday(date)
-        val last = settings.lastPayday(date)
-        if (last == date) return null
-        val freeIds = accounts.filter { it.includeInFree }.map { it.id }.toSet()
-        val start = last.atStartOfDay(zone).toInstant().toEpochMilli()
-        val end = last.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val free = operations.flatMap { full -> full.postings.filter { it.accountId in freeIds }.map { full.op.timestamp to it } }
-        if (free.none { (time, _) -> time < start }) return null
-        val freeThen = free.filter { (time, _) -> time < end }.sumOf { (_, posting) -> posting.rubMinor }
-        val due = obligations.filter { nextDue(it.dayOfMonth, last).isBefore(next) }.sumOf {
+        val pace = pace(daily, first, today)
+        val limit = settings.dailyLimitRub.takeIf { it > 0 } ?: pace ?: 0
+
+        val regularFrom = maxOf(first ?: today, today.minusDays(REGULAR_DAYS - 1))
+        val regularSpan = (ChronoUnit.DAYS.between(regularFrom, today) + 1).coerceAtLeast(REGULAR_MIN_DAYS)
+        val regular = spends.filter { it.bucket == Bucket.REGULAR && !it.day.isBefore(regularFrom) && !it.day.isAfter(today) }.sumOf { it.rub }
+        val debts = Debts.obligations(states.values).sumOf {
             if (it.currency == "RUB") it.amountMinor else rates?.rubMinor(it.amountMinor, it.currency) ?: 0
         }
-        val days = ChronoUnit.DAYS.between(last, next).coerceAtLeast(1)
-        return today.perDayRub - (freeThen - due) / days
+        val regularPerDay = regular / regularSpan + debts * 12 / 365
+
+        val reserve = states.values
+            .filter { it.account.includeInFree && it.account.type != AccountType.CREDIT && it.account.type != AccountType.LOAN }
+            .sumOf { it.rubMinor }
+        val burn = (pace ?: limit) + regularPerDay
+        val runway = if (burn > 0) (reserve.coerceAtLeast(0) / burn) else null
+
+        return Today(limit, settings.dailyLimitRub <= 0, spentToday, limit - spentToday, pace, regularPerDay, reserve, runway)
     }
 
     /**
-     * What is still to pay of [obligation]'s next payment, given what was paid since it was last due:
-     * paid early, it is not set aside a second time. A debt's payment counts as paid by money moved
-     * into the debt account; any other obligation by an expense or transfer whose note names it
-     * ("Аренда" for the obligation "Аренда").
+     * Everyday spending a day over the last [PACE_DAYS] full days, counted from the first day anything
+     * was spent: a new user's pace is what they spent so far, not that diluted by days before the app.
      */
-    fun unpaid(obligation: Obligation, operations: List<OperationFull>, today: LocalDate, zone: ZoneId): Long {
-        val next = nextDue(obligation.dayOfMonth, today)
-        val month = YearMonth.from(next).minusMonths(1)
-        val previous = month.atDay(obligation.dayOfMonth.coerceIn(1, month.lengthOfMonth()))
-        val since = operations.filter {
-            val day = Ledger.localDate(it.op.timestamp, zone)
-            day.isAfter(previous) && !day.isAfter(today)
-        }
-        val paid = if (obligation.id < 0) {
-            val debt = -obligation.id
-            since.filter { it.op.type == OpType.TRANSFER || it.op.type == OpType.INCOME }
-                .flatMap { it.postings }
-                .filter { it.accountId == debt && it.amountMinor > 0 }
-                .sumOf { it.amountMinor }
-        } else {
-            val name = obligation.name.trim()
-            val named = since.any { full ->
-                val note = full.op.note.trim()
-                (full.op.type == OpType.EXPENSE || full.op.type == OpType.TRANSFER) && name.isNotEmpty() &&
-                    (note.equals(name, ignoreCase = true) || (name.length >= 4 && note.contains(name, ignoreCase = true)))
-            }
-            if (named) obligation.amountMinor else 0
-        }
-        return (obligation.amountMinor - paid).coerceAtLeast(0)
+    private fun pace(daily: List<Spend>, first: LocalDate?, today: LocalDate): Long? {
+        if (first == null || !first.isBefore(today)) return null
+        val from = maxOf(first, today.minusDays(PACE_DAYS))
+        val days = ChronoUnit.DAYS.between(from, today)
+        return daily.filter { !it.day.isBefore(from) && it.day.isBefore(today) }.sumOf { it.rub } / days
     }
 
     /** The next time a monthly payment on [day] comes, today included. */

@@ -5,15 +5,15 @@ import androidx.compose.runtime.Immutable
 import sh.aminov.golda.R
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
+import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.data.Category
-import sh.aminov.golda.data.Goal
 import sh.aminov.golda.data.Obligation
-import sh.aminov.golda.data.Wish
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Rate
 import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.domain.Base
+import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.I18n
@@ -35,8 +35,6 @@ class AppData(
     val categories: List<Category>,
     rateList: List<Rate>,
     val obligations: List<Obligation> = emptyList(),
-    val goals: List<Goal> = emptyList(),
-    val wishes: List<Wish> = emptyList(),
     /** The day it is: kept current by [rememberToday], so "Сегодня" and the budget turn over at midnight. */
     val today: LocalDate = LocalDate.now(),
 ) {
@@ -52,6 +50,9 @@ class AppData(
 
     /** Monthly payments typed in settings plus the ones debts carry. */
     val allObligations: List<Obligation> = obligations + Debts.obligations(states.values)
+
+    /** The day's limit, the pace and the reserve, as of [today]. */
+    val budget by lazy { Budget.today(states, operations, categoryById, settings, today, zone, rates) }
 
     /** Operations worth listing: opening balances are bookkeeping, not events. */
     val visibleOperations = operations.filter { it.op.type != OpType.OPENING }
@@ -85,6 +86,12 @@ fun typeLabel(type: AccountType) = when (type) {
     AccountType.SAVINGS -> tr("Накопительный", "Savings")
     AccountType.CREDIT -> tr("Кредитка", "Credit card")
     AccountType.LOAN -> tr("Кредит", "Loan")
+}
+
+fun bucketLabel(bucket: Bucket) = when (bucket) {
+    Bucket.DAILY -> tr("Каждый день", "Everyday")
+    Bucket.REGULAR -> tr("Регулярно", "Regular")
+    Bucket.BIG -> tr("Крупное", "Big")
 }
 
 fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {

@@ -913,7 +913,7 @@ object Tags {
     const val INSIGHTS_TOTAL = "insights-total"
 
     /** Home's "· N дней до зарплаты". */
-    const val HOME_PAYDAY = "home-payday"
+    const val HOME_RUNWAY = "home-runway"
 
     /** Settings' "Час на руки" value. */
     const val HOUR_NET = "hour-net"

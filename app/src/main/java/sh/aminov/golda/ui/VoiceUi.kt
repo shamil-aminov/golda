@@ -75,12 +75,12 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import sh.aminov.golda.R
+import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.Repo
 import sh.aminov.golda.data.VoiceOutcome
 import sh.aminov.golda.data.VoiceRecorder
 import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
-import sh.aminov.golda.domain.VoiceAction
 import sh.aminov.golda.domain.label
 import sh.aminov.golda.domain.tr
 import kotlin.math.sqrt
@@ -92,8 +92,7 @@ class VoiceControl(val state: VoiceState, val toggle: () -> Unit, val level: () 
 
 /**
  * Tap to talk, tap again when done. Results (also of notes understood later
- * from the offline queue) arrive through [Repo.voice] and end up as snackbars;
- * "хочу купить X" goes to [onConsider].
+ * from the offline queue) arrive through [Repo.voice] and end up as snackbars.
  */
 @Composable
 fun rememberVoice(
@@ -101,7 +100,6 @@ fun rememberVoice(
     data: AppData,
     snackbar: SnackbarHostState,
     requests: ReceiveChannel<Unit>,
-    onConsider: (List<VoiceAction.Consider>) -> Unit,
 ): VoiceControl {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -167,17 +165,18 @@ fun rememberVoice(
         repo.voice.collect { outcome ->
             when (outcome) {
                 is VoiceOutcome.Done -> {
-                    // Every "хочу купить" of the note, one after another.
-                    if (outcome.considering.isNotEmpty()) onConsider(outcome.considering)
                     if (outcome.recorded.isNotEmpty()) {
                         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        // An amount the model and the words disagree on is booked marked ≈, and said so.
+                        val doubtful = outcome.recorded.any { (_, draft) -> draft.isEstimate && draft.purchaseCurrency == null && draft.type != OpType.TRANSFER }
                         val text = outcome.recorded.joinToString(" · ") { (_, draft) -> describe(draft, latest) } +
                             (outcome.comment?.let { "\n$it" } ?: "") +
+                            (if (doubtful) "\n" + tr("Сумма под вопросом (≈) — проверь", "The amount is uncertain (≈): check it") else "") +
                             (if (outcome.misunderstood) "\n" + tr("Часть записи не разобрать — допиши через «+»", "Part of the note was unclear; add it with “+”") else "")
                         val prefix = if (outcome.late) tr("Из отложенного: ", "From a saved note: ") else ""
                         val result = snackbar.showSnackbar(prefix + text, actionLabel = tr("Отменить", "Undo"), duration = SnackbarDuration.Long)
                         if (result == SnackbarResult.ActionPerformed) repo.undo(outcome.undo)
-                    } else if (outcome.misunderstood && outcome.transcript.isNotBlank() && outcome.considering.isEmpty()) {
+                    } else if (outcome.misunderstood && outcome.transcript.isNotBlank()) {
                         // A blank transcript is a stray tap: nothing to say about it.
                         snackbar.showSnackbar(tr("Не разобрать: «${outcome.transcript}». Можно записать через «+»", "Couldn’t make out “${outcome.transcript}”. Add it with “+”"), duration = SnackbarDuration.Long)
                     }
