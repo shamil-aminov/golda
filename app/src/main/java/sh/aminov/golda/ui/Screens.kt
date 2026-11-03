@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -615,11 +616,15 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         val style = bigFigure(size)
         val muted = MaterialTheme.colorScheme.onSurfaceVariant
         val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
+        // Optically flush left: big digits carry their own side bearing, which at 94 sp reads as an
+        // indent of a few pixels against the caption above; pulled back by 3 % of the size.
+        val nudge = with(LocalDensity.current) { (size.toPx() * 0.03f).toDp() }
         Text(
             buildAnnotatedString {
                 append(digits)
                 if (sign != null) withStyle(SpanStyle(color = muted)) { append(" $sign") }
             },
+            Modifier.offset(x = -nudge),
             style = style,
             color = color,
             maxLines = 1,

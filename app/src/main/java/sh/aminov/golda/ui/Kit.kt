@@ -291,7 +291,7 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
                 it()
             }
         }
-        supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        supporting?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -1030,19 +1030,15 @@ const val ENTRY_FIGURE_SP = 58f
 /** A group's action in its header: "+ Добавить" as a small pill, its target 48 dp. */
 @Composable
 fun HeaderAction(text: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = tileColor(),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)),
-        modifier = Modifier.minimumInteractiveComponentSize(),
+    // Just the words and a plus, no pill: the header already says it is a group's action. No side
+    // padding, so its right edge is the amounts' edge under it.
+    Row(
+        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = Gap.s),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.padding(start = 10.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
-            Spacer(Modifier.width(Gap.xs))
-            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
-        }
+        Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
+        Spacer(Modifier.width(Gap.xs))
+        Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
     }
 }
 
