@@ -137,7 +137,7 @@ fun AccountSheet(
             VSpace(Gap.l)
             AccountCurrency(data, currency) { currency = it }
             VSpace(Gap.l)
-            Caption(if (debt) tr("Сколько должен сейчас", "How much you owe now") else tr("Сколько сейчас", "How much is there now"), Modifier.fillMaxWidth())
+            Caption(if (debt) tr("Сколько должен сейчас", "How much you owe now") else tr("Сколько сейчас", "Balance now"), Modifier.fillMaxWidth())
             HeroAmountField(balanceText, { balanceText = it }, Currencies.symbol(currency), onDone = ::save)
         }
 
@@ -169,7 +169,7 @@ fun AccountSheet(
                     )
                     if (type == AccountType.CREDIT) {
                         TonalPick(
-                            if (graceUntil == null) tr("Льготный период", "Grace period") else tr("Льгота до", "Free until"),
+                            if (graceUntil == null) tr("Льготный период", "Grace period") else tr("Льгота до", "Interest-free until"),
                             graceUntil?.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale)),
                             { pickingGrace = true },
                             Modifier.weight(1f),
@@ -187,7 +187,8 @@ fun AccountSheet(
             Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(free, role = Role.Switch) { includeInFree = it },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(tr("Тратить с него", "Spend from it"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            // Named as the period sheet and the account row name it; its words on the sheet's 24 line.
+            Text(tr("Карта трат", "Spending card"), Modifier.weight(1f).padding(start = LocalTextInset.current), style = MaterialTheme.typography.bodyLarge)
             CheckSwitch(free) { includeInFree = it }
         }
     }
@@ -225,7 +226,7 @@ private fun shortTypeLabel(type: AccountType) = when (type) {
     AccountType.CARD -> tr("Карта", "Card")
     AccountType.CASH -> tr("Наличные", "Cash")
     AccountType.SAVINGS -> tr("Вклад", "Savings")
-    AccountType.CREDIT -> tr("Кредитка", "Credit")
+    AccountType.CREDIT -> tr("Кредитка", "Credit card")
     AccountType.LOAN -> tr("Кредит", "Loan")
 }
 

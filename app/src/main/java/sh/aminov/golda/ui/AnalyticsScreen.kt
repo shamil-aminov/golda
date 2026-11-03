@@ -167,8 +167,17 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // The caption names the quantity, like Можно сегодня and Всего на счетах: "Траты за октябрь".
+                    // "За 30 дней" for the last days: "Траты за последние 30 дней" crowds the button.
                     val span = ReviewPrompt.title(period, today)
-                    Text((if (span.startsWith("с ")) tr("Траты ", "Spent ") else tr("Траты за ", "Spent in ")) + span, Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
+                    val recent = period.to == today && span.startsWith(tr("последние ", "last "))
+                    Text(
+                        when {
+                            recent -> tr("За ", "Last ") + span.substringAfter(' ')
+                            span.startsWith("с ") -> tr("Траты ", "Spent ") + span
+                            else -> tr("Траты за ", "Spent in ") + span
+                        },
+                        Modifier.weight(1f), style = text, color = quiet, maxLines = 1,
+                    )
                     // The one ice-blue thing in the app: the way to Gemini's reviews.
                     Button(
                         onClick = { onReviews(period) },
@@ -233,7 +242,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 LabelAmount(tr("Доходы", "Income"), data.base.approx(report.incomeRub))
                 if (report.fxVolumeRub > 0) {
                     VSpace(Gap.m)
-                    LabelAmount(tr("Потери на обмене", "Lost on exchange"), data.base.approx(report.fxLossRub))
+                    LabelAmount(tr("Потери на обмене", "Exchange losses"), data.base.approx(report.fxLossRub))
                 }
             }
         }

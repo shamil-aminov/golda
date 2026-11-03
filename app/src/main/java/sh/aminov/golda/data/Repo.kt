@@ -397,7 +397,7 @@ class Repo(
      */
     private suspend fun understandLocked(file: File, late: Boolean): VoiceOutcome {
         if (!file.exists()) return VoiceOutcome.Failed(tr("запись потерялась", "the note got lost"))
-        val aside = tr(" Запись отложена: «Настройки → Голос».", " The note is kept in Settings → Voice.")
+        val aside = tr(" Запись ждёт в настройках голоса", " The note waits in the voice settings")
         val outcome = try {
             write<VoiceOutcome> {
                 val s = settings.flow.first()
@@ -415,7 +415,7 @@ class Repo(
                         GeminiException.Kind.OFFLINE -> VoiceOutcome.Waiting(tr("Нет связи, запись разберётся позже", "No connection; the note will be worked out later"))
                         GeminiException.Kind.BUSY -> if (VoiceQueue.attempts(file) + 1 < VoiceQueue.MAX_ATTEMPTS) {
                             VoiceQueue.countAttempt(file)
-                            VoiceOutcome.Waiting(tr("Gemini не ответил (${e.message}), запись сохранена, попробую при следующем запуске", "Gemini did not answer (${e.message}); the note is kept and will be tried at the next start"))
+                            VoiceOutcome.Waiting(tr("Gemini не ответил, попробую при следующем запуске", "Gemini didn't answer; I'll try again at the next start"))
                         } else {
                             VoiceQueue.putAside(context, file)
                             VoiceOutcome.Failed("Gemini: ${e.message}." + aside)
@@ -443,7 +443,7 @@ class Repo(
             throw e
         } catch (e: Exception) {
             if (file.exists()) VoiceQueue.putAside(context, file)
-            VoiceOutcome.Failed(tr("Запись не получилось разобрать.", "The note could not be worked out.") + aside)
+            VoiceOutcome.Failed(tr("Запись не получилось разобрать.", "The note could not be processed.") + aside)
         }
         refreshVoiceBacklog()
         _voice.emit(outcome)

@@ -123,8 +123,8 @@ fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Unit, onSa
         VSpace(Gap.l)
         TonalField(
             dayText, { dayText = it.filter(Char::isDigit).take(2) }, Modifier.fillMaxWidth(),
-            label = tr("Какого числа списывается", "Day of the month it is charged"),
-            suffix = tr("числа каждого месяца", "of each month"),
+            label = tr("Спишется", "Charged on"),
+            suffix = tr("числа", "of the month"),
             keyboardType = KeyboardType.Number,
         )
         VSpace(Gap.s)

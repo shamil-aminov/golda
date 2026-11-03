@@ -46,6 +46,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   facets from cream to deep amber, the shaded ones fading toward their points
   (`tools/coin_ref.py`).
 
+- **Design review fixes.** An account's page leads with "Изменить счёт" as
+  the filled button, Сверить and Погасить досрочно stay small and tonal, and
+  a band keeps rows from running under the clock. "Разборы" sits at the
+  account title's height; its button is off while Gemini writes, and the
+  empty page says when a key is needed. The settings and currency headers
+  get a hairline once folded; the currency search lines up with the rows,
+  picked currencies keep the white card. The third date choice reads
+  "Дата"; field labels stay 14 sp; the early repayment results scroll clear
+  of "Готово". The theme in use is filled like any choice, the picked hue
+  carries a check, the preset row ends on a gap, and the theme's segmented
+  rows sit 8 dp from the edge like Insights'. Category colours keep out of
+  the review button's ice blue.
+- **Theme presets stay put.** Picking one off to the side no longer swings
+  the row back; half a chip shows at the edge, so the row plainly scrolls.
+- **Account cards look like cards** in the entry form and the period sheet:
+  a bank card's 1.586 : 1, the name at the top and the balance at the bottom.
+- **Wording.** One name for voice items, "голосовые"; "поправка" for a
+  reconciliation's difference; "Карта трат" for the account switch;
+  "За 30 дней" on Insights; "Обновляю" while rates update; shorter
+  onboarding lines; no full stops in one-line notices; English fixes
+  ("Exchange losses", "Total interest", "Credit card", "Balance now" and
+  others).
+
 - **Back is at the bottom** on Settings and an account's page, as on the
   forms and reviews; the account page has edit next to it.
 - **Insights** shows the total with the three buckets as filters, categories

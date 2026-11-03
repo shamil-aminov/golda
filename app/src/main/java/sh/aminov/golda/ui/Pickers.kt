@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -43,8 +46,8 @@ import java.time.LocalDate
 enum class DayPick { TODAY, YESTERDAY, OTHER }
 
 /**
- * The one way to pick a day everywhere: Сегодня, Вчера, and a third that is the calendar before a
- * day is picked and the day itself after. [onPick] gets null when the calendar should open.
+ * The one way to pick a day everywhere: Сегодня, Вчера, and a third that is the calendar and «Дата»
+ * before a day is picked and the day itself after. [onPick] gets null when the calendar should open.
  */
 @Composable
 fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit) {
@@ -67,7 +70,8 @@ fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit)
             DayPick.OTHER -> {
                 Icon(painterResource(R.drawable.ic_calendar), null, Modifier.size(18.dp))
                 Spacer(Modifier.width(Gap.xs))
-                ChoiceText(if (picked == DayPick.OTHER) dayLabel(date, today) else tr("Другой день", "Another day"))
+                // One short word, so the third choice never truncates on a narrow row; the picked day replaces it.
+                ChoiceText(if (picked == DayPick.OTHER) dayLabel(date, today) else tr("Дата", "Date"))
             }
         }
     }
@@ -75,10 +79,11 @@ fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit)
 
 /**
  * The one way to pick an account everywhere: cards in a row that scrolls sideways, edge to edge,
- * each with the name and the balance (or the currency). The picked one is filled.
+ * each shaped like a bank card with the name at the top and the balance (or the currency) at the bottom. The picked one is filled.
  */
 @Composable
 fun AccountCards(accounts: List<Account>, picked: Long?, onPick: (Long) -> Unit, subtitle: (Account) -> String) {
+    val cardWidth = 120.dp * LocalDensity.current.fontScale.coerceIn(1f, 1.4f)
     Row(
         Modifier.bleed(Gap.m).horizontalScroll(rememberScrollState()).padding(horizontal = Gap.m).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(Gap.s),
@@ -91,14 +96,16 @@ fun AccountCards(accounts: List<Account>, picked: Long?, onPick: (Long) -> Unit,
             val corner by animateDpAsState(if (on) 24.dp else 16.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "card-corner")
             Surface(
                 onClick = { onPick(account.id) },
-                modifier = Modifier.width(128.dp).heightIn(min = 64.dp).semantics { selected = on; role = Role.RadioButton },
+                // A bank card's 1.586 : 1, grown with the font up to a point so the words keep their room.
+                modifier = Modifier.width(cardWidth).aspectRatio(1.586f).semantics { selected = on; role = Role.RadioButton },
                 shape = RoundedCornerShape(corner),
                 color = container,
                 contentColor = ink,
             ) {
-                Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                // The name at the top, the balance at the bottom, as on a card.
+                Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
                     Text(account.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 14.sp))
-                    Text(subtitle(account), style = MaterialTheme.typography.labelLarge.merge(Tnum), color = ink.copy(alpha = 0.8f), maxLines = 1)
+                    Text(subtitle(account), style = MaterialTheme.typography.labelLarge.merge(Tnum), color = ink.copy(alpha = 0.8f), maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 14.sp))
                 }
             }
         }

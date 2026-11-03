@@ -113,7 +113,7 @@ private val categoryHues = mapOf(
 /** A category's colour in [tones]: its own hue at the theme's lightness and chroma; others grey. */
 fun categoryColor(key: String?, tones: Tones): Color {
     val hue = categoryHues[key] ?: return oklch(tones.infoL.toDouble(), 0.012, 90.0)
-    return oklch(tones.infoL.toDouble(), tones.infoC.toDouble(), hue)
+    return oklch(tones.infoL.toDouble(), tones.infoC.toDouble(), clearOfIce(hue))
 }
 
 /** A category's colour in the current theme. */
@@ -138,7 +138,20 @@ fun leitmotifColor(rank: Int?, tones: Tones): Color {
     // Neighbours differ in lightness too, not hue alone: colours that read as one hue to some eyes
     // (blue and violet, green and yellow) still come apart.
     val ladder = listOf(-0.04, -0.10, 0.05, -0.16, 0.05)[rank % 5]
-    return oklch((tones.infoL + ladder).toDouble(), chroma.coerceAtLeast(0.06), tones.seedHue + harmony[rank % harmony.size])
+    return oklch((tones.infoL + ladder).toDouble(), chroma.coerceAtLeast(0.06), clearOfIce(tones.seedHue + harmony[rank % harmony.size]))
+}
+
+/** Ice blue's hue: the Разбор button's alone, never a category's. */
+private const val ICE_HUE = 235.0
+
+/**
+ * A hue within 30° of [ICE_HUE] turned to its warm opposite, so no category reads as the review
+ * button. Pushed only to the band's edge it became periwinkle, which beside a mauve is the blue and
+ * violet pair some eyes cannot tell apart.
+ */
+private fun clearOfIce(hue: Double): Double {
+    val h = ((hue % 360) + 360) % 360
+    return if (kotlin.math.abs(h - ICE_HUE) >= 30) h else (h + 180) % 360
 }
 
 /** How the money is doing, on the home bar: the theme's own colour while it lasts, red once overspent. */
@@ -204,11 +217,12 @@ private fun decode(x: Double) = if (x <= 0.04045) x / 12.92 else ((x + 0.055) / 
  */
 private val clearSet = listOf(
     Triple(0.72, 0.16, 55.0), Triple(0.60, 0.13, 245.0), Triple(0.82, 0.10, 355.0), Triple(0.50, 0.09, 195.0),
-    Triple(0.88, 0.07, 80.0), Triple(0.42, 0.12, 265.0), Triple(0.68, 0.14, 20.0), Triple(0.78, 0.05, 220.0),
+    // The last a warm taupe, not the pale blue it was: that was ice blue, the review button's.
+    Triple(0.88, 0.07, 80.0), Triple(0.42, 0.12, 265.0), Triple(0.68, 0.14, 20.0), Triple(0.76, 0.04, 60.0),
 )
 
 /** The light theme's pale ones made deeper so they hold on white; the dark theme's deep ones lighter. */
-private val clearDay = mapOf(2 to Triple(0.74, 0.12, 355.0), 4 to Triple(0.80, 0.11, 80.0), 6 to Triple(0.64, 0.15, 20.0), 7 to Triple(0.70, 0.06, 220.0))
+private val clearDay = mapOf(2 to Triple(0.74, 0.12, 355.0), 4 to Triple(0.80, 0.11, 80.0), 6 to Triple(0.64, 0.15, 20.0), 7 to Triple(0.68, 0.05, 60.0))
 private val clearNight = mapOf(1 to Triple(0.62, 0.13, 245.0), 3 to Triple(0.56, 0.09, 195.0), 5 to Triple(0.50, 0.13, 275.0))
 
 private fun clearColour(rank: Int, dark: Boolean): Color {

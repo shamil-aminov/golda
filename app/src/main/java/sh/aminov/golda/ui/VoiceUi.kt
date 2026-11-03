@@ -237,7 +237,7 @@ fun GoldaToolbar(
     val label = when (voice.state) {
         VoiceState.Idle -> tr("Сказать", "Say it")
         VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
-        VoiceState.Thinking -> tr("Разбираю", "Working it out")
+        VoiceState.Thinking -> tr("Разбираю", "Thinking")
     }
     // The bar and the mic side by side, each with a soft shadow all round: Material's elevation
     // drops the shadow below them.

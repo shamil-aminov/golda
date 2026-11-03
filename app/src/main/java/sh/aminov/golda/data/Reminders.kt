@@ -84,9 +84,9 @@ class DebtReminder(context: Context, params: WorkerParameters) : CoroutineWorker
                 val days = java.time.temporal.ChronoUnit.DAYS.between(today, until)
                 if (days == 7L || days == 1L || days == 0L) {
                     val owed = Fmt.amount(-state.balanceMinor, account.currency)
-                    val text = if (days == 0L) tr("Льготный период кончается сегодня. Погаси $owed.", "The interest-free period ends today. Pay $owed.")
-                    else tr("Льготный период кончается через $days ${plural(days, "день", "дня", "дней", "day", "days")}. Погаси $owed.",
-                        "The interest-free period ends in $days ${plural(days, "день", "дня", "дней", "day", "days")}. Pay $owed.")
+                    val text = if (days == 0L) tr("Льготный период кончается сегодня. Погаси $owed", "The interest-free period ends today. Pay $owed")
+                    else tr("Льготный период кончается через $days ${plural(days, "день", "дня", "дней", "day", "days")}. Погаси $owed",
+                        "The interest-free period ends in $days ${plural(days, "день", "дня", "дней", "day", "days")}. Pay $owed")
                     notify(app, "debts", name, 200_000 + account.id.toInt(), account.name, text)
                 }
             }

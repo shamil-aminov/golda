@@ -76,7 +76,7 @@ fun Onboarding(
                 when (step) {
                     0 -> {
                         Text(
-                            tr("Любая сумма будет видна сразу во всех выбранных валютах. Основная валюта рубль.", "Every amount shows in all the chosen currencies at once. The ruble is the main one."),
+                            tr("Каждая сумма видна во всех выбранных валютах сразу", "Every amount shows in all the chosen currencies at once"),
                             Modifier.padding(horizontal = Gap.l),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -96,7 +96,7 @@ fun Onboarding(
                     }
                     else -> {
                         Text(
-                            tr("Карты, наличные, накопительные счета и долги с текущими балансами. Неточные цифры потом легко поправить сверкой.", "Cards, cash, savings and debts with their balances now. Rough numbers are easy to fix later by reconciling."),
+                            tr("Карты, наличные, вклады и долги с балансом на сегодня. Неточность потом поправит сверка", "Cards, cash, savings and debts with today's balances. Reconciling fixes anything off later"),
                             Modifier.padding(horizontal = Gap.l),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

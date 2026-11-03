@@ -88,7 +88,8 @@ fun CurrencyPage(data: AppData, pick: CurrencyPick, onChange: ((Settings) -> Set
     ) { padding ->
         LazyColumn(contentPadding = PaddingValues(start = Gap.m, end = Gap.m, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.xl)) {
             item(key = "search") {
-                TonalField(query, { query = it }, Modifier.fillMaxWidth().padding(top = Gap.s), placeholder = tr("Найти валюту", "Find a currency"))
+                // Out to the cards' edge, 8 from the screen, so its text starts on the rows' 24 line.
+                TonalField(query, { query = it }, Modifier.bleed(Gap.s).fillMaxWidth().padding(top = Gap.s), placeholder = tr("Найти валюту", "Find a currency"))
             }
             val shownTop = top.filter(::matches)
             val shownRest = rest.filter(::matches)
@@ -104,7 +105,7 @@ fun CurrencyPage(data: AppData, pick: CurrencyPick, onChange: ((Settings) -> Set
     }
 }
 
-/** One currency: its name, the code and sign under it, a check when picked. */
+/** One currency: its name, the code and sign under it, a check when picked; the card stays white. */
 @Composable
 private fun CurrencyRow(code: String, on: Boolean, index: Int, count: Int, onClick: () -> Unit) {
     GroupRow(
@@ -113,6 +114,5 @@ private fun CurrencyRow(code: String, on: Boolean, index: Int, count: Int, onCli
         supporting = { Text(currencyLabel(code)) },
         trailing = if (on) ({ Icon(painterResource(R.drawable.ic_check), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface) }) else null,
         trailingOnTitle = false,
-        container = if (on) unpickedColor() else tileColor(),
     ) { Text(currencyName(code), style = MaterialTheme.typography.titleMedium) }
 }
