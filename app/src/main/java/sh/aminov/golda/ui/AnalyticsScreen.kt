@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -100,6 +101,7 @@ import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.PeriodKind
 import sh.aminov.golda.domain.label
+import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
 import java.time.Instant
 import java.time.LocalDate
@@ -224,10 +226,24 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         } else {
             item(key = "mosaic") {
                 // The categories as a mosaic: each a tile in its colour, as big as its share.
-                val items = remember(shown, colours) {
-                    shown.categories.map { spend ->
+                val restColor = MaterialTheme.colorScheme.outlineVariant
+                val items = remember(shown, colours, restColor) {
+                    val all = shown.categories.map { spend ->
                         MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, colours[spend.categoryId?.let { data.categoryById[it]?.key }] ?: leitmotifColor(null, tones))
                     }
+                    // The few that matter get tiles; the small ones go together into one quiet grey tile,
+                    // named by how many it holds, so it never reads as a category of its own.
+                    val (own, rest) = Treemap.group(all.map { it.rub })
+                    own.map { all[it] } + listOfNotNull(
+                        rest.takeIf { it.isNotEmpty() }?.let { r ->
+                            val rub = r.sumOf { all[it].rub }
+                            MosaicItem(
+                                tr("Ещё ", "") + r.size + " " + plural(r.size.toLong(), "категория", "категории", "категорий", "more category", "more categories"),
+                                data.base.whole(rub), rub, restColor,
+                                contains = r.joinToString(", ") { all[it].name },
+                            )
+                        },
+                    )
                 }
                 Mosaic(items, Modifier.padding(horizontal = Gap.s))
             }
@@ -274,7 +290,14 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
 }
 
 /** A category in the [Mosaic]. */
-private data class MosaicItem(val name: String, val amount: String, val rub: Long, val color: Color)
+private data class MosaicItem(
+    val name: String,
+    val amount: String,
+    val rub: Long,
+    val color: Color,
+    /** For the tile of the rest: the categories in it, read out by TalkBack. */
+    val contains: String? = null,
+)
 
 /**
  * The categories as a squarified treemap: the biggest share the biggest tile, in each category's
@@ -317,7 +340,9 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
                             .graphicsLayer { alpha = shown.value; scaleX = 0.92f + 0.08f * shown.value; scaleY = 0.92f + 0.08f * shown.value }
                             .clip(RoundedCornerShape(corner))
                             .background(item.color)
-                            .semantics(mergeDescendants = true) { contentDescription = "${item.name}, ${item.amount}, ${wholePercent(item.rub.toDouble() / total)}" }
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = "${item.name}, ${item.amount}, ${wholePercent(item.rub.toDouble() / total)}" + item.contains?.let { ": $it" }.orEmpty()
+                            }
                             .padding(14.dp),
                     ) {
                         if (roomy[tile.index] == true) {
@@ -330,11 +355,15 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
                     }
                 }
             }
-            // A legend for the tiles too small for words: a dot of each one's colour, its name and amount.
+            // A legend for the tiles too small for words: a dot of each one's colour, its name and amount;
+            // three at most, the rest's tile always last.
             val small = tiles.filter { roomy[it.index] != true }.map { items[it.index] }
+                .sortedBy { it.contains != null }
+                .let { list -> if (list.size <= 3) list else list.filter { it.contains == null }.take(2) + list.filter { it.contains != null }.ifEmpty { list.drop(2).take(1) } }
             if (small.isNotEmpty()) {
                 VSpace(Gap.s)
-                Row(Modifier.padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.m)) {
+                // Wraps to a second line rather than running off the edge.
+                FlowRow(Modifier.padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.m), verticalArrangement = Arrangement.spacedBy(Gap.xs)) {
                     small.forEach { item ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(10.dp).clip(CircleShape).background(item.color))

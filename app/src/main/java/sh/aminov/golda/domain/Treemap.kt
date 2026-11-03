@@ -9,6 +9,19 @@ data class TreeTile(val index: Int, val x: Float, val y: Float, val width: Float
  * squares as they can be, biggest first. Zero and negative values get no tile.
  */
 object Treemap {
+    /**
+     * Which values get a tile of their own and which go into one "the rest" tile: the biggest
+     * [maxShown] that are at least [minShare] of the total each; the rest together, unless the rest
+     * is a single value, which then keeps its own tile. Indices into [values], biggest first.
+     */
+    fun group(values: List<Long>, maxShown: Int = 4, minShare: Double = 0.05): Pair<List<Int>, List<Int>> {
+        val order = values.indices.filter { values[it] > 0 }.sortedByDescending { values[it] }
+        val total = order.sumOf { values[it] }.toDouble()
+        val own = order.take(maxShown).filter { values[it] / total >= minShare }
+        val rest = order - own.toSet()
+        return if (rest.size < 2) order to emptyList() else own to rest
+    }
+
     fun layout(values: List<Long>, width: Float, height: Float): List<TreeTile> {
         val items = values.withIndex().filter { it.value > 0 }.sortedByDescending { it.value }
         val total = items.sumOf { it.value }.toDouble()

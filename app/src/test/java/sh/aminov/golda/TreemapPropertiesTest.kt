@@ -81,4 +81,38 @@ class TreemapPropertiesTest {
         assertTrue(Treemap.layout(listOf(1, 2), 10f, 0f).isEmpty())
         assertTrue(Treemap.layout(listOf(0, -5), 10f, 10f).isEmpty())
     }
+
+    @Test
+    fun theFewThatMatterGetTilesTheRestOneTogether() {
+        // 59 %, 24 %, 8 %, 3 %, 2 %, 2 %, 1 %, 1 %: three own tiles, five together.
+        val (own, rest) = Treemap.group(listOf(5_900L, 800, 2_400, 300, 200, 200, 100, 100))
+        assertEquals(listOf(0, 2, 1), own)
+        assertEquals(listOf(3, 4, 5, 6, 7), rest)
+        // Four at most, even when a fifth is big enough.
+        val (four, more) = Treemap.group(listOf(30L, 20, 15, 12, 10, 8, 5))
+        assertEquals(4, four.size)
+        assertEquals(listOf(4, 5, 6), more)
+        // A rest of one keeps its own tile: nothing is gained by naming it "one more".
+        val (all, none) = Treemap.group(listOf(50L, 30, 15, 3))
+        assertEquals(listOf(0, 1, 2, 3), all)
+        assertTrue(none.isEmpty())
+        // At exactly five per cent a category still has its own tile; nothing and negatives are left out.
+        val (edge, small) = Treemap.group(listOf(95L, 5, 0, -3))
+        assertEquals(listOf(0, 1), edge)
+        assertTrue(small.isEmpty())
+        val (two, together) = Treemap.group(listOf(940L, 50, 6, 4))
+        assertEquals(listOf(0, 1), two)
+        assertEquals(listOf(2, 3), together)
+    }
+
+    @Test
+    fun groupingKeepsEveryValueOnce() = prop {
+        checkAll(Arb.list(Arb.long(-10L..1_000_000L), 0..20)) { values ->
+            val (own, rest) = Treemap.group(values)
+            assertEquals(values.indices.filter { values[it] > 0 }.toSet(), (own + rest).toSet())
+            assertEquals(own.size + rest.size, (own + rest).toSet().size)
+            assertTrue(own.size <= 4 || rest.isEmpty())
+            assertTrue(rest.isEmpty() || rest.size >= 2)
+        }
+    }
 }
