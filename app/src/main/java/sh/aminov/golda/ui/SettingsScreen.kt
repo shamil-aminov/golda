@@ -107,16 +107,15 @@ fun SettingsScreen(
     val s = data.settings
     BackHandler(onBack = onBack)
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+    val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
+        topBar = { CollapsingHeader(tr("Настройки", "Settings"), onBack, bar) },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
         Column(
             Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.xl),
         ) {
-            // A page with nothing to do on it: back is the plain arrow at the top, as everywhere.
-            IconButton(onClick = onBack, modifier = Modifier.offset(x = -Gap.s)) {
-                Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back"))
-            }
-            Text(tr("Настройки", "Settings"), style = MaterialTheme.typography.headlineMedium)
-            VSpace(Gap.l)
             GroupLabel(tr("Где я", "Where I am"))
             SettingRow(
                 0, 3, tr("Местная валюта", "Local currency"),

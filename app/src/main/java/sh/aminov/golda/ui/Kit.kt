@@ -80,6 +80,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.material3.SegmentedListItem
@@ -576,6 +580,36 @@ fun FormPage(
                 )
             }
         }
+    }
+}
+
+/**
+ * A page's header the way Android's own settings do it: a tall empty space with the title big and
+ * bold at its foot, folding into a plain bar (back and the title) that stays put while the page
+ * scrolls, with a hairline under it once something is underneath.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollBehavior) {
+    val type = MaterialTheme.typography
+    val page = MaterialTheme.colorScheme.background
+    Column {
+        // The bar takes its expanded and collapsed titles from these two styles.
+        MaterialTheme(
+            typography = type.copy(
+                headlineMedium = type.displaySmall.copy(fontWeight = FontWeight.SemiBold),
+                titleLarge = type.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            ),
+        ) {
+            LargeTopAppBar(
+                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
+                expandedHeight = 200.dp,
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
+                scrollBehavior = scroll,
+            )
+        }
+        if (scroll.state.collapsedFraction > 0.99f) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
