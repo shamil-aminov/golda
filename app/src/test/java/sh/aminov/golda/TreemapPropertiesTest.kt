@@ -115,4 +115,27 @@ class TreemapPropertiesTest {
             assertTrue(rest.isEmpty() || rest.size >= 2)
         }
     }
+
+    @Test
+    fun theRestGoesInTheFarCorner() {
+        // The rest (5 105) is bigger than the last category (4 291) but is laid out after it.
+        val tiles = Treemap.layout(listOf(31_280L, 12_727, 4_291, 5_105), 400f, 260f, lastStaysLast = true)
+        assertEquals(3, tiles.last().index)
+        val rest = tiles.last()
+        assertEquals(400f, rest.x + rest.width, 0.5f)
+        assertEquals(260f, rest.y + rest.height, 0.5f)
+        // Without it, biggest first as always.
+        assertEquals(listOf(0, 1, 3, 2), Treemap.layout(listOf(31_280L, 12_727, 4_291, 5_105), 400f, 260f).map { it.index })
+    }
+
+    @Test
+    fun theRestStillFillsItsShare() = prop {
+        checkAll(Arb.list(Arb.long(1L..1_000_000L), 2..10), Arb.int(50..800), Arb.int(50..800)) { values, w, h ->
+            val tiles = Treemap.layout(values, w.toFloat(), h.toFloat(), lastStaysLast = true)
+            assertEquals(values.lastIndex, tiles.last().index)
+            val total = values.sum().toDouble(); val area = w.toDouble() * h
+            for (t in tiles) assertEquals(values[t.index] / total * area, t.width.toDouble() * t.height, area * 2e-4)
+            for (i in tiles.indices) for (j in i + 1 until tiles.size) assertEquals(0.0, overlap(tiles[i], tiles[j]), area * 1e-4)
+        }
+    }
 }

@@ -316,7 +316,8 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val w = with(density) { maxWidth.toPx() }
         val h = with(density) { 260.dp.toPx() }
-        val tiles = remember(items, w, h) { Treemap.layout(items.map { it.rub }, w, h) }
+        // The tile of the rest, if there is one, goes in the far corner after all the categories.
+        val tiles = remember(items, w, h) { Treemap.layout(items.map { it.rub }, w, h, lastStaysLast = items.lastOrNull()?.contains != null) }
         val roomy = remember(tiles, density) {
             tiles.associate { t -> t.index to with(density) { t.width.toDp() >= wordsW && t.height.toDp() >= wordsH } }
         }

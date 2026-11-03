@@ -22,8 +22,12 @@ object Treemap {
         return if (rest.size < 2) order to emptyList() else own to rest
     }
 
-    fun layout(values: List<Long>, width: Float, height: Float): List<TreeTile> {
-        val items = values.withIndex().filter { it.value > 0 }.sortedByDescending { it.value }
+    fun layout(values: List<Long>, width: Float, height: Float, lastStaysLast: Boolean = false): List<TreeTile> {
+        // Biggest first; with [lastStaysLast] the last value is laid out last whatever its size, so it
+        // lands in the far corner (the tile of the rest).
+        val positive = values.withIndex().filter { it.value > 0 }
+        val tail = positive.lastOrNull()?.takeIf { lastStaysLast && it.index == values.lastIndex }
+        val items = (positive - listOfNotNull(tail).toSet()).sortedByDescending { it.value } + listOfNotNull(tail)
         val total = items.sumOf { it.value }.toDouble()
         if (items.isEmpty() || width <= 0f || height <= 0f) return emptyList()
         // Areas in the area's units, so a row's side lengths come straight out.

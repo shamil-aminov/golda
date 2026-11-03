@@ -21,8 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - The mosaic shows at most four categories of five per cent or more; the
-  small ones go together into one grey tile, "Ещё 6 категорий", and the line
-  under it names three at most.
+  small ones go together into one grey tile, "Ещё 6 категорий", always in the
+  far corner, and the line under it names three at most.
 - "15 тысяч" is read as fifteen thousand when the app checks the model's
   sum against the words; before, "куртка 15 тысяч рублей" was booked as 15 ₽.
   A transfer the model leaves without a sum takes the one the words say.
