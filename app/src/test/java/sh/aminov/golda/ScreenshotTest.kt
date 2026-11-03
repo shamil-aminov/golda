@@ -70,9 +70,9 @@ class ScreenshotTest {
         )
     }
 
-    @Test fun home() = shot("home") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, {}) }
+    @Test fun home() = shot("home") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {}) }
 
-    @Test fun homeDark() = shot("home_dark", palette = "midnight") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, {}) }
+    @Test fun homeDark() = shot("home_dark", palette = "midnight") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {}) }
 
     @Test fun accounts() = shot("accounts") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
 

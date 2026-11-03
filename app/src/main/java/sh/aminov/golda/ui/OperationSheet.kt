@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -84,6 +86,7 @@ import sh.aminov.golda.data.Category
 import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.data.CategoryKind
 import sh.aminov.golda.data.OpType
+import sh.aminov.golda.data.Obligation
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Currencies
@@ -103,9 +106,14 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
 
-/** What opens the entry sheet: an operation to edit, or nothing for a new one. */
+/**
+ * What opens the entry sheet: an operation to edit; or a new one, empty, like an earlier one
+ * ([copy], "Повторить": the same purchase today), or for a regular [payment] on its day.
+ */
 data class EntryRequest(
     val editing: OperationFull? = null,
+    val copy: OperationFull? = null,
+    val payment: Obligation? = null,
 )
 
 /** Manual entry and editing of expenses, income and transfers. */
@@ -117,14 +125,22 @@ fun EntrySheet(
     onDismiss: () -> Unit,
     onSave: (Draft) -> Unit,
     onDelete: (OperationFull) -> Unit,
+    /** "Повторить": the same purchase again, today. */
+    onRepeat: (OperationFull) -> Unit = {},
+    /** A regular expense saved as a monthly payment too. */
+    onRegular: (Obligation) -> Unit = {},
     /** The category a note most likely means: the history, else Gemini; null when neither knows. */
     suggest: suspend (String, CategoryKind) -> Long? = { _, _ -> null },
 ) {
     val editing = request.editing
     val op = editing?.op
+    // Where the form's first values come from: the operation edited, or the one repeated (dated today).
+    val like = editing ?: request.copy
+    val from = like?.op
+    val payment = request.payment
     val accounts = data.accounts
-    val outPosting = editing?.postings?.firstOrNull { it.amountMinor < 0 } ?: editing?.postings?.firstOrNull()
-    val inPosting = editing?.postings?.firstOrNull { it.amountMinor > 0 && it !== outPosting }
+    val outPosting = like?.postings?.firstOrNull { it.amountMinor < 0 } ?: like?.postings?.firstOrNull()
+    val inPosting = like?.postings?.firstOrNull { it.amountMinor > 0 && it !== outPosting }
     // A new purchase is paid from where voice would pay it: the last account if it is in the purchase's
     // currency (the local one), else a free-money account in that currency,
     // else the last one anyway, and the charge is converted. So changing the local currency moves the
@@ -137,7 +153,7 @@ fun EntrySheet(
         return
     }
 
-    var type by remember { mutableStateOf(op?.type ?: OpType.EXPENSE) }
+    var type by remember { mutableStateOf(from?.type ?: OpType.EXPENSE) }
     var accountId by remember { mutableStateOf(outPosting?.accountId ?: defaultAccount?.id) }
     var toAccountId by remember { mutableStateOf(inPosting?.accountId ?: accounts.firstOrNull { it.id != accountId }?.id) }
     val account = accountId?.let { data.accountById[it] }
@@ -146,14 +162,17 @@ fun EntrySheet(
     // A new purchase starts in the local currency, as voice does; an edit keeps what was stored.
     // Only an expense has a purchase currency of its own: a voice income in dollars credited to a ruble
     // account keeps the dollars for its row, but the form edits what the account got.
-    val purchased = (op?.type == OpType.EXPENSE || op?.type == OpType.INCOME) && op.purchaseAmountMinor != null && op.purchaseCurrency != null
+    val purchased = (from?.type == OpType.EXPENSE || from?.type == OpType.INCOME) && from.purchaseAmountMinor != null && from.purchaseCurrency != null
     var purchaseCurrency by remember {
-        mutableStateOf((if (purchased) op.purchaseCurrency else null) ?: if (op != null) account?.currency ?: "RUB" else data.settings.localCurrency)
+        mutableStateOf(
+            payment?.currency ?: (if (purchased) from.purchaseCurrency else null) ?: if (from != null) account?.currency ?: "RUB" else data.settings.localCurrency,
+        )
     }
     var amountText by remember {
         mutableStateOf(
             when {
-                purchased -> Fmt.editable(op.purchaseAmountMinor, op.purchaseCurrency)
+                payment != null -> if (payment.amountMinor > 0) Fmt.editable(payment.amountMinor, payment.currency) else ""
+                purchased -> Fmt.editable(from.purchaseAmountMinor, from.purchaseCurrency)
                 outPosting != null && account != null -> Fmt.editable(kotlin.math.abs(outPosting.amountMinor), account.currency)
                 else -> ""
             },
@@ -169,19 +188,19 @@ fun EntrySheet(
             },
         )
     }
-    var secondEdited by remember { mutableStateOf(op != null && !op.isEstimate) }
+    var secondEdited by remember { mutableStateOf(from != null && !from.isEstimate) }
     var editingSecond by remember { mutableStateOf(false) }
-    var categoryId by remember { mutableStateOf(op?.categoryId) }
+    var categoryId by remember { mutableStateOf(from?.categoryId) }
     // A new entry's category and account are worked out by the app until one is picked by hand: then
     // that pill keeps what was picked. An edit keeps what was stored.
-    var categoryAuto by remember { mutableStateOf(op == null) }
-    var accountAuto by remember { mutableStateOf(op == null) }
+    var categoryAuto by remember { mutableStateOf(from == null) }
+    var accountAuto by remember { mutableStateOf(from == null) }
     var thinking by remember { mutableStateOf(false) }
     // The bucket comes first: everyday, regular or big; its four categories follow. A new entry's bucket
     // follows the category the app picks until one is tapped.
-    var bucket by remember { mutableStateOf(op?.let { Buckets.of(it, data.categoryById) } ?: Bucket.DAILY) }
-    var bucketAuto by remember { mutableStateOf(op == null) }
-    var note by remember { mutableStateOf(op?.note.orEmpty()) }
+    var bucket by remember { mutableStateOf(from?.let { Buckets.of(it, data.categoryById) } ?: if (payment != null) Bucket.REGULAR else Bucket.DAILY) }
+    var bucketAuto by remember { mutableStateOf(from == null && payment == null) }
+    var note by remember { mutableStateOf(from?.note ?: payment?.name.orEmpty()) }
     var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: data.today) }
     var pickingDate by remember { mutableStateOf(false) }
 
@@ -241,7 +260,17 @@ fun EntrySheet(
         )
     }
 
-    fun save() { if (valid) onSave(draft()) }
+    // A new expense in "Регулярные" offers to come back every month, on by default: it goes into the
+    // regular payments as it is saved. Not when a payment of that name is there already.
+    val offersMonthly = editing == null && payment == null && type == OpType.EXPENSE && bucket == Bucket.REGULAR &&
+        note.isNotBlank() && data.obligations.none { it.name.trim().equals(note.trim(), ignoreCase = true) }
+    var monthly by remember { mutableStateOf(true) }
+
+    fun save() {
+        if (!valid) return
+        if (offersMonthly && monthly) onRegular(Obligation(name = note.trim(), amountMinor = amount!!, currency = amountCode, dayOfMonth = date.dayOfMonth))
+        onSave(draft())
+    }
 
     // Where the latest transfer went from and to: the next one is usually the same trip.
     val lastTransfer = remember(data.operations) {
@@ -311,7 +340,7 @@ fun EntrySheet(
     }
 
     val focus = remember { FocusRequester() }
-    FocusWhenShown(focus, enabled = editing == null)
+    FocusWhenShown(focus, enabled = editing == null && request.copy == null && (payment == null || payment.amountMinor == 0L))
     val keyboard = LocalSoftwareKeyboardController.current
 
     FormPage(
@@ -321,6 +350,7 @@ fun EntrySheet(
         actions = {
             RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
             if (editing != null) RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete")) { onDelete(editing) }
+            if (editing != null && op?.type == OpType.EXPENSE) RoundAction(R.drawable.ic_repeat, tr("Повторить сегодня", "Repeat today")) { onRepeat(editing) }
             PrimaryAction(if (op == null) tr("Записать", "Save") else tr("Сохранить", "Save"), ::save, valid)
         },
     ) {
@@ -446,6 +476,22 @@ fun EntrySheet(
                         auto = categoryAuto,
                         onPick = { categoryId = if (categoryId == it && !categoryAuto) null else it; categoryAuto = false },
                     )
+                    if (offersMonthly) {
+                        VSpace(Gap.s)
+                        // The whole line flips the switch.
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
+                                .toggleable(value = monthly, role = Role.Switch) { monthly = it }
+                                .padding(horizontal = Gap.s, vertical = Gap.xs),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                tr("Каждый месяц, ${date.dayOfMonth} числа", "Every month, on the ${date.dayOfMonth}"),
+                                Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+                            )
+                            CheckSwitch(monthly, null)
+                        }
+                    }
                     VSpace(Gap.m)
                     AccountCards(accounts.filter { it.type != AccountType.LOAN }, accountId, ::pickAccount) { a -> data.states[a.id]?.let { Fmt.amount(it.balanceMinor, a.currency) } ?: Currencies.symbol(a.currency) }
                     VSpace(Gap.m)

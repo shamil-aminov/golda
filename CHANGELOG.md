@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **A mosaic tile opens its purchases**: tap "Еда" and see the period's meals,
+  newest first; tap one to edit it. The grey "Ещё N" tile lists all of its
+  categories' purchases.
+- **A regular payment due is booked from home** with one tap: the entry form
+  comes filled in (name, amount, currency, "Регулярные"), and once booked it
+  leaves the list.
+- **A new expense in "Регулярные" becomes a regular payment** as it is saved:
+  "Каждый месяц, 15 числа" is on by default under the categories, and is not
+  offered when a payment of that name exists.
+- **"Повторить" in an expense's form**: the same purchase again, today.
+- **A copy every week** (Settings → Data): into a folder picked once, the last
+  four kept, the date of the last one under the switch.
+
+### Changed
+
+- Years of records stay quick: the app's figures are worked out off the main
+  thread, and a range of months or years is drawn in bars of a week or a month
+  (and read so by reviews) instead of a sliver per day.
+
 ## [0.17.2] — 2026-11-03
 
 ### Added

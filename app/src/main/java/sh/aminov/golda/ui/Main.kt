@@ -13,6 +13,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.animation.core.Spring
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.togetherWith
@@ -128,9 +129,12 @@ fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: Rece
     // Read before the early return, so the ticker keeps running from the first frame.
     val today = rememberToday()
     val s = settings ?: return
-    val data = remember(s, accounts, operations, categories, rates, obligations, today) {
-        AppData(s, accounts, operations, categories, rates, obligations, today)
+    // Worked out off the main thread: years of records take a noticeable moment on a phone, and a
+    // save must not stall a frame. Until the new snapshot is ready the screens keep the last one.
+    val built by produceState<AppData?>(null, s, accounts, operations, categories, rates, obligations, today) {
+        value = withContext(Dispatchers.Default) { AppData(s, accounts, operations, categories, rates, obligations, today).also { it.envelope } }
     }
+    val data = built ?: return
     val scope = rememberCoroutineScope()
     val change: ((Settings) -> Settings) -> Unit = { f -> scope.launch { repo.settings.update(f) } }
 
@@ -427,7 +431,10 @@ private fun MainScreen(
                 ),
             ) { index ->
                     when (index) {
-                        0 -> HomeScreen(data, padding, homeList, onSettings = { page = Page.Settings }, onPeriod = { periodOpen = true }) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
+                        0 -> HomeScreen(
+                            data, padding, homeList, onSettings = { page = Page.Settings }, onPeriod = { periodOpen = true },
+                            onPayment = { sheet = Sheet.Entry(EntryRequest(payment = it)) },
+                        ) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
                         1 -> AccountsScreen(
                             data, padding,
                             onOpen = { page = Page.AccountPage(it) },
@@ -442,7 +449,7 @@ private fun MainScreen(
                             onSavePayment = { scope.launch { repo.saveObligation(it) } },
                             onDeletePayment = { id -> scope.launch { repo.deleteObligation(id) } },
                         )
-                        else -> AnalyticsScreen(data, padding) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
+                        else -> AnalyticsScreen(data, padding, onEdit = { sheet = Sheet.Entry(EntryRequest(editing = it)) }) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
                 }
                 // Rows scroll under the clock: a band of the page's colour, over the pager, keeps them from
@@ -466,6 +473,8 @@ private fun MainScreen(
                     onDismiss = { sheet = null },
                     onSave = ::save,
                     onDelete = ::deleteOperation,
+                    onRepeat = { sheet = Sheet.Entry(EntryRequest(copy = it)) },
+                    onRegular = { scope.launch { repo.saveObligation(it) } },
                     suggest = { note, kind -> repo.suggestCategory(note, kind) },
                 )
                 is Sheet.Acc -> AccountSheet(

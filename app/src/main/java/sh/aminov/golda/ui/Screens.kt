@@ -102,6 +102,8 @@ fun HomeScreen(
     listState: LazyListState,
     onSettings: () -> Unit,
     onPeriod: () -> Unit,
+    /** A regular payment due: the entry form filled in for it. */
+    onPayment: (Obligation) -> Unit = {},
     onEdit: (OperationFull) -> Unit,
 ) {
     val today = data.today
@@ -193,14 +195,16 @@ fun HomeScreen(
                 }
             }
         }
-        // A regular payment due in the next two days, so it is no surprise on the card.
-        val due = Regulars.upcoming(data.obligations, today)
+        // A regular payment due in the next two days, so it is no surprise on the card; a tap books it,
+        // and once booked it leaves the list.
+        val due = Regulars.upcoming(data.obligations, today, data.operations, data.zone)
         if (due.isNotEmpty()) {
             item(key = "upcoming") {
                 Column(Modifier.padding(start = Gap.m, end = Gap.m, top = Gap.m)) {
                     due.forEachIndexed { i, (payment, days) ->
                         GroupRow(
                             i, due.size,
+                            onClick = { onPayment(payment) },
                             supporting = { Text(Regulars.whenLabel(days)) },
                             trailing = { AmountColumn(if (payment.amountMinor == 0L) tr("пробный", "trial") else Fmt.amount(payment.amountMinor, payment.currency)) },
                         ) { Text(payment.name, style = MaterialTheme.typography.titleMedium) }

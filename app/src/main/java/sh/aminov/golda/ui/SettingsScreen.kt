@@ -1,5 +1,9 @@
 package sh.aminov.golda.ui
 
+import java.time.ZoneId
+import java.time.Instant
+import sh.aminov.golda.data.AutoBackup
+import android.content.Intent
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.semantics.role
@@ -123,6 +127,15 @@ fun SettingsScreen(
     val context = LocalContext.current
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(onExport) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImport = uri }
+    // The weekly backup's folder: kept across restarts, written to by the background job.
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        onChange { it.copy(autoBackupFolder = uri.toString()) }
+        AutoBackup.apply(context, uri.toString())
+    }
     val s = data.settings
     BackHandler(onBack = onBack)
 
@@ -181,6 +194,23 @@ fun SettingsScreen(
                 },
                 SettingItem(tr("Восстановить", "Restore"), tr("Заменить всё содержимым файла", "Replace everything with a file")) {
                     importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+                },
+                // On: a folder is picked once, then a copy goes there every week by itself.
+                SettingItem(
+                    tr("Копия каждую неделю", "A copy every week"),
+                    when {
+                        s.autoBackupFolder == null -> tr("В папку, которую выберешь, хранятся последние ${AutoBackup.KEEP}", "Into a folder you pick, the last ${AutoBackup.KEEP} kept")
+                        s.lastAutoBackup == 0L -> tr("Первая сейчас появится в папке", "The first one is on its way")
+                        else -> tr("Последняя ", "Last one ") + fullDate(Instant.ofEpochMilli(s.lastAutoBackup).atZone(ZoneId.systemDefault()).toLocalDate())
+                    },
+                    checked = s.autoBackupFolder != null,
+                ) {
+                    if (s.autoBackupFolder == null) {
+                        folderPicker.launch(null)
+                    } else {
+                        onChange { it.copy(autoBackupFolder = null) }
+                        AutoBackup.apply(context, null)
+                    }
                 },
             )
 

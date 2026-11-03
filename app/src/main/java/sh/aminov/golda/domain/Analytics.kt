@@ -40,6 +40,36 @@ data class Report(
 )
 
 object Analytics {
+    /** What one bar stands for over a period of [days] days. */
+    enum class Bar { DAY, WEEK, MONTH }
+
+    fun barFor(days: Int): Bar = when {
+        days <= 62 -> Bar.DAY
+        days <= 400 -> Bar.WEEK
+        else -> Bar.MONTH
+    }
+
+    /**
+     * The day a [date] counts under, for bars of [bar] over a period from [first]: itself, the first
+     * day of its week from [first], or the first of its month (never before [first]).
+     */
+    fun barStart(date: LocalDate, first: LocalDate, bar: Bar): LocalDate = when (bar) {
+        Bar.DAY -> date
+        Bar.WEEK -> first.plusDays(ChronoUnit.DAYS.between(first, date) / 7 * 7)
+        Bar.MONTH -> date.withDayOfMonth(1).let { if (it.isBefore(first)) first else it }
+    }
+
+    /**
+     * Days summed into bars that can be told apart: a day each up to two months, a week each up to a
+     * year, a month each beyond. Ten years is 120 bars, not 3 650 lines thinner than a pixel.
+     */
+    fun bars(days: List<Pair<LocalDate, Long>>): List<Pair<LocalDate, Long>> {
+        val first = days.firstOrNull()?.first ?: return emptyList()
+        val bar = barFor(days.size)
+        if (bar == Bar.DAY) return days
+        return days.groupBy { barStart(it.first, first, bar) }.map { (start, list) -> start to list.sumOf { it.second } }
+    }
+
     fun period(kind: PeriodKind, today: LocalDate, custom: Period? = null): Period = when (kind) {
         PeriodKind.WEEK -> Period(today.minusDays(6), today)
         PeriodKind.MONTH -> Period(today.minusDays(29), today)

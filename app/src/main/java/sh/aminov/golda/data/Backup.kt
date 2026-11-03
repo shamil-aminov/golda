@@ -1,6 +1,8 @@
 package sh.aminov.golda.data
 
 import android.content.Context
+import android.provider.DocumentsContract
+import android.net.Uri
 import androidx.room.withTransaction
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -104,8 +106,72 @@ class Backups(private val db: GoldaDb, private val settings: SettingsStore) {
             dao.insertReviews(backup.reviews)
             dao.insertMessages(backup.reviewMessages)
         }
-        settings.update { current -> backup.settings.copy(hasGeminiKey = current.hasGeminiKey, onboarded = true) }
+        // The weekly backup's folder belongs to this phone, not to the file.
+        settings.update { current ->
+            backup.settings.copy(hasGeminiKey = current.hasGeminiKey, onboarded = true, autoBackupFolder = current.autoBackupFolder, lastAutoBackup = current.lastAutoBackup)
+        }
         return backup
+    }
+}
+
+/**
+ * A backup once a week into a folder picked once: a file "golda-auto-<date>.json", the newest
+ * [KEEP] kept and older ones removed, so a lost phone loses a week at most.
+ */
+object AutoBackup {
+    private const val WORK = "autoBackup"
+    const val KEEP = 4
+    private const val PREFIX = "golda-auto-"
+
+    /** Weekly from now while [folder] is set; the first one at once. Off without a folder. */
+    fun apply(context: Context, folder: String?) {
+        val work = WorkManager.getInstance(context)
+        if (folder == null) {
+            work.cancelUniqueWork(WORK)
+            return
+        }
+        work.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, PeriodicWorkRequestBuilder<AutoBackupWorker>(7, TimeUnit.DAYS).build())
+    }
+
+    /** Writes [text] as today's file in the [folder] tree and removes all but the newest [KEEP]. */
+    fun write(context: Context, folder: String, text: String, today: java.time.LocalDate = java.time.LocalDate.now()) {
+        val resolver = context.contentResolver
+        val tree = Uri.parse(folder)
+        val root = DocumentsContract.getTreeDocumentId(tree)
+        val dir = DocumentsContract.buildDocumentUriUsingTree(tree, root)
+        val name = "$PREFIX$today.json"
+        val existing = children(context, tree, root)
+        // One a day: today's again replaces itself.
+        existing.filter { it.second == name }.forEach { DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, it.first)) }
+        val file = DocumentsContract.createDocument(resolver, dir, "application/json", name) ?: error("could not create $name")
+        resolver.openOutputStream(file)?.use { it.write(text.toByteArray()) } ?: error("could not write $name")
+        children(context, tree, root).filter { it.second.startsWith(PREFIX) }.sortedByDescending { it.second }.drop(KEEP).forEach {
+            DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, it.first))
+        }
+    }
+
+    /** The folder's files as (document id, name). */
+    private fun children(context: Context, tree: Uri, root: String): List<Pair<String, String>> {
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, root)
+        val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+        return context.contentResolver.query(uri, columns, null, null, null)?.use { c ->
+            buildList { while (c.moveToNext()) add(c.getString(0) to c.getString(1)) }
+        }.orEmpty()
+    }
+}
+
+class AutoBackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val app = applicationContext as GoldaApplication
+        val folder = app.repo.settings.flow.first().autoBackupFolder ?: return Result.success()
+        return try {
+            AutoBackup.write(app, folder, app.repo.backups.export())
+            app.repo.settings.update { it.copy(lastAutoBackup = System.currentTimeMillis()) }
+            Result.success()
+        } catch (e: Exception) {
+            // The folder gone or unwritable: try again later rather than lose the week.
+            Result.retry()
+        }
     }
 }
 

@@ -85,11 +85,26 @@ object Regulars {
         }
     }
 
-    /** Payments charged in the next [AHEAD] days, soonest first, with the days left. */
-    fun upcoming(payments: List<Obligation>, today: LocalDate): List<Pair<Obligation, Long>> = payments
-        .map { it to ChronoUnit.DAYS.between(today, nextCharge(it, today)) }
-        .filter { it.second <= AHEAD }
-        .sortedBy { it.second }
+    /**
+     * Payments charged in the next [AHEAD] days, soonest first, with the days left; not those already
+     * booked: an expense of the same name in the last week.
+     */
+    fun upcoming(
+        payments: List<Obligation>,
+        today: LocalDate,
+        operations: List<OperationFull> = emptyList(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): List<Pair<Obligation, Long>> {
+        val recent = operations.asSequence()
+            .filter { it.op.type == OpType.EXPENSE && !Ledger.localDate(it.op.timestamp, zone).isBefore(today.minusDays(7)) }
+            .map { it.op.note.trim().lowercase() }
+            .toSet()
+        return payments
+            .filter { it.name.trim().lowercase() !in recent }
+            .map { it to ChronoUnit.DAYS.between(today, nextCharge(it, today)) }
+            .filter { it.second <= AHEAD }
+            .sortedBy { it.second }
+    }
 
     /** "Спишется сегодня", "завтра", "послезавтра". */
     fun whenLabel(days: Long): String = when (days) {

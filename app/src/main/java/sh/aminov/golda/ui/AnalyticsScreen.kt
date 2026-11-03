@@ -1,5 +1,9 @@
 package sh.aminov.golda.ui
 
+import sh.aminov.golda.data.OperationFull
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
@@ -119,7 +123,7 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -> Unit) {
+fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFull) -> Unit = {}, onReviews: (Period) -> Unit) {
     val today = data.today
     var kind by rememberSaveable { mutableStateOf(PeriodKind.MONTH) }
     // Saved like the kind it belongs to (as two epoch days), so the two never disagree after a restart.
@@ -128,6 +132,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
     var picking by remember { mutableStateOf(false) }
     // A bucket picked narrows the bars and the days to its spending; tapped again, back to all.
     var filter by rememberSaveable { mutableStateOf<Bucket?>(null) }
+    // A tile tapped in the mosaic: its purchases of the period in a sheet.
+    var opened by remember { mutableStateOf<MosaicItem?>(null) }
     val period = Analytics.period(kind, today, custom)
     val report = remember(data, period) { Analytics.report(data.operations, data.accountById, data.categoryById, period, today, data.zone, data.rates) }
     val shown = remember(data, period, filter) {
@@ -229,7 +235,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 val restColor = MaterialTheme.colorScheme.outlineVariant
                 val items = remember(shown, colours, restColor) {
                     val all = shown.categories.map { spend ->
-                        MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, colours[spend.categoryId?.let { data.categoryById[it]?.key }] ?: leitmotifColor(null, tones))
+                        MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, colours[spend.categoryId?.let { data.categoryById[it]?.key }] ?: leitmotifColor(null, tones), ids = listOf(spend.categoryId))
                     }
                     // The few that matter get tiles; the small ones go together into one quiet grey tile,
                     // named by how many it holds, so it never reads as a category of its own.
@@ -241,15 +247,27 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                                 tr("Ещё ", "") + r.size + " " + plural(r.size.toLong(), "категория", "категории", "категорий", "more category", "more categories"),
                                 data.base.whole(rub), rub, restColor,
                                 contains = r.joinToString(", ") { all[it].name },
+                                ids = r.flatMap { all[it].ids },
                             )
                         },
                     )
                 }
-                Mosaic(items, Modifier.padding(horizontal = Gap.s))
+                Mosaic(items, Modifier.padding(horizontal = Gap.s)) { opened = it }
             }
             item(key = "chart") {
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
-                    DayBars(shown.days, today, kind, data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter in listOf(null, Bucket.DAILY) }, data.base, stacks)
+                    // A long range in weeks or months, so every bar can still be seen; the day's plan
+                    // means nothing against a week, so it shows only for days.
+                    val bar = Analytics.barFor(shown.days.size)
+                    val first = shown.days.firstOrNull()?.first ?: today
+                    val barStacks = remember(stacks, bar, first) {
+                        if (bar == Analytics.Bar.DAY) stacks
+                        else stacks.entries.groupBy { Analytics.barStart(it.key, first, bar) }.mapValues { (_, days) ->
+                            days.flatMap { it.value }.groupBy { it.first }.map { (color, parts) -> color to parts.sumOf { it.second } }.sortedByDescending { it.second }
+                        }
+                    }
+                    val plan = data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter in listOf(null, Bucket.DAILY) && bar == Analytics.Bar.DAY }
+                    DayBars(Analytics.bars(shown.days), today, kind, plan, data.base, barStacks)
                 }
             }
         }
@@ -264,6 +282,16 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         }
     }
 
+    opened?.let { item ->
+        val ops = remember(data, period, filter, item) {
+            data.operations.filter { full ->
+                val day = Ledger.localDate(full.op.timestamp, data.zone)
+                full.op.type == OpType.EXPENSE && full.op.categoryId in item.ids && !day.isBefore(period.from) && !day.isAfter(period.to) &&
+                    (filter == null || Buckets.of(full.op, data.categoryById) == filter)
+            }.sortedByDescending { it.op.timestamp }
+        }
+        CategoryPurchases(data, item.name, item.amount, ReviewPrompt.title(period, today), ops, onDismiss = { opened = null }) { opened = null; onEdit(it) }
+    }
     if (picking) {
         RangeDialog(period, onDismiss = { picking = false }) { from, to ->
             customDays = longArrayOf(from.toEpochDay(), to.toEpochDay())
@@ -289,6 +317,23 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
     }
 }
 
+/** A tile's purchases of the period, newest first, in a sheet; a tap opens one to edit. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryPurchases(data: AppData, name: String, amount: String, span: String, ops: List<OperationFull>, onDismiss: () -> Unit, onEdit: (OperationFull) -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = tileColor()) {
+        LazyColumn(contentPadding = PaddingValues(bottom = Gap.xl)) {
+            item(key = "title") {
+                Column(Modifier.padding(horizontal = Gap.l)) {
+                    Text(name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
+                    Caption("$amount, " + span)
+                }
+            }
+            operationItems(data, ops, null, onEdit)
+        }
+    }
+}
+
 /** A category in the [Mosaic]. */
 private data class MosaicItem(
     val name: String,
@@ -297,6 +342,8 @@ private data class MosaicItem(
     val color: Color,
     /** For the tile of the rest: the categories in it, read out by TalkBack. */
     val contains: String? = null,
+    /** The categories the tile stands for (null: none set), to list their purchases. */
+    val ids: List<Long?> = emptyList(),
 )
 
 /**
@@ -305,7 +352,7 @@ private data class MosaicItem(
  * words are named in one quiet line under the mosaic. They settle in one after another.
  */
 @Composable
-private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
+private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier, onOpen: (MosaicItem) -> Unit = {}) {
     val total = items.sumOf { it.rub }.coerceAtLeast(1)
     val gap = 4.dp
     val motion = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
@@ -345,6 +392,7 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
                             .graphicsLayer { alpha = shown.value; scaleX = 0.92f + 0.08f * shown.value; scaleY = 0.92f + 0.08f * shown.value }
                             .clip(RoundedCornerShape(corner))
                             .background(item.color)
+                            .clickable(role = Role.Button, onClickLabel = tr("Показать траты", "Show purchases")) { onOpen(item) }
                             .semantics(mergeDescendants = true) {
                                 contentDescription = "${item.name}, ${item.amount}, ${wholePercent(item.rub.toDouble() / total)}" + item.contains?.let { ": $it" }.orEmpty()
                             }

@@ -79,4 +79,25 @@ class RegularsTest {
             found,
         )
     }
+
+    @Test
+    fun aBookedPaymentLeavesTheReminder() {
+        val netflix = Obligation(1, "Netflix", 99_900, "RUB", today.plusDays(1).dayOfMonth)
+        val rent = Obligation(2, "Аренда", 90_000, "GEL", today.dayOfMonth)
+        fun spent(id: Long, day: LocalDate, note: String) = OperationFull(
+            Operation(id, OpType.EXPENSE, day.atTime(12, 0).toInstant(zone).toEpochMilli(), note = note),
+            listOf(Posting(id, id, 1, -100, -100)),
+        )
+        // Nothing booked: both are due.
+        assertEquals(listOf(rent, netflix), Regulars.upcoming(listOf(netflix, rent), today, emptyList(), zone).map { it.first })
+        // Rent booked today (any case, spaces aside): only Netflix left.
+        val booked = listOf(spent(1, today, " аренда "))
+        assertEquals(listOf(netflix), Regulars.upcoming(listOf(netflix, rent), today, booked, zone).map { it.first })
+        // Booked more than a week ago is last month's: due again.
+        val old = listOf(spent(2, today.minusDays(8), "Аренда"))
+        assertEquals(listOf(rent, netflix), Regulars.upcoming(listOf(netflix, rent), today, old, zone).map { it.first })
+        // An income of the same name is not a payment.
+        val income = listOf(OperationFull(Operation(3, OpType.INCOME, today.atTime(9, 0).toInstant(zone).toEpochMilli(), note = "Аренда"), emptyList()))
+        assertEquals(2, Regulars.upcoming(listOf(netflix, rent), today, income, zone).size)
+    }
 }
