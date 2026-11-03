@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
@@ -65,11 +66,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Gemini's reviews the way a notes app keeps notes: a plain bar with back and the title, each review
- * a card with its period, when it was written and its first lines, and a floating button at the
- * bottom right that writes a review of the period picked in insights ("Разобрать октябрь").
+ * Gemini's reviews the way a notes app keeps notes: the bold page title, each review a card with its
+ * period, when it was written and its first lines; at the bottom back and the wide button that writes
+ * a review of the period picked in insights ("Разобрать октябрь").
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ReviewsScreen(
     reviews: List<Review>,
@@ -85,49 +86,56 @@ fun ReviewsScreen(
     BackHandler(onBack = onBack)
     var working by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val page = MaterialTheme.colorScheme.background
+    // The page has a main action, so back stands beside it at the bottom, as on an account's page.
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(tr("Разборы", "Reviews"), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    if (!hasKey) {
-                        onAddKey()
-                    } else if (!working) {
-                        working = true
-                        error = null
-                        onReview { problem -> working = false; error = problem }
-                    }
-                },
-                // Without a key the one action is adding it: the action colour; otherwise Разбор's ice.
-                containerColor = if (hasKey) iceColor() else actionColor(),
-                contentColor = if (hasKey) onIceColor() else onActionColor(),
-                modifier = Modifier.softShadow(RoundedCornerShape(16.dp)),
-                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-            ) {
-                Text(
-                    when {
-                        !hasKey -> tr("Добавить ключ Gemini", "Add a Gemini key")
-                        working -> tr("Gemini пишет разбор", "Gemini is writing")
-                        else -> tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today)
+        bottomBar = {
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
+                Button(
+                    onClick = {
+                        if (!hasKey) {
+                            onAddKey()
+                        } else if (!working) {
+                            working = true
+                            error = null
+                            onReview { problem -> working = false; error = problem }
+                        }
                     },
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                )
+                    modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight),
+                    // Without a key the one action is adding it: the action colour; otherwise Разбор's ice.
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (hasKey) iceColor() else actionColor(),
+                        contentColor = if (hasKey) onIceColor() else onActionColor(),
+                    ),
+                    contentPadding = ButtonDefaults.MediumContentPadding,
+                ) {
+                    Text(
+                        when {
+                            !hasKey -> tr("Добавить ключ Gemini", "Add a Gemini key")
+                            working -> tr("Gemini пишет разбор", "Gemini is writing")
+                            else -> tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today)
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = Gap.s, end = Gap.s, top = padding.calculateTopPadding() + Gap.s, bottom = padding.calculateBottomPadding() + 96.dp),
+            contentPadding = PaddingValues(start = Gap.s, end = Gap.s, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l),
             verticalArrangement = Arrangement.spacedBy(Gap.s),
         ) {
+            // The page title the account page has, from under the status bar.
+            item(key = "title") {
+                Text(
+                    tr("Разборы", "Reviews"),
+                    Modifier.statusBarsPadding().padding(start = Gap.m, end = Gap.m, top = Gap.l, bottom = Gap.s),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
+                )
+            }
             error?.let { problem ->
                 item(key = "error") { Text(problem, Modifier.padding(horizontal = Gap.m), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error) }
             }

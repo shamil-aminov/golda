@@ -110,7 +110,7 @@ fun AccountSheet(
     }
 
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { if (editing == null) focus.requestFocus() }
+    FocusWhenShown(focus, enabled = editing == null)
 
     // Like the entry form: no bar across the top; back, delete and the main button at the bottom.
     FormPage(
@@ -123,8 +123,10 @@ fun AccountSheet(
         },
     ) {
         // Once created, the currency is fixed and simply stands after the name.
+        // The name stands where every page title does, 24 dp in; the controls under it reach 16.
         BareField(
             name, { name = it }, tr("Название", "Name"),
+            Modifier.padding(horizontal = Gap.s),
             suffix = editing?.let { Currencies.symbol(it.currency) },
             focusRequester = focus,
         )
@@ -195,10 +197,10 @@ fun AccountSheet(
         DatePickerDialog(
             onDismissRequest = { pickingGrace = false },
             confirmButton = {
-                TextButton(onClick = {
+                DoneButton(onClick = {
                     graceUntil = state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
                     pickingGrace = false
-                }) { Text(tr("Готово", "Done")) }
+                })
             },
             dismissButton = { TextButton(onClick = { graceUntil = null; pickingGrace = false }) { Text(tr("Убрать", "Clear")) } },
         ) { DatePicker(state) }

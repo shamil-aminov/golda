@@ -323,51 +323,6 @@ fun toggleDisplayCurrency(s: Settings, code: String): Settings {
     // A hidden currency can't stay local or main: both fall back to rubles.
     val local = if (s.localCurrency in list) s.localCurrency else "RUB"
     val base = if (s.baseCurrency in list) s.baseCurrency else "RUB"
-    return s.copy(displayCurrencies = Currencies.common.filter { it in list }, localCurrency = local, baseCurrency = base)
+    return s.copy(displayCurrencies = list, localCurrency = local, baseCurrency = base)
 }
 
-/** Every currency as a toggle in one fixed order, so nothing jumps when one is switched. */
-@Composable
-fun DisplayCurrencyToggles(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
-    ToggleFlow(
-        options = Currencies.common,
-        isOn = { it in settings.displayCurrencies },
-        onToggle = { code -> onChange { toggleDisplayCurrency(it, code) } },
-        label = ::currencyLabel,
-    )
-}
-
-/** Where you are now, out of the shown currencies. */
-@Composable
-fun LocalCurrencyChoice(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
-    ShownCurrencyChoice(settings, settings.localCurrency) { code -> onChange { it.copy(localCurrency = code) } }
-}
-
-/** The main currency, out of the shown currencies. */
-@Composable
-fun BaseCurrencyChoice(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
-    ShownCurrencyChoice(settings, settings.baseCurrency) { code -> onChange { it.copy(baseCurrency = code) } }
-}
-
-/** One of the shown currencies: a connected group, or loose toggles when there are many. */
-@Composable
-private fun ShownCurrencyChoice(settings: Settings, selected: String, onPick: (String) -> Unit) {
-    val options = settings.displayCurrencies
-    if (options.size <= 5) {
-        ChoiceGroup(options, selected, onPick, Modifier.fillMaxWidth()) { ChoiceText(currencyLabel(it)) }
-    } else {
-        ToggleFlow(options, { it == selected }, onPick, ::currencyLabel)
-    }
-}
-
-/** Onboarding's currency step: what to show, then where you are. */
-@Composable
-fun CurrencyFields(settings: Settings, onChange: ((Settings) -> Settings) -> Unit) {
-    Column {
-        GroupLabel(tr("Показывать суммы в", "Show amounts in"))
-        DisplayCurrencyToggles(settings, onChange)
-        VSpace(Gap.l)
-        GroupLabel(tr("Местная валюта: в ней суммы без валюты", "Local currency, for amounts said without one"))
-        LocalCurrencyChoice(settings, onChange)
-    }
-}

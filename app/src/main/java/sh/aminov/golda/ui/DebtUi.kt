@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -7,18 +8,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.domain.AccountState
@@ -44,15 +41,6 @@ fun DebtDetails(data: AppData, state: AccountState) {
     var prepaying by remember { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium.merge(Tnum)
 
-    // Label and value per line, like a bank's terms: read down the left, the numbers on the right.
-    @Composable
-    fun Term(label: String, value: String) {
-        Row(Modifier.fillMaxWidth().padding(vertical = Gap.xs)) {
-            Text(label, Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(Gap.m))
-            Text(value, style = MaterialTheme.typography.titleMedium.merge(Tnum), maxLines = 1)
-        }
-    }
     Column {
         account.interestRate?.let { Term(tr("Ставка", "Rate"), tr("${Fmt.number(it, 1)} % годовых", "${Fmt.number(it, 1)} % a year")) }
         if (account.paymentDay != null && account.paymentMinor != null) {
@@ -78,7 +66,7 @@ fun DebtDetails(data: AppData, state: AccountState) {
     }
 
     if (prepaying && account.interestRate != null && account.paymentMinor != null) {
-        PrepayDialog(data, owed, account.interestRate, account.paymentMinor, code) { prepaying = false }
+        PrepaySheet(data, owed, account.interestRate, account.paymentMinor, code) { prepaying = false }
     }
 }
 
@@ -99,62 +87,49 @@ fun graceWarning(data: AppData, state: AccountState, today: LocalDate): String? 
     }
 }
 
+/** Label and value on one line, like a bank's terms: read down the left, the numbers on the right. */
 @Composable
-private fun PrepayDialog(data: AppData, owedMinor: Long, rate: Double, paymentMinor: Long, code: String, onDismiss: () -> Unit) {
+private fun Term(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = LocalTextInset.current, vertical = Gap.xs)) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(Gap.m))
+        Text(value, style = MaterialTheme.typography.titleMedium.merge(Tnum), maxLines = 1)
+    }
+}
+
+/** Early repayment as a sheet like every small form: the sum big, then what each way gives, as terms. */
+@Composable
+private fun PrepaySheet(data: AppData, owedMinor: Long, rate: Double, paymentMinor: Long, code: String, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }
     val extra = Fmt.parseMinor(text, code)?.takeIf { it > 0 }
     val savings = data.accounts.filter { it.type == AccountType.SAVINGS && it.interestRate != null }.maxByOrNull { it.interestRate!! }
     val result = extra?.let { Debts.prepay(owedMinor, rate, paymentMinor, it, savings?.interestRate) }
     fun money(minor: Long) = Fmt.approx(minor / Currencies.factor(code), code)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(tr("Досрочное погашение", "Early repayment")) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TonalField(
-                    text, { text = it },
-                    label = tr("Сколько внести", "How much to pay"),
-                    suffix = Currencies.symbol(code),
-                    keyboardType = KeyboardType.Decimal,
+    val focus = remember { FocusRequester() }
+    FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Готово", "Done"), onDismiss) }) {
+        FocusWhenShown(focus)
+        Caption(tr("Сколько внести досрочно", "How much to pay early"))
+        VSpace(Gap.l)
+        HeroAmountField(text, { text = it }, Currencies.symbol(code), focusRequester = focus, onDone = onDismiss)
+        if (result != null) {
+            val sooner = (result.monthsNow - result.monthsAfter).toLong()
+            GroupLabel(tr("Сократить срок", "Shorter term"), Modifier.padding(top = Gap.l))
+            Term(tr("Закончится раньше на", "Ends sooner by"), months(sooner))
+            Term(tr("Меньше процентов", "Less interest"), "−" + money(result.savedByTermMinor))
+            GroupLabel(tr("Уменьшить платёж", "Lower payment"), Modifier.padding(top = Gap.m))
+            Term(tr("Платёж", "Payment"), money(result.paymentAfterMinor))
+            Term(tr("Меньше процентов", "Less interest"), "−" + money(result.savedByPaymentMinor))
+            if (savings != null && result.savingsWouldEarnMinor != null) {
+                val earn = result.savingsWouldEarnMinor
+                GroupLabel(tr("Или оставить на «${savings.name}»", "Or keep it on “${savings.name}”"), Modifier.padding(top = Gap.m))
+                Term(tr("Принесёт за то же время", "Would earn meanwhile"), money(earn))
+                Term(
+                    if (result.savedByTermMinor > earn) tr("Гасить выгоднее на", "Paying off is better by") else tr("Оставить выгоднее на", "Keeping is better by"),
+                    money(kotlin.math.abs(result.savedByTermMinor - earn)),
                 )
-                if (result != null) {
-                    val sooner = (result.monthsNow - result.monthsAfter).toLong()
-                    Text(
-                        tr("Сократить срок: на ${months(sooner)} раньше, проценты −${money(result.savedByTermMinor)}",
-                            "Shorter term: ${months(sooner)} sooner, interest −${money(result.savedByTermMinor)}"),
-                        style = MaterialTheme.typography.bodyLarge.merge(Tnum),
-                    )
-                    Text(
-                        tr("Уменьшить платёж: ${money(result.paymentAfterMinor)} в месяц, проценты −${money(result.savedByPaymentMinor)}",
-                            "Lower payment: ${money(result.paymentAfterMinor)} a month, interest −${money(result.savedByPaymentMinor)}"),
-                        style = MaterialTheme.typography.bodyLarge.merge(Tnum),
-                    )
-                    if (savings != null && result.savingsWouldEarnMinor != null) {
-                        val earn = result.savingsWouldEarnMinor
-                        Text(
-                            tr("На «${savings.name}» эти деньги за то же время принесли бы ${money(earn)}.",
-                                "On “${savings.name}” the same money would earn ${money(earn)} over that time."),
-                            style = MaterialTheme.typography.bodyMedium.merge(Tnum),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            if (result.savedByTermMinor > earn) {
-                                tr("Гасить выгоднее на ${money(result.savedByTermMinor - earn)}.", "Paying off is better by ${money(result.savedByTermMinor - earn)}.")
-                            } else {
-                                tr("Выгоднее оставить на счёте: +${money(earn - result.savedByTermMinor)}.", "Keeping it saved is better by ${money(earn - result.savedByTermMinor)}.")
-                            },
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
-                    Text(
-                        tr("Расчёт по аннуитетной схеме, точные цифры в графике банка.", "Annuity estimate; the bank's schedule has the exact figures."),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Готово", "Done")) } },
-    )
+            VSpace(Gap.m)
+            Caption(tr("Расчёт по аннуитетной схеме, точные цифры в графике банка", "An annuity estimate; the bank's schedule has the exact figures"))
+        }
+    }
 }

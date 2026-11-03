@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import sh.aminov.golda.R
 import sh.aminov.golda.data.Account
+import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.domain.tr
@@ -43,6 +44,7 @@ fun Onboarding(
     var step by rememberSaveable { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf<Account?>(null) }
     var adding by remember { mutableStateOf(false) }
+    var currencies by remember { mutableStateOf<CurrencyPick?>(null) }
     val steps = 2
     // System back walks the steps back, like "Назад"; on the first step it leaves the app.
     BackHandler(enabled = step > 0) { step-- }
@@ -72,12 +74,25 @@ fun Onboarding(
                 Caption(tr("Шаг ${step + 1} из $steps", "Step ${step + 1} of $steps"), Modifier.padding(horizontal = Gap.l))
                 VSpace(Gap.m)
                 when (step) {
-                    0 -> Column(Modifier.padding(horizontal = Gap.l), verticalArrangement = Arrangement.spacedBy(Gap.m)) {
+                    0 -> {
                         Text(
                             tr("Любая сумма будет видна сразу во всех выбранных валютах. Основная валюта рубль.", "Every amount shows in all the chosen currencies at once. The ruble is the main one."),
+                            Modifier.padding(horizontal = Gap.l),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        CurrencyFields(data.settings, onChange)
+                        VSpace(Gap.l)
+                        // The same rows as in Settings, opening the same list page.
+                        val s = data.settings
+                        GroupRow(
+                            0, 2, Modifier.padding(horizontal = Gap.m),
+                            onClick = { currencies = CurrencyPick.SHOWN },
+                            supporting = { Text(s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) },
+                        ) { Text(tr("Показывать суммы в", "Show amounts in"), style = MaterialTheme.typography.titleMedium) }
+                        GroupRow(
+                            1, 2, Modifier.padding(horizontal = Gap.m),
+                            onClick = { currencies = CurrencyPick.LOCAL },
+                            supporting = { Text(currencyLabel(s.localCurrency) + tr(", для новых трат и голоса", ", for new purchases and voice")) },
+                        ) { Text(tr("Местная валюта", "Local currency"), style = MaterialTheme.typography.titleMedium) }
                     }
                     else -> {
                         Text(
@@ -103,6 +118,8 @@ fun Onboarding(
                 }
             }
         }
+
+        FormPageHost(currencies) { pick -> CurrencyPage(data, pick, onChange) { currencies = null } }
 
         // The account form is a page over the step; null shows nothing, a "new" marker an empty form.
         FormPageHost(editing ?: if (adding) NewAccount else null) { target ->

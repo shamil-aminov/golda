@@ -193,16 +193,17 @@ fun SettingsScreen(
         }
     }
 
+    val currencyPick = when (edit) {
+        Edit.Base -> CurrencyPick.BASE
+        Edit.Local -> CurrencyPick.LOCAL
+        Edit.Shown -> CurrencyPick.SHOWN
+        else -> null
+    }
+    FormPageHost(currencyPick) { pick -> CurrencyPage(data, pick, onChange) { edit = null } }
+
     when (edit) {
-        Edit.Base -> PickSheet(tr("Основная валюта: итоги по сегодняшнему курсу", "Main currency: totals at today's rate"), onDismiss = { edit = null }) {
-            BaseCurrencyChoice(s) { f -> onChange(f); edit = null }
-        }
-        Edit.Local -> PickSheet(tr("Местная валюта: в ней суммы, сказанные без валюты", "Local currency, for amounts said without one"), onDismiss = { edit = null }) {
-            LocalCurrencyChoice(s) { f -> onChange(f); edit = null }
-        }
-        Edit.Shown -> PickSheet(tr("Показывать суммы в", "Show amounts in"), onDismiss = { edit = null }, done = true) {
-            DisplayCurrencyToggles(s, onChange)
-        }
+        // The currencies are a list page of their own, over Settings.
+        Edit.Base, Edit.Local, Edit.Shown -> Unit
         Edit.Markup -> NumberSheet(
             caption = tr("Наценка к курсу ЦБ", "Markup over the CBR rate"),
             initial = s.markup * 100,
@@ -278,6 +279,7 @@ private fun SettingsGroup(title: String?, vararg items: SettingItem) {
             onClick = item.onClick,
             supporting = item.summary?.let { { Text(it) } },
             trailing = checked?.let { { CheckSwitch(it, null) } },
+            trailingOnTitle = false,
         ) {
             Text(
                 item.title,
@@ -312,8 +314,8 @@ private fun NumberSheet(
     var text by remember { mutableStateOf(if (initial == 0.0) "" else Fmt.number(initial)) }
     val value = Fmt.parseDouble(text)?.takeIf { it >= 0 }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
     FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Сохранить", "Save"), { value?.let { onSave(it); onDismiss() } }, value != null) }) {
+        FocusWhenShown(focus)
         Caption(caption)
         VSpace(Gap.l)
         HeroAmountField(text, { text = it }, symbol, focusRequester = focus, onDone = { value?.let { onSave(it); onDismiss() } })
@@ -351,7 +353,6 @@ fun DayGrid(selected: Int?, onPick: (Int) -> Unit) {
 private fun KeySheet(hasKey: Boolean, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var key by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
     FormSheet(
         onDismiss = onDismiss,
         actionGap = ButtonGroupDefaults.ConnectedSpaceBetween,
@@ -360,6 +361,7 @@ private fun KeySheet(hasKey: Boolean, onDismiss: () -> Unit, onSave: (String) ->
             PrimaryAction(tr("Сохранить", "Save"), { onSave(key.trim()) }, key.isNotBlank())
         },
     ) {
+        FocusWhenShown(focus)
         Caption(if (hasKey) tr("Ключ Gemini · заменить", "Gemini key · replace") else tr("Ключ Gemini", "Gemini key"))
         VSpace(Gap.m)
         TonalField(

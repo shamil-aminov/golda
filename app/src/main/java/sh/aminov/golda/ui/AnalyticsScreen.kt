@@ -403,13 +403,12 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
                     title = { Text(tr("Период", "Period")) },
                     navigationIcon = { IconButton(onClick = onDismiss) { Icon(painterResource(R.drawable.ic_close), tr("Закрыть", "Close")) } },
                     actions = {
-                        TextButton(
-                            enabled = state.selectedStartDateMillis != null,
-                            onClick = {
+                        Box(Modifier.padding(end = Gap.s)) {
+                            DoneButton(enabled = state.selectedStartDateMillis != null, onClick = {
                                 val from = day(state.selectedStartDateMillis!!)
                                 onPick(from, state.selectedEndDateMillis?.let(::day) ?: from)
-                            },
-                        ) { Text(tr("Готово", "Done")) }
+                            })
+                        }
                     },
                 )
             },
@@ -457,6 +456,10 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
     val line = MaterialTheme.colorScheme.outline
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
     val density = LocalDensity.current
+    // The bars rise when the period opens, left to right in a short wave.
+    val grow = remember(days) { Animatable(0f) }
+    val rise = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    LaunchedEffect(days) { grow.animateTo(1f, rise) }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val widthPx = with(density) { maxWidth.toPx() }
         val step = widthPx / days.size
@@ -493,7 +496,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                 val gapPx = 1.dp.toPx()
                 val radius = minOf(barWidth / 2, 12.dp.toPx())
                 days.forEachIndexed { i, (day, value) ->
-                    val h = if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()
+                    val g = (grow.value * 1.5f - 0.5f * i / days.size).coerceIn(0f, 1f)
+                    val h = (if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()) * g
                     val left = step * i + (step - barWidth) / 2
                     val path = Path().apply {
                         addRoundRect(

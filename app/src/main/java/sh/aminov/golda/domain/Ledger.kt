@@ -20,6 +20,9 @@ import kotlin.math.roundToLong
 class Rates(private val rubPerUnit: Map<String, Double>, val markup: Double) {
     fun official(code: String): Double? = if (code == "RUB") 1.0 else rubPerUnit[code]
 
+    /** Every currency there is a rate for, rubles included. */
+    val codes: Set<String> get() = rubPerUnit.keys + "RUB"
+
     fun display(code: String): Double? = if (code == "RUB") 1.0 else official(code)?.times(1 + markup)
 
     /** Kopecks that [minor] of [code] are worth at the display rate. */

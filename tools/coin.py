@@ -77,7 +77,10 @@ for f in faces:
     ext = max(max(xs)-min(xs), max(ys)-min(ys)) / 2
     sx, sy = cx + L[0]*ext, cy + L[1]*ext
     ex, ey = cx - L[0]*ext, cy - L[1]*ext
-    c1, c2 = gold(b + 0.14), gold(b - 0.14)
+    # Only facets turned to the light shine across; those turned away stay an even gold, so the
+    # shaded side of the coin reads as one piece rather than glowing at its seams.
+    sheen = 0.14 if b > 0.6 else 0.03
+    c1, c2 = gold(b + sheen), gold(b - sheen)
     d = path(f)
     fg.append(f'''    <path android:pathData="{d}">
         <aapt:attr name="android:fillColor">

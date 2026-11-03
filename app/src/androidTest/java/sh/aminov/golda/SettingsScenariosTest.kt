@@ -66,14 +66,14 @@ class SettingsScenariosTest : GoldaUiTest() {
         openSettings()
         openRow(tr("Показывать суммы в", "Show amounts in"))
         tap("₾ GEL") // off
-        tap(tr("Готово", "Done"))
+        back() // the list page applies as you tap
         back()
         assertEquals(setOf("$"), othersSymbols())
 
         openSettings()
         openRow(tr("Показывать суммы в", "Show amounts in"))
         tap("฿ THB") // on
-        tap(tr("Готово", "Done"))
+        back() // the list page applies as you tap
         back()
         assertEquals(setOf("$", "฿"), othersSymbols())
     }

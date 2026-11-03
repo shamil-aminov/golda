@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -68,6 +71,9 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
             }, enabled = !end.isBefore(data.today) && end.isAfter(start))
         },
     ) {
+        // A title like the other sheets have.
+        Text(tr("Период", "Period"), Modifier.padding(horizontal = Gap.s), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold))
+        VSpace(Gap.m)
         Caption(tr("Карта трат", "The card you spend from"))
         VSpace(Gap.s)
         // The same cards as in the entry form.
@@ -99,7 +105,7 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
         DatePickerDialog(
             onDismissRequest = { picking = null },
             confirmButton = {
-                TextButton(onClick = {
+                DoneButton(onClick = {
                     state.selectedDateMillis?.let { millis ->
                         val day = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
                         if (which == Picking.START) {
@@ -111,7 +117,7 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
                         }
                     }
                     picking = null
-                }) { Text(tr("Готово", "Done")) }
+                })
             },
         ) { DatePicker(state) }
     }

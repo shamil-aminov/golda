@@ -1,5 +1,11 @@
 package sh.aminov.golda.ui
 
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.animation.EnterExitState
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.TextUnit
@@ -272,7 +278,7 @@ fun Tile(
 /** A tile's small caption: labelLarge in the quiet ink of whatever it sits on. */
 @Composable
 fun Caption(text: String, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    Text(text, modifier, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(text, modifier.padding(horizontal = LocalTextInset.current), style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /**
@@ -327,8 +333,17 @@ fun GroupRow(
     trailing: (@Composable () -> Unit)? = null,
     // A group of rows is one card, not a card per row.
     container: Color = tileColor(),
+    /** An amount at the end reads with the title, not between the two lines; a switch stays centred. */
+    trailingOnTitle: Boolean = true,
     headline: @Composable () -> Unit,
 ) {
+    // Lifted by half the second line, so its centre sits on the title's.
+    val lift = with(LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() }
+    val end: (@Composable () -> Unit)? = if (trailingOnTitle && supporting != null && trailing != null) {
+        { Box(Modifier.padding(bottom = lift)) { trailing() } }
+    } else {
+        trailing
+    }
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
     // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
@@ -339,7 +354,7 @@ fun GroupRow(
             shapes = shapes,
             modifier = spaced,
             leadingContent = leading,
-            trailingContent = trailing,
+            trailingContent = end,
             supportingContent = supporting,
             onLongClick = onLongClick,
             colors = colors,
@@ -350,7 +365,7 @@ fun GroupRow(
             shapes = shapes,
             modifier = spaced,
             leadingContent = leading,
-            trailingContent = trailing,
+            trailingContent = end,
             supportingContent = supporting,
             colors = colors,
             content = headline,
@@ -612,11 +627,13 @@ fun FormPage(
             }
             // 24 dp under the form and 16 above the action bar: 40 in all, and never less while the
             // form scrolls under the bar.
-            Column(
-                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
-                    .padding(top = Gap.s, bottom = Gap.l),
-                content = content,
-            )
+            CompositionLocalProvider(LocalTextInset provides Gap.s) {
+                Column(
+                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
+                        .padding(top = Gap.s, bottom = Gap.l),
+                    content = content,
+                )
+            }
             if (actions != null) {
                 Row(
                     Modifier.fillMaxWidth().padding(start = Gap.m, end = Gap.m, top = Gap.m, bottom = Gap.m),
@@ -682,7 +699,34 @@ fun <T : Any> FormPageHost(target: T?, content: @Composable (T) -> Unit) {
                 .using(SizeTransform(clip = false) { _, _ -> snap() })
         },
         label = "formPage",
-    ) { page -> if (page != null) content(page) }
+    ) { page ->
+        // Settled once the page has finished coming in: only then the keyboard, one motion after the other.
+        val shown = { transition.currentState == EnterExitState.Visible && !transition.isRunning }
+        if (page != null) CompositionLocalProvider(LocalShown provides shown) { content(page) }
+    }
+}
+
+/**
+ * How far words stand in from the controls in a sheet or form: there the controls reach 16 dp from the
+ * edge and the words 24, as a page's labels stand 16 in from its cards. Nothing elsewhere.
+ */
+val LocalTextInset = staticCompositionLocalOf { 0.dp }
+
+/** Whether the page or sheet around has finished coming in. Outside one, always. */
+val LocalShown = staticCompositionLocalOf<() -> Boolean> { { true } }
+
+/**
+ * The keyboard for [focus] once the page or sheet it is on has come in, not while it is still moving:
+ * first the sheet, then the keyboard, the same everywhere.
+ */
+@Composable
+fun FocusWhenShown(focus: FocusRequester, enabled: Boolean = true) {
+    val shown = LocalShown.current
+    LaunchedEffect(enabled) {
+        if (!enabled) return@LaunchedEffect
+        snapshotFlow { shown() }.first { it }
+        focus.requestFocus()
+    }
 }
 
 /**
@@ -698,9 +742,11 @@ fun FormSheet(
     actionGap: Dp = Gap.s,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val state = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded))
+    val shown = { state.currentValue == SheetValue.Expanded && state.targetValue == SheetValue.Expanded }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
+        sheetState = state,
         // On the card colour: a sheet stands off the dimmed page in dark themes too.
         containerColor = tileColor(),
     ) {
@@ -708,11 +754,13 @@ fun FormSheet(
         Column(Modifier.imePadding()) {
             // 24 dp under the form and 16 above the action bar: 40 in all, and never less while the
             // form scrolls under the bar.
-            Column(
-                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
-                    .padding(top = Gap.s, bottom = Gap.l),
-                content = content,
-            )
+            CompositionLocalProvider(LocalShown provides shown, LocalTextInset provides Gap.s) {
+                Column(
+                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
+                        .padding(top = Gap.s, bottom = Gap.l),
+                    content = content,
+                )
+            }
             if (actions != null) {
                 Row(
                     Modifier.fillMaxWidth().padding(start = Gap.m, end = Gap.m, top = Gap.m, bottom = Gap.m),
@@ -1103,6 +1151,17 @@ object Tags {
  * island and its mic.
  */
 fun Modifier.softShadow(shape: Shape): Modifier = dropShadow(shape, Shadow(radius = 24.dp, color = Color.Black, alpha = 0.14f))
+
+/** "Готово" in a calendar: the app's action colour and type, not the picker's pale text button. */
+@Composable
+fun DoneButton(onClick: () -> Unit, enabled: Boolean = true) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(containerColor = actionColor(), contentColor = onActionColor()),
+        contentPadding = PaddingValues(horizontal = Gap.m),
+    ) { Text(tr("Готово", "Done"), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)) }
+}
 
 /** A round icon button the height of the save button, beside it: back, delete. */
 @Composable
