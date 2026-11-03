@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.core.view.WindowCompat
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
@@ -54,8 +57,20 @@ private fun ColorScheme.goldOnlyByName(): ColorScheme = copy(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaTheme(content: @Composable () -> Unit) {
-    val base = if (isSystemInDarkTheme()) DarkColors else LightColors
+fun GoldaTheme(palette: Palette = Palette.GOLDA, content: @Composable () -> Unit) {
+    val tones = palette.tones(isSystemInDarkTheme())
+    val base = colorSchemeOf(tones)
+    // The bars' icons follow the theme, not the system: dark icons on a light theme and back.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? android.app.Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !tones.dark
+                isAppearanceLightNavigationBars = !tones.dark
+            }
+        }
+    }
     CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary)) {
         MaterialExpressiveTheme(
             colorScheme = base.goldOnlyByName(),
@@ -69,12 +84,12 @@ fun GoldaTheme(content: @Composable () -> Unit) {
 /** Ice blue: the one cool colour, for the way to Gemini's reviews. The gold stays the action. */
 @Composable
 @ReadOnlyComposable
-fun iceColor(): Color = if (isSystemInDarkTheme()) Color(0xFF234A63) else Color(0xFFCFE7F7)
+fun iceColor(): Color = if (isDark()) Color(0xFF234A63) else Color(0xFFCFE7F7)
 
 /** Ink on [iceColor]. */
 @Composable
 @ReadOnlyComposable
-fun onIceColor(): Color = if (isSystemInDarkTheme()) Color(0xFFD7EEFB) else Color(0xFF0E3B57)
+fun onIceColor(): Color = if (isDark()) Color(0xFFD7EEFB) else Color(0xFF0E3B57)
 
 /** How the money is doing, on the home bar only: calm green, ochre, muted red. */
 enum class Pace { LASTS, SHORT, OVER }
@@ -82,7 +97,7 @@ enum class Pace { LASTS, SHORT, OVER }
 @Composable
 @ReadOnlyComposable
 fun paceColor(pace: Pace): Color {
-    val dark = isSystemInDarkTheme()
+    val dark = isDark()
     return when (pace) {
         Pace.LASTS -> if (dark) Color(0xFF8FC48D) else Color(0xFF7FB77E)
         Pace.SHORT -> if (dark) Color(0xFFE0A86C) else Color(0xFFD69A5A)

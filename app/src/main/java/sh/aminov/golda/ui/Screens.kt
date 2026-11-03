@@ -355,8 +355,8 @@ private fun AccountRow(
         supporting = { Text(accountSubline(data, state), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // A balance is what this list is for: a size up from the name, cents and all.
-                Text(amount, style = MaterialTheme.typography.titleLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                // Like every amount in a list (payments, operations): one size, one ink, cents and all.
+                Text(amount, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))
                     // One tap when the bank shows the same; a check once done.

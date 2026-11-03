@@ -31,4 +31,6 @@ data class Settings(
     val reconcileReminder: Boolean = true,
     /** When each account was last checked against the bank (account id to epoch millis), matches included. */
     val reconciledAt: Map<Long, Long> = emptyMap(),
+    /** The colour theme picked in Settings (see ui.Palette); "golda" follows the system's light or dark. */
+    val palette: String = "golda",
 )

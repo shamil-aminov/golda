@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.width
@@ -81,7 +84,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Which small sheet is open over the settings. */
-private enum class Edit { Local, Base, Shown, Markup, Key, Model, Language, Notes }
+private enum class Edit { Local, Base, Shown, Markup, Palette, Key, Model, Language, Notes }
 
 /**
  * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
@@ -166,6 +169,9 @@ fun SettingsScreen(
                 reminder(!s.reconcileReminder)
             }
 
+            Section(tr("Оформление", "Appearance"))
+            SettingRow(tr("Палитра", "Palette"), Palette.of(s.palette).label) { edit = Edit.Palette }
+
             Section(tr("Язык", "Language"))
             SettingRow(tr("Язык приложения", "App language"), languageName(currentLanguage())) { edit = Edit.Language }
 
@@ -195,6 +201,7 @@ fun SettingsScreen(
         Edit.Key -> KeySheet(s.hasGeminiKey, onDismiss = { edit = null }) { key -> onSaveKey(key); edit = null }
         Edit.Model -> ModelSheet(s.geminiModel, Settings().geminiModel, onDismiss = { edit = null }) { model -> onChange { it.copy(geminiModel = model) }; edit = null }
         Edit.Language -> LanguageSheet(onDismiss = { edit = null })
+        Edit.Palette -> PaletteSheet(Palette.of(s.palette), onDismiss = { edit = null }) { picked -> onChange { it.copy(palette = picked.key) } }
         Edit.Notes -> FormSheet(
             onDismiss = { edit = null },
             actions = {
@@ -424,3 +431,41 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
+
+/** The themes as rows: a strip of each one's colours and its name; picking applies it at once. */
+@Composable
+private fun PaletteSheet(current: Palette, onDismiss: () -> Unit, onPick: (Palette) -> Unit) {
+    FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Готово", "Done"), onDismiss) }) {
+        Caption(tr("Палитра", "Palette"))
+        VSpace(Gap.s)
+        val system = androidx.compose.foundation.isSystemInDarkTheme()
+        Palette.entries.forEach { palette ->
+            val t = palette.tones(system)
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { onPick(palette) }.padding(vertical = Gap.s, horizontal = Gap.s),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // The page with a card, the picked tone, the action and the ink on it: the theme at a glance.
+                Row(
+                    Modifier.clip(RoundedCornerShape(12.dp)).background(t.page).padding(6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    listOf(t.card, t.graphite, t.gold, t.text).forEach { c ->
+                        Box(Modifier.size(20.dp).clip(CircleShape).background(c))
+                    }
+                }
+                Spacer(Modifier.width(Gap.m))
+                Text(
+                    palette.label + when {
+                        palette == Palette.GOLDA -> tr(", как в системе", ", follows the system")
+                        t.dark -> tr(", тёмная", ", dark")
+                        else -> tr(", светлая", ", light")
+                    },
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                if (palette == current) Icon(painterResource(R.drawable.ic_check), null, Modifier.size(24.dp))
+            }
+        }
+    }
+}

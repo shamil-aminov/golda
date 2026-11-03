@@ -17,7 +17,9 @@ import androidx.compose.ui.graphics.Color
  * - [Tones.gold]: the one action to take (the mic, Записать, Сохранить, Готово). Golda's gold.
  * - red: bad news only (overspending, debts, erasing).
  */
-private class Tones(
+class Tones(
+    /** A dark set: Material's dark scheme, light status bar icons. */
+    val dark: Boolean,
     val page: Color,
     val card: Color,
     val soft: Color,
@@ -34,7 +36,8 @@ private class Tones(
     val onErrorSoft: Color,
 )
 
-private val Light = Tones(
+internal val GoldaLight = Tones(
+    dark = false,
     page = Color(0xFFF4F4F5),
     card = Color(0xFFFFFFFF),
     soft = Color(0xFFE4E4E7),
@@ -51,7 +54,8 @@ private val Light = Tones(
     onErrorSoft = Color(0xFF991B1B),
 )
 
-private val Dark = Tones(
+internal val GoldaDark = Tones(
+    dark = true,
     page = Color(0xFF1F1F23),
     card = Color(0xFF2A2A2F),
     soft = Color(0xFF3F3F46),
@@ -68,7 +72,10 @@ private val Dark = Tones(
     onErrorSoft = Color(0xFFFECACA),
 )
 
-internal val LightColors = with(Light) {
+/** The Material scheme for a set of [Tones]: every role lands on one of its few colours. */
+internal fun colorSchemeOf(t: Tones) = if (t.dark) darkScheme(t) else lightScheme(t)
+
+private fun lightScheme(t: Tones) = with(t) {
     lightColorScheme(
         primary = gold, onPrimary = onGold, primaryContainer = gold, onPrimaryContainer = onGold, inversePrimary = gold,
         secondary = graphite, onSecondary = onGraphite, secondaryContainer = soft, onSecondaryContainer = text,
@@ -87,7 +94,7 @@ internal val LightColors = with(Light) {
     )
 }
 
-internal val DarkColors = with(Dark) {
+private fun darkScheme(t: Tones) = with(t) {
     darkColorScheme(
         primary = gold, onPrimary = onGold, primaryContainer = gold, onPrimaryContainer = onGold, inversePrimary = gold,
         secondary = graphite, onSecondary = onGraphite, secondaryContainer = soft, onSecondaryContainer = text,

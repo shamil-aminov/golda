@@ -884,6 +884,8 @@ fun WavyBar(
         trackColor = ink.copy(alpha = 0.24f),
         stroke = stroke,
         trackStroke = stroke,
+        // An unhurried drift: a wavelength in two and a half seconds, not one.
+        waveSpeed = WavyProgressIndicatorDefaults.LinearDeterminateWavelength * 0.4f,
         // Full stays wavy until [flat] says otherwise, so it can settle.
         amplitude = { (if (it >= 1f) 1f else WavyProgressIndicatorDefaults.indicatorAmplitude(it)) * wave },
     )

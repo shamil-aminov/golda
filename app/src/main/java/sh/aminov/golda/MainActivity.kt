@@ -24,6 +24,9 @@ import sh.aminov.golda.data.Repo
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.ui.GoldaRoot
 import sh.aminov.golda.ui.GoldaTheme
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import sh.aminov.golda.ui.Palette
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -98,7 +101,10 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<DebtReminder>(1, TimeUnit.DAYS).build(),
         )
-        setContent { GoldaTheme { GoldaRoot(repo, voiceRequests, tabRequests) } }
+        setContent {
+            val settings by repo.settings.flow.collectAsStateWithLifecycle(initialValue = null)
+            GoldaTheme(Palette.of(settings?.palette)) { GoldaRoot(repo, voiceRequests, tabRequests) }
+        }
     }
 
     /**
