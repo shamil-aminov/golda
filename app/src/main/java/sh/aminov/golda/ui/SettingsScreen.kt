@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.navigationBarsPadding
 import sh.aminov.golda.data.AppLanguage
 import android.content.ContextWrapper
 import android.content.Context
@@ -71,7 +74,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Which small sheet is open over the settings. */
-private enum class Edit { Local, Base, Shown, Markup, Period, Buckets, Key, Model, Language, Notes }
+private enum class Edit { Local, Base, Shown, Markup, Key, Model, Language, Notes }
 
 /**
  * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
@@ -85,8 +88,6 @@ fun SettingsScreen(
     onChange: ((Settings) -> Settings) -> Unit,
     snackbar: SnackbarHostState,
     onRefreshRates: () -> Unit,
-    /** A category with its bucket changed. */
-    onSaveCategory: (Category) -> Unit,
     onSaveKey: (String) -> Unit,
     onExport: (Uri) -> Unit,
     onImport: (Uri) -> Unit,
@@ -103,22 +104,23 @@ fun SettingsScreen(
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(onExport) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImport = uri }
     val s = data.settings
-    val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    BackHandler(onBack = onBack)
 
+    // Back sits at the bottom, by the thumb, as on every page.
     Scaffold(
-        modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
-        topBar = {
-            LargeFlexibleTopAppBar(
-                title = { Text(tr("Настройки", "Settings")) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
-                scrollBehavior = bar,
-            )
+        bottomBar = {
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m)) {
+                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(top = Gap.s, bottom = Gap.xl),
+            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l),
         ) {
+            VSpace(Gap.l)
+            Text(tr("Настройки", "Settings"), style = MaterialTheme.typography.headlineMedium)
+            VSpace(Gap.l)
             GroupLabel(tr("Где я", "Where I am"))
             SettingRow(
                 0, 3, tr("Местная валюта", "Local currency"),
@@ -156,22 +158,6 @@ fun SettingsScreen(
             }
 
             VSpace(Gap.l)
-            GroupLabel(tr("Бюджет", "Budget"))
-            val envelope = data.envelope
-            SettingRow(
-                0, 2, tr("Период трат", "Spending period"),
-                painter = painterResource(R.drawable.ic_calendar),
-                value = envelope?.account?.name,
-                supporting = envelope?.let { periodLabel(it.start, it.end, data.today) } ?: tr("Нет счёта для трат", "No account to spend from"),
-            ) { if (envelope != null) edit = Edit.Period }
-            val expenseCategories = data.categories.filter { it.kind == CategoryKind.EXPENSE }
-            SettingRow(
-                1, 2, tr("Корзины категорий", "Category buckets"),
-                painter = painterResource(R.drawable.ic_cat_other),
-                supporting = tr("Регулярно: ", "Regular: ") + expenseCategories.filter { Buckets.of(it) == Bucket.REGULAR }.joinToString(", ") { it.label() }.ifBlank { "—" },
-            ) { edit = Edit.Buckets }
-
-            VSpace(Gap.l)
             GroupLabel(tr("Голос", "Voice"))
             val defaultModel = Settings().geminiModel
             val voiceRows = if (voiceBacklog > 0) 3 else 2
@@ -189,18 +175,20 @@ fun SettingsScreen(
 
             VSpace(Gap.l)
             GroupLabel(tr("Данные", "Data"))
-            SettingRow(0, 3, tr("Сохранить копию", "Save a backup"), painter = painterResource(R.drawable.ic_upload), supporting = tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
+            SettingRow(0, 2, tr("Сохранить копию", "Save a backup"), painter = painterResource(R.drawable.ic_upload), supporting = tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
                 exporter.launch("golda-${LocalDate.now()}.json")
             }
-            SettingRow(1, 3, tr("Восстановить", "Restore"), painter = painterResource(R.drawable.ic_download)) {
+            SettingRow(1, 2, tr("Восстановить", "Restore"), painter = painterResource(R.drawable.ic_download)) {
                 importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
             }
             val reminder: (Boolean) -> Unit = { on ->
                 onChange { it.copy(reconcileReminder = on) }
                 ReconcileSchedule.apply(context, on)
             }
+            VSpace(Gap.l)
+            GroupLabel(tr("Напоминания", "Reminders"))
             GroupRow(
-                2, 3,
+                0, 1,
                 onClick = { reminder(!s.reconcileReminder) },
                 leading = { RowIcon(painter = painterResource(R.drawable.ic_bell)) },
                 supporting = { Text(tr("По воскресеньям в 19:00", "Sundays at 19:00")) },
@@ -239,10 +227,6 @@ fun SettingsScreen(
             under = tr("Обновляется сама после обмена рублей", "Updates itself after each ruble exchange"),
             onDismiss = { edit = null },
         ) { v -> onChange { it.copy(markup = v / 100) } }
-        Edit.Period -> PeriodSheet(data, onDismiss = { edit = null }, onChange = onChange)
-        Edit.Buckets -> PickSheet(tr("Что считается в «можно сегодня»: только «Каждый день»", "What counts in “safe today”: only “Everyday”"), onDismiss = { edit = null }, done = true) {
-            BucketChoices(data.categories.filter { it.kind == CategoryKind.EXPENSE }, onSaveCategory)
-        }
         Edit.Key -> KeySheet(s.hasGeminiKey, onDismiss = { edit = null }) { key -> onSaveKey(key); edit = null }
         Edit.Model -> ModelSheet(s.geminiModel, Settings().geminiModel, onDismiss = { edit = null }) { model -> onChange { it.copy(geminiModel = model) }; edit = null }
         Edit.Language -> LanguageSheet(onDismiss = { edit = null })
@@ -469,18 +453,3 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-/** Each expense category with its bucket: three or four regular ones, a few big ones, the rest everyday. */
-@Composable
-private fun BucketChoices(categories: List<Category>, onSave: (Category) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(Gap.m)) {
-        categories.forEach { category ->
-            Column {
-                Text(category.label(), style = MaterialTheme.typography.titleMedium)
-                VSpace(Gap.xs)
-                ChoiceGroup(listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), Buckets.of(category), { onSave(category.copy(bucket = it)) }, Modifier.fillMaxWidth()) {
-                    ChoiceText(bucketLabel(it))
-                }
-            }
-        }
-    }
-}

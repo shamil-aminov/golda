@@ -236,7 +236,6 @@ private fun MainScreen(
                     }
                 },
                 onWipe = { page = null; scope.launch { repo.resetAll() } },
-                onSaveCategory = { scope.launch { repo.saveCategory(it) } },
                 onExport = { uri ->
                     scope.launch {
                         val ok = runCatching {

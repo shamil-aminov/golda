@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.navigationBarsPadding
 import sh.aminov.golda.domain.Regulars
 import sh.aminov.golda.data.Obligation
 import sh.aminov.golda.R
@@ -383,17 +385,27 @@ fun AccountScreen(
     val account = state.account
     var reconciling by remember { mutableStateOf(false) }
     val operations = data.visibleOperations.filter { full -> full.postings.any { it.accountId == accountId } }
+    BackHandler(onBack = onBack)
+    // Back and edit at the bottom, by the thumb, as on every page.
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(account.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
-                actions = { IconButton(onClick = onEditAccount) { Icon(painterResource(R.drawable.ic_edit), tr("Изменить", "Edit")) } },
-            )
+        bottomBar = {
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
+                RoundAction(R.drawable.ic_edit, tr("Изменить", "Edit"), onEditAccount)
+            }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding() + Gap.s, bottom = padding.calculateBottomPadding() + Gap.l)) {
+        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l)) {
+            item(key = "title") {
+                Text(
+                    account.name,
+                    Modifier.padding(start = Gap.m, end = Gap.m, top = Gap.l, bottom = Gap.l),
+                    style = MaterialTheme.typography.headlineMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             item(key = "hero") {
                 // Neutral unless the money is free to spend: only then the vivid tile.
                 val scheme = MaterialTheme.colorScheme
@@ -405,7 +417,7 @@ fun AccountScreen(
                     container = if (free) scheme.primaryFixed else tileColor(),
                     content = ink,
                 ) {
-                    Caption(typeLabel(account.type) + (account.groupName?.let { " · $it" } ?: ""), color = quiet)
+                    Caption(typeLabel(account.type), color = quiet)
                     VSpace(Gap.xs)
                     val amount = Fmt.amount(state.balanceMinor, state.currency)
                     // The kopecks are the same ink, only quieter.

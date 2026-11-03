@@ -24,11 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 
+- **The Budget group in Settings.** The spending period opens from the home
+  tile; each category already belongs to its bucket, so there is nothing to
+  set.
 - **Account groups.** One bank, one account: accounts are one list, and the
   account form no longer asks for a group.
 
 ### Changed
 
+- **Back is at the bottom** on Settings and an account's page, as on the
+  forms and reviews; the account page has edit next to it.
 - **Insights** shows the total with the three buckets as filters, categories
   as bars and the days; the donut is gone.
 
