@@ -54,9 +54,12 @@ adb shell am start -n sh.aminov.golda/.MainActivity --ez golda.demo true     # a
 adb shell am start -n sh.aminov.golda/.MainActivity --ez golda.samples true  # accounts, operations, goals, wishlist
 ```
 
-To keep a real install safe while you develop, add `applicationIdSuffix =
-".demo"` to the `debug` build type locally. The debug build then installs as a
-separate app with its own data. Don't commit that line.
+To live with your changes next to the real app, build the `dev` variant:
+`./gradlew assembleDev` gives a release build that installs as
+`sh.aminov.golda.dev`, named "Golda dev" with a graphite icon, with its own
+data. The demo shortcuts above work in debug builds only; to try them next to
+a real install, add `applicationIdSuffix = ".demo"` to the `debug` build type
+locally and don't commit that line.
 
 A voice note can be fed in without speaking: copy a `.wav`, `.ogg` or `.aac` file,
 named with its recording time in milliseconds, into the app's `files/voice/`

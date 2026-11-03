@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- A `dev` build to live with next to the real app: "Golda dev", a graphite
+  icon, its own data (`./gradlew assembleDev`).
+
 ### Fixed
 
 - The entry form no longer cuts the first account card in half: the row moves

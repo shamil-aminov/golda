@@ -88,6 +88,14 @@ android {
             signingConfig = signingConfigs.getByName(if (hasReleaseSigning) "release" else "debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
+        // A release build to live with next to the real app: its own package and data, named
+        // "Golda dev" with a dark icon (src/dev), so the two are never confused on the phone.
+        create("dev") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            matchingFallbacks += "release"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
