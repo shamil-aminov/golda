@@ -379,7 +379,8 @@ fun EntrySheet(
             amount == null && type == OpType.INCOME -> UnderLine(" ")
             amount == null && type == OpType.TRANSFER -> Unit
             amount == null -> {
-                data.envelope?.let { UnderLine(tr("Можно сегодня ", "Safe today ") + Fmt.amount(it.leftTodayMinor, it.currency)) }
+                // Whole units, as on Home.
+                data.envelope?.let { UnderLine(tr("Можно сегодня ", "Safe today ") + Fmt.whole(it.leftTodayMinor, it.currency) + " " + Currencies.symbol(it.currency)) }
             }
             secondCode != null && type == OpType.TRANSFER -> ReceivedLine(secondCode, secondShown, secondEdited, editingSecond, { editingSecond = it }) {
                 secondText = it

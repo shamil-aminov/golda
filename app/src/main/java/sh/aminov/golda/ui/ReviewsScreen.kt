@@ -105,8 +105,9 @@ fun ReviewsScreen(
                         onReview { problem -> working = false; error = problem }
                     }
                 },
-                containerColor = iceColor(),
-                contentColor = onIceColor(),
+                // Without a key the one action is adding it: the action colour; otherwise Разбор's ice.
+                containerColor = if (hasKey) iceColor() else actionColor(),
+                contentColor = if (hasKey) onIceColor() else onActionColor(),
                 modifier = Modifier.softShadow(RoundedCornerShape(16.dp)),
                 elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
             ) {

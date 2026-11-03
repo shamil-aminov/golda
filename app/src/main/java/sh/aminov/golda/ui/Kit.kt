@@ -538,10 +538,15 @@ fun DeleteAction(onClick: () -> Unit) {
 
 /** The M3 Expressive switch: a check on the thumb when on. */
 @Composable
-fun CheckSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun CheckSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?) {
     Switch(
         checked = checked,
         onCheckedChange = onCheckedChange,
+        // Off is still a visible control: the thumb and outline in the muted ink, not the faint line.
+        colors = SwitchDefaults.colors(
+            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ),
         thumbContent = if (checked) {
             { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(SwitchDefaults.IconSize)) }
         } else {
@@ -678,7 +683,8 @@ fun FormSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded)),
-        containerColor = sheetColor(),
+        // On the card colour: a sheet stands off the dimmed page in dark themes too.
+        containerColor = tileColor(),
     ) {
         BackHidesKeyboard()
         Column(Modifier.imePadding()) {
@@ -1029,7 +1035,7 @@ fun HeaderAction(text: String, onClick: () -> Unit) {
         shape = CircleShape,
         color = tileColor(),
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)),
         modifier = Modifier.minimumInteractiveComponentSize(),
     ) {
         Row(Modifier.padding(start = 10.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {

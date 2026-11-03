@@ -142,9 +142,11 @@ fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Unit, onSa
         TonalField(
             dayText, { dayText = it.filter(Char::isDigit).take(2) }, Modifier.fillMaxWidth(),
             label = tr("Какого числа списывается", "Day of the month it is charged"),
+            suffix = tr("числа каждого месяца", "of each month"),
             keyboardType = KeyboardType.Number,
         )
         VSpace(Gap.s)
-        UnderLine(tr("Без суммы это пробный период", "No amount is a free trial"))
+        // Said only while there is no amount: that is when it applies.
+        if (amountText.isBlank()) UnderLine(tr("Без суммы это пробный период", "No amount is a free trial"))
     }
 }

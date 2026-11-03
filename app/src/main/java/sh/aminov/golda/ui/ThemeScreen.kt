@@ -112,7 +112,12 @@ fun ThemeScreen(
             GroupLabel(tr("Готовые", "Ready"))
             VSpace(Gap.s)
             // The presets and the kept themes, each a swatch strip; a long press forgets a kept one.
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+            // Edge to edge, and the theme in use scrolled into view.
+            val presets = rememberScrollState()
+            val activeIndex = (Palette.entries.map { it.key } + saved).indexOf(current)
+            val step = with(androidx.compose.ui.platform.LocalDensity.current) { (88.dp + Gap.s).roundToPx() }
+            androidx.compose.runtime.LaunchedEffect(activeIndex) { if (activeIndex > 0) presets.animateScrollTo(((activeIndex - 1) * step).coerceAtLeast(0)) }
+            Row(Modifier.bleed(Gap.m).horizontalScroll(presets).padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 Palette.entries.forEach { palette ->
                     ThemeChip(palette.label, palette.tones(systemDark), palette.key == current, onClick = { onApply(palette.key) })
                 }
@@ -180,9 +185,9 @@ fun ThemeScreen(
             }
 
             VSpace(Gap.l)
-            Caption(tr("Стиль", "Style"))
+            GroupLabel(tr("Стиль", "Style"))
             VSpace(Gap.s)
-            ChoiceGroup(ThemeStyle.entries, spec.style.takeIf { custom }, { apply(spec.copy(style = it)) }, Modifier.fillMaxWidth()) {
+            ChoiceGroup(ThemeStyle.entries, spec.style, { apply(spec.copy(style = it)) }, Modifier.fillMaxWidth()) {
                 ChoiceText(
                     when (it) {
                         ThemeStyle.CALM -> tr("Тихая", "Calm")
@@ -193,9 +198,9 @@ fun ThemeScreen(
                 )
             }
             VSpace(Gap.l)
-            Caption(tr("Светлая или тёмная", "Light or dark"))
+            GroupLabel(tr("Светлая или тёмная", "Light or dark"))
             VSpace(Gap.s)
-            ChoiceGroup(ThemeMode.entries, spec.mode.takeIf { custom }, { apply(spec.copy(mode = it)) }, Modifier.fillMaxWidth()) {
+            ChoiceGroup(ThemeMode.entries, spec.mode, { apply(spec.copy(mode = it)) }, Modifier.fillMaxWidth()) {
                 ChoiceText(
                     when (it) {
                         ThemeMode.SYSTEM -> tr("Как система", "System")
@@ -205,9 +210,9 @@ fun ThemeScreen(
                 )
             }
             VSpace(Gap.l)
-            Caption(tr("Контраст", "Contrast"))
+            GroupLabel(tr("Контраст", "Contrast"))
             VSpace(Gap.s)
-            ChoiceGroup(listOf(0, 1, 2), spec.contrast.takeIf { custom }, { apply(spec.copy(contrast = it)) }, Modifier.fillMaxWidth()) {
+            ChoiceGroup(listOf(0, 1, 2), spec.contrast, { apply(spec.copy(contrast = it)) }, Modifier.fillMaxWidth()) {
                 ChoiceText(listOf(tr("Мягкий", "Soft"), tr("Обычный", "Normal"), tr("Высокий", "High"))[it])
             }
         }

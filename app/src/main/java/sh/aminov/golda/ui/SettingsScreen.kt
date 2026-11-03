@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
@@ -167,7 +169,8 @@ fun SettingsScreen(
                 ReconcileSchedule.apply(context, on)
             }
             Section(tr("Напоминания", "Reminders"))
-            SettingRow(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), trailing = { CheckSwitch(s.reconcileReminder, reminder) }) {
+            // The whole row is the switch, for TalkBack too.
+            SettingRow(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), checked = s.reconcileReminder, trailing = { CheckSwitch(s.reconcileReminder, null) }) {
                 reminder(!s.reconcileReminder)
             }
 
@@ -273,12 +276,20 @@ private fun SettingRow(
     summary: String? = null,
     danger: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
+    /** Set for a switch row: the row toggles, as one control. */
+    checked: Boolean? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier.fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                when {
+                    checked != null && onClick != null -> Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = { onClick() })
+                    onClick != null -> Modifier.clickable(onClick = onClick)
+                    else -> Modifier
+                },
+            )
             .padding(horizontal = Gap.l, vertical = Gap.m),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -110,11 +112,15 @@ fun AccountSheet(
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (editing == null) focus.requestFocus() }
 
+    // Like the entry form: no bar across the top; back, delete and the main button at the bottom.
     FormPage(
         onClose = onDismiss,
-        title = if (editing == null) tr("Новый счёт", "New account") else tr("Счёт", "Account"),
-        topActions = { if (editing != null) DeleteAction { confirmDelete = true } },
-        actions = { PrimaryAction(if (editing == null) tr("Добавить", "Add") else tr("Сохранить", "Save"), ::save, valid) },
+        topBar = false,
+        actions = {
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
+            if (editing != null) RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete")) { confirmDelete = true }
+            PrimaryAction(if (editing == null) tr("Добавить", "Add") else tr("Сохранить", "Save"), ::save, valid)
+        },
     ) {
         // Once created, the currency is fixed and simply stands after the name.
         BareField(
@@ -139,7 +145,7 @@ fun AccountSheet(
                 TonalField(
                     rateText, { rateText = it }, Modifier.weight(1f),
                     label = if (debt) tr("Ставка", "Rate") else tr("Ставка на остаток", "Rate on balance"),
-                    suffix = tr("% год.", "% p.a."),
+                    suffix = tr("% годовых", "% a year"),
                     keyboardType = KeyboardType.Decimal,
                 )
                 if (debt) {
@@ -233,14 +239,15 @@ private fun TypeTiles(selected: AccountType, onPick: (AccountType) -> Unit) {
             val container by animateColorAsState(if (on) pickedColor() else unpickedColor(), MaterialTheme.motionScheme.fastEffectsSpec(), label = "tile")
             Surface(
                 onClick = { onPick(type) },
-                modifier = Modifier.weight(1f).height(64.dp),
+                modifier = Modifier.weight(1f).heightIn(min = 64.dp),
                 shape = RoundedCornerShape(corner),
                 color = container,
                 contentColor = if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface,
             ) {
                 Column(Modifier.padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Icon(painterResource(typeIcon(type)), null, Modifier.size(22.dp))
-                    Text(shortTypeLabel(type), style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center)
+                    // Shrinks a step rather than cut a long name ("Наличные") in a narrow tile.
+                    Text(shortTypeLabel(type), style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp))
                 }
             }
         }

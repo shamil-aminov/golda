@@ -294,7 +294,8 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
                     val shown = remember(item.name) { Animatable(0f) }
                     LaunchedEffect(item.name) { delay(order * 50L); shown.animateTo(1f, motion) }
                     // Ink: the tile's own colour, made deep, so the words belong to it.
-                    val ink = lerp(item.color, Color.Black, 0.72f)
+                    // Deep ink on light tiles, light ink on deep ones: readable on either.
+                    val ink = if (item.color.luminance() < 0.3f) lerp(item.color, Color.White, 0.9f) else lerp(item.color, Color.Black, 0.72f)
                     Box(
                         Modifier
                             .offset { IntOffset(tile.x.roundToInt(), tile.y.roundToInt()) }
@@ -488,6 +489,7 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
             ) {
                 // Bars wider than the gaps between them: a day reads as a block, not a line.
                 val barWidth = step * 0.8f
+                val gapPx = 1.dp.toPx()
                 val radius = minOf(barWidth / 2, 12.dp.toPx())
                 days.forEachIndexed { i, (day, value) ->
                     val h = if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()
@@ -508,7 +510,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                             var y = size.height
                             parts.forEach { (color, rub) ->
                                 val part = h * rub / sum
-                                drawRect(color, Offset(left, y - part), Size(barWidth, part))
+                                // A hairline of the card between two categories, so like colours don't merge.
+                                drawRect(color, Offset(left, y - part), Size(barWidth, (part - gapPx).coerceAtLeast(0f)))
                                 y -= part
                             }
                         }

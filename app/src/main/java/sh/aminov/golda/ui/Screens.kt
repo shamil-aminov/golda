@@ -575,7 +575,8 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
 /** "+1 605 ₽ за октябрь": a savings account's interest this month, in the account's own currency. */
 private fun interestLine(minor: Long, currency: String, today: LocalDate): String {
     val amount = Fmt.approx(Currencies.toMajor(minor, currency), currency)
-    return tr("+$amount за ${monthName(today)}", "+$amount for ${monthName(today)}")
+    // Expected, not earned yet: "≈ +3 106 ₽ в ноябре".
+    return tr("≈ +$amount в ${monthIn(today)}", "≈ +$amount in ${monthName(today)}")
 }
 
 /** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
@@ -625,3 +626,6 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         )
     }
 }
+
+/** "в ноябре": the month in the prepositional case. */
+private fun monthIn(date: LocalDate): String = listOf("январе", "феврале", "марте", "апреле", "мае", "июне", "июле", "августе", "сентябре", "октябре", "ноябре", "декабре")[date.monthValue - 1]

@@ -88,7 +88,7 @@ fun currencyLabel(code: String): String =
 fun typeLabel(type: AccountType) = when (type) {
     AccountType.CARD -> tr("Карта", "Card")
     AccountType.CASH -> tr("Наличные", "Cash")
-    AccountType.SAVINGS -> tr("Накопительный", "Savings")
+    AccountType.SAVINGS -> tr("Вклад", "Savings")
     AccountType.CREDIT -> tr("Кредитка", "Credit card")
     AccountType.LOAN -> tr("Кредит", "Loan")
 }

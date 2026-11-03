@@ -133,9 +133,12 @@ private val harmony = listOf(0.0, 150.0, 55.0, -55.0, 210.0, 25.0, -110.0, 95.0,
  */
 fun leitmotifColor(rank: Int?, tones: Tones): Color {
     if (rank == null) return oklch(tones.infoL.toDouble(), 0.012, tones.seedHue.toDouble())
-    if (tones.clearColours) return clearColour(rank)
+    if (tones.clearColours) return clearColour(rank, tones.dark)
     val chroma = tones.infoC.toDouble() * if (rank == 0) 1.25 else 1.0
-    return oklch(tones.infoL.toDouble() - if (rank == 0) 0.04 else 0.0, chroma.coerceAtLeast(0.06), tones.seedHue + harmony[rank % harmony.size])
+    // Neighbours differ in lightness too, not hue alone: colours that read as one hue to some eyes
+    // (blue and violet, green and yellow) still come apart.
+    val ladder = listOf(-0.04, -0.10, 0.05, -0.16, 0.05)[rank % 5]
+    return oklch((tones.infoL + ladder).toDouble(), chroma.coerceAtLeast(0.06), tones.seedHue + harmony[rank % harmony.size])
 }
 
 /** How the money is doing, on the home bar: the theme's own colour while it lasts, red once overspent. */
@@ -204,4 +207,12 @@ private val clearSet = listOf(
     Triple(0.88, 0.07, 80.0), Triple(0.42, 0.12, 265.0), Triple(0.68, 0.14, 20.0), Triple(0.78, 0.05, 220.0),
 )
 
-private fun clearColour(rank: Int): Color = clearSet[rank % clearSet.size].let { (l, c, h) -> oklch(l, c, h) }
+/** The light theme's pale ones made deeper so they hold on white; the dark theme's deep ones lighter. */
+private val clearDay = mapOf(2 to Triple(0.74, 0.12, 355.0), 4 to Triple(0.80, 0.11, 80.0), 6 to Triple(0.64, 0.15, 20.0), 7 to Triple(0.70, 0.06, 220.0))
+private val clearNight = mapOf(1 to Triple(0.62, 0.13, 245.0), 3 to Triple(0.56, 0.09, 195.0), 5 to Triple(0.50, 0.13, 275.0))
+
+private fun clearColour(rank: Int, dark: Boolean): Color {
+    val i = rank % clearSet.size
+    val (l, c, h) = (if (dark) clearNight[i] else clearDay[i]) ?: clearSet[i]
+    return oklch(l, c, h)
+}
