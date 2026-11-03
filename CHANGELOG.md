@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.8] — 2026-11-03
+
+### Changed
+
+- **Insights' day bars follow the same rule as the total and the mosaic**:
+  every expense of the day, or only the picked group's. Before, without a
+  group they showed everyday spending alone, so a day with a big purchase
+  (Temu) or a credit card fee looked empty. The plan's dashed line shows under
+  "Ежедневные", the group it is meant for. Reconciliations are not spending
+  and stay off the bars.
+
 ## [0.17.7] — 2026-11-03
 
 ### Changed
@@ -417,7 +428,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.7...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.8...HEAD
+[0.17.8]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.8
 [0.17.7]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.7
 [0.17.6]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.6
 [0.17.5]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.5

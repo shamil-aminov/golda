@@ -139,9 +139,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
     val shown = remember(data, period, filter) {
         val bucket = filter ?: return@remember report
         val only = data.operations.filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == bucket }
-        // The day bars count everyday spending only; for another bucket every expense of it is a bar.
-        val asDaily = data.categoryById.mapValues { (_, c) -> c.copy(bucket = Bucket.DAILY) }
-        Analytics.report(only.map { it.copy(op = it.op.copy(bucket = null)) }, data.accountById, asDaily, period, today, data.zone, data.rates)
+        Analytics.report(only, data.accountById, data.categoryById, period, today, data.zone, data.rates)
     }
     // Each day's spending by category, biggest first: the day bars are stacked in the categories' colours.
     val tones = LocalTones.current
@@ -154,9 +152,9 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
         }
     }
     val stacks = remember(data, period, filter, tones, colours) {
-        val want = filter ?: Bucket.DAILY
+        // Like the mosaic and the total: every expense, or the picked group's alone.
         data.operations
-            .filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == want }
+            .filter { it.op.type == OpType.EXPENSE && (filter == null || Buckets.of(it.op, data.categoryById) == filter) }
             .groupBy { Ledger.localDate(it.op.timestamp, data.zone) }
             .mapValues { (_, ops) ->
                 ops.groupBy { it.op.categoryId?.let(data.categoryById::get)?.key }
@@ -266,7 +264,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                             days.flatMap { it.value }.groupBy { it.first }.map { (color, parts) -> color to parts.sumOf { it.second } }.sortedByDescending { it.second }
                         }
                     }
-                    val plan = data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter in listOf(null, Bucket.DAILY) && bar == Analytics.Bar.DAY }
+                    val plan = data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter == Bucket.DAILY && bar == Analytics.Bar.DAY }
                     DayBars(Analytics.bars(shown.days), today, kind, plan, data.base, barStacks)
                 }
             }

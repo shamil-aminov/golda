@@ -121,11 +121,11 @@ object ReviewPrompt {
                 appendLine("- ${name(p.categoryId)}: сейчас ничего; было ${rub(p.rubMinor)}")
             }
             appendLine()
-            when (Analytics.barFor(report.days.size)) {
-                Analytics.Bar.DAY -> appendLine("Ежедневное по дням: " + report.days.joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue} ${weekdays[d.dayOfWeek.value - 1]} ${minor / 100}" })
+            when (Analytics.barFor(report.dailyDays.size)) {
+                Analytics.Bar.DAY -> appendLine("Ежедневное по дням: " + report.dailyDays.joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue} ${weekdays[d.dayOfWeek.value - 1]} ${minor / 100}" })
                 // A long period by weeks or months, so the lines stay readable and the request short.
-                Analytics.Bar.WEEK -> appendLine("Ежедневное по неделям, с даты: " + Analytics.bars(report.days).joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue}.${d.year} ${minor / 100}" })
-                Analytics.Bar.MONTH -> appendLine("Ежедневное по месяцам: " + Analytics.bars(report.days).joinToString("; ") { (d, minor) -> "${d.monthValue}.${d.year} ${minor / 100}" })
+                Analytics.Bar.WEEK -> appendLine("Ежедневное по неделям, с даты: " + Analytics.bars(report.dailyDays).joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue}.${d.year} ${minor / 100}" })
+                Analytics.Bar.MONTH -> appendLine("Ежедневное по месяцам: " + Analytics.bars(report.dailyDays).joinToString("; ") { (d, minor) -> "${d.monthValue}.${d.year} ${minor / 100}" })
             }
             appendLine()
             // How many of each weekday the period had, for an honest average per weekday.

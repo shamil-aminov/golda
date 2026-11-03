@@ -94,8 +94,13 @@ class AnalyticsTest {
         // The average is the whole total a day; everyday spending's own is kept for the review.
         assertEquals(r.spentRub / 7, r.averagePerDayRub)
         assertEquals(80_000L / 7, r.dailyPerDayRub)
-        assertEquals(50_000L, r.days.last().second)
-        assertEquals(30_000L, r.days[r.days.size - 2].second)
+        // The bars are every expense, like the total; the review's series is everyday spending alone.
+        assertEquals(r.spentRub, r.days.sumOf { it.second })
+        assertEquals(r.dailyRub, r.dailyDays.sumOf { it.second })
+        assertEquals(50_000L, r.dailyDays.last().second)
+        assertEquals(30_000L, r.dailyDays[r.dailyDays.size - 2].second)
+        // Today's bar has the 10 $ lunch and yesterday's the 5 000 ₽ purchase too.
+        assertEquals(142_000L, r.days.last().second)
     }
 
     @Test

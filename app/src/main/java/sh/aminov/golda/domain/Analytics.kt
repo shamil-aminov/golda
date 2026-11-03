@@ -21,8 +21,10 @@ data class CategorySpend(val categoryId: Long?, val rubMinor: Long)
 
 data class Report(
     val period: Period,
-    /** Everyday spending per day of the period, in rubles (kopecks), oldest first. */
+    /** Spending per day of the period, every expense, in rubles (kopecks), oldest first. */
     val days: List<Pair<LocalDate, Long>>,
+    /** Everyday spending alone per day, for the review: one rent would dwarf every other day. */
+    val dailyDays: List<Pair<LocalDate, Long>>,
     val spentRub: Long,
     /** All of [spentRub] over the days counted so far: plain arithmetic, the total a day. */
     val averagePerDayRub: Long,
@@ -97,9 +99,10 @@ object Analytics {
         val spent = expenses.sumOf(::cost)
         val byBucket = expenses.groupBy { Buckets.of(it.op, categories) }.mapValues { (_, list) -> list.sumOf(::cost) }
         val daily = byBucket[Bucket.DAILY] ?: 0
-        // The bars show everyday spending only: one rent would dwarf every other day.
-        val byDay = expenses.filter { Buckets.of(it.op, categories) == Bucket.DAILY }
-            .groupBy { Ledger.localDate(it.op.timestamp, zone) }.mapValues { (_, list) -> list.sumOf(::cost) }
+        // The bars are what the total is: every expense. A group's own bars are its report alone.
+        fun perDay(list: List<OperationFull>) = list.groupBy { Ledger.localDate(it.op.timestamp, zone) }.mapValues { (_, l) -> l.sumOf(::cost) }
+        val byDay = perDay(expenses)
+        val dailyByDay = perDay(expenses.filter { Buckets.of(it.op, categories) == Bucket.DAILY })
         val lastCounted = minOf(period.to, today)
         val countedDays = (ChronoUnit.DAYS.between(period.from, lastCounted) + 1).coerceAtLeast(1)
 
@@ -122,6 +125,7 @@ object Analytics {
         return Report(
             period = period,
             days = period.days.map { it to (byDay[it] ?: 0L) },
+            dailyDays = period.days.map { it to (dailyByDay[it] ?: 0L) },
             spentRub = spent,
             averagePerDayRub = spent / countedDays,
             dailyPerDayRub = daily / countedDays,
