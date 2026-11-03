@@ -148,8 +148,9 @@ fun HomeScreen(
                             else -> tr("Хватит на $lasts из $ahead $ofDays", "Lasts $lasts of $ahead $ofDays")
                         },
                         Modifier.testTag(Tags.HOME_RUNWAY),
-                        style = text,
-                        color = quiet,
+                        // The tile's main statement: the one semibold line, in full ink.
+                        style = text.copy(fontWeight = FontWeight.SemiBold),
+                        color = ink,
                         maxLines = 1,
                     )
                     VSpace(Gap.xs)
@@ -213,9 +214,12 @@ fun AccountsScreen(
                 HeroAmount(data.base.whole(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
                 VSpace(Gap.s)
                 Text(data.others(total, data.base.code), style = text, color = quiet)
-                Debts.advice(data.accounts, data.states)?.let {
+                // The one line that says something here: semibold, like Home's; its figure under it.
+                Debts.advice(data.accounts, data.states)?.let { advice ->
                     VSpace(Gap.m)
-                    Text(it, style = text, color = quiet)
+                    val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
+                    Text(head, style = text.copy(fontWeight = FontWeight.SemiBold), color = scheme.onPrimaryFixed)
+                    tail?.let { Text(it, style = text, color = quiet) }
                 }
             }
         }

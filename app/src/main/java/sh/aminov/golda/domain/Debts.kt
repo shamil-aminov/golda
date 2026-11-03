@@ -97,7 +97,8 @@ object Debts {
             AccountType.CREDIT -> tr("по кредитке", "on the credit card")
             else -> tr("по кредиту", "on the loan")
         }
-        return tr("Проценты $what ≈ ${Fmt.amount(interest, top.currency)} в месяц", "Interest $what ≈ ${Fmt.amount(interest, top.currency)} a month")
+        // Two lines: what it is, then what it comes to.
+        return tr("Проценты $what", "Interest $what") + "\n" + tr("≈ ${Fmt.amount(interest, top.currency)} в месяц", "≈ ${Fmt.amount(interest, top.currency)} a month")
     }
 
     /** A month's interest on [owedMinor] at a yearly [ratePercent]. */

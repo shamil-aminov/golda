@@ -72,7 +72,7 @@ class DebtsTest {
         val states = Ledger.states(listOf(loan, savings), listOf(Posting(accountId = 1, amountMinor = -balance, rubMinor = -balance)))
         // The interest part of this month's payment on what is owed, to the hundred.
         val interest = Debts.monthlyInterest(balance, 24.9)
-        assertEquals("Проценты по кредиту ≈ " + Fmt.amount((interest + 5_000) / 10_000 * 10_000, "RUB") + " в месяц", Debts.advice(listOf(loan, savings), states))
+        assertEquals("Проценты по кредиту\n≈ " + Fmt.amount((interest + 5_000) / 10_000 * 10_000, "RUB") + " в месяц", Debts.advice(listOf(loan, savings), states))
         // The real loan: 151 651,14 ₽ at 39,9 % is 5 042,40 ₽ of interest a month.
         assertEquals(504_240L, Debts.monthlyInterest(15_165_114, 39.9))
         // Nothing owed, nothing to advise.

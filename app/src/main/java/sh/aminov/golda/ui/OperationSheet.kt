@@ -52,6 +52,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
@@ -143,7 +144,7 @@ fun EntrySheet(
     // A new purchase starts in the local currency, as voice does; an edit keeps what was stored.
     // Only an expense has a purchase currency of its own: a voice income in dollars credited to a ruble
     // account keeps the dollars for its row, but the form edits what the account got.
-    val purchased = op?.type == OpType.EXPENSE && op.purchaseAmountMinor != null && op.purchaseCurrency != null
+    val purchased = (op?.type == OpType.EXPENSE || op?.type == OpType.INCOME) && op.purchaseAmountMinor != null && op.purchaseCurrency != null
     var purchaseCurrency by remember {
         mutableStateOf((if (purchased) op.purchaseCurrency else null) ?: if (op != null) account?.currency ?: "RUB" else data.settings.localCurrency)
     }
@@ -160,7 +161,7 @@ fun EntrySheet(
     var secondText by remember {
         mutableStateOf(
             when {
-                purchased && outPosting != null && account != null -> Fmt.editable(-outPosting.amountMinor, account.currency)
+                purchased && outPosting != null && account != null -> Fmt.editable(kotlin.math.abs(outPosting.amountMinor), account.currency)
                 inPosting != null && toAccount != null -> Fmt.editable(inPosting.amountMinor, toAccount.currency)
                 else -> ""
             },
@@ -182,16 +183,21 @@ fun EntrySheet(
     var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: data.today) }
     var pickingDate by remember { mutableStateOf(false) }
 
-    val amountCode = if (type == OpType.EXPENSE) purchaseCurrency else account?.currency ?: "RUB"
+    // An expense and an income are typed in a currency of their own (the account's or another);
+    // a transfer in its source account's.
+    val priced = type == OpType.EXPENSE || type == OpType.INCOME
+    val amountCode = if (priced) purchaseCurrency else account?.currency ?: "RUB"
     val amount = Fmt.parseMinor(amountText, amountCode)?.takeIf { it > 0 }
     // The second amount appears when the money changes currency on its way.
     val secondCode: String? = when (type) {
-        OpType.EXPENSE -> account?.currency?.takeIf { it != purchaseCurrency }
+        OpType.EXPENSE, OpType.INCOME -> account?.currency?.takeIf { it != purchaseCurrency }
         OpType.TRANSFER -> toAccount?.currency?.takeIf { it != account?.currency }
         else -> null
     }
     val estimate: Long? = if (amount == null || secondCode == null || account == null) null else when (type) {
         OpType.EXPENSE -> data.rates.cardCharge(amount, purchaseCurrency, account.currency)
+        // Money coming in at the display rate, as voice credits it.
+        OpType.INCOME -> data.rates.convert(amount, purchaseCurrency, account.currency)
         else -> data.rates.convert(amount, account.currency, secondCode)
     }
     LaunchedEffect(estimate, secondEdited) {
@@ -213,7 +219,7 @@ fun EntrySheet(
             date == LocalDate.now(data.zone) -> System.currentTimeMillis()
             else -> date.atTime(LocalTime.NOON).atZone(data.zone).toInstant().toEpochMilli()
         }
-        val foreignPurchase = type == OpType.EXPENSE && secondCode != null
+        val foreignPurchase = priced && secondCode != null
         return Draft(
             id = op?.id ?: 0,
             type = type,
@@ -249,7 +255,7 @@ fun EntrySheet(
         val newAccount = data.accountById.getValue(picked)
         // A purchase in the local currency stays in it on another card (48,5 ₾ charged to the dollar
         // card, SPEC §1.4); one typed in the old account's own currency follows the account.
-        val keep = type == OpType.EXPENSE && (purchaseCurrency == data.settings.localCurrency || purchaseCurrency != account?.currency)
+        val keep = priced && (purchaseCurrency == data.settings.localCurrency || purchaseCurrency != account?.currency)
         if (!keep) purchaseCurrency = newAccount.currency
         accountId = picked
         if (toAccountId == picked) toAccountId = accounts.firstOrNull { it.id != picked }?.id
@@ -268,7 +274,7 @@ fun EntrySheet(
         }
         // Back to an expense, a new one is in the currency it started in again (the local one), not in the
         // currency of the account the transfer left from.
-        if (value == OpType.EXPENSE && type != OpType.EXPENSE) {
+        if ((value == OpType.EXPENSE || value == OpType.INCOME) && type == OpType.TRANSFER) {
             purchaseCurrency = if (op == null) data.settings.localCurrency
             else accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
         }
@@ -277,13 +283,13 @@ fun EntrySheet(
         categoryAuto = op == null
         editingSecond = false
         secondEdited = false
-        if (value != OpType.EXPENSE) purchaseCurrency = accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
+        if (value == OpType.TRANSFER) purchaseCurrency = accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
     }
 
     // The card follows the currency while it is not picked: lari from the lari card, rubles from the
     // ruble one, dollars with no dollar card from the usual one, converted (as voice does).
     LaunchedEffect(purchaseCurrency, type) {
-        if (accountAuto && type == OpType.EXPENSE) {
+        if (accountAuto && type != OpType.TRANSFER) {
             VoiceMapper.pick(accounts.sortedBy { it.sort }, purchaseCurrency, data.settings, spentFrom)?.let { accountId = it.id; secondEdited = false }
         }
     }
@@ -365,13 +371,12 @@ fun EntrySheet(
             onDone = { save() },
             onSymbolClick = null,
         )
-        // Income has no line under the number: nothing it would say helps there.
-        if (type != OpType.INCOME) VSpace(Gap.xs)
+        VSpace(Gap.xs)
 
         // One line under the number. Before there is an amount it says what is safe to spend (a
         // transfer has its balances in the tiles above); after, what the amount comes to.
         when {
-            type == OpType.INCOME -> Unit
+            amount == null && type == OpType.INCOME -> UnderLine(" ")
             amount == null && type == OpType.TRANSFER -> Unit
             amount == null -> {
                 data.envelope?.let { UnderLine(tr("Можно сегодня ", "Safe today ") + Fmt.amount(it.leftTodayMinor, it.currency)) }
@@ -380,7 +385,7 @@ fun EntrySheet(
                 secondText = it
                 secondEdited = true
             }
-            secondCode != null && type == OpType.EXPENSE -> {
+            secondCode != null && priced -> {
                 // One line, as for a purchase in the account's own currency: what the card is charged
                 // (✎ to put the bank's figure), then what it is in the other shown currencies. The
                 // card's currency is the charge, so it is not said twice.
@@ -399,15 +404,15 @@ fun EntrySheet(
         Column {
             when (type) {
                 OpType.TRANSFER -> {
+                    // The same note and the same dates as an expense's: one way to write either.
                     VSpace(Gap.l)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                        TonalField(note, { note = it }, Modifier.weight(1f), placeholder = tr("Комментарий", "Note"))
-                        DatePill(date, data) { pickingDate = true }
-                    }
+                    TonalField(note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp), placeholder = tr("Комментарий", "Note"))
+                    VSpace(Gap.l)
+                    DateChoices(date, data.today) { picked -> if (picked == null) pickingDate = true else date = picked }
                 }
                 else -> {
                     // Everything on the first level: currency, card and date are buttons, not menus.
-                    if (type == OpType.EXPENSE) {
+                    if (priced) {
                         VSpace(Gap.s)
                         CurrencyPicker(currencyChoices, purchaseCurrency, { purchaseCurrency = it; secondEdited = false }, Modifier.align(Alignment.CenterHorizontally))
                     }
@@ -558,11 +563,6 @@ fun CurrencyPicker(choices: List<String>, selected: String, onPick: (String) -> 
     }
 }
 
-@Composable
-private fun DatePill(date: LocalDate, data: AppData, auto: Boolean? = null, onClick: () -> Unit) {
-    MetaPill(dayLabel(date, data.today), onClick, painter = painterResource(R.drawable.ic_calendar), auto = auto)
-}
-
 /** From and to as two tiles with a round swap button over the gap; a tile opens the list of accounts. */
 @Composable
 private fun RouteBento(data: AppData, from: Account?, to: Account?, onFrom: (Long) -> Unit, onTo: (Long) -> Unit, onSwap: () -> Unit) {
@@ -589,8 +589,11 @@ private fun RouteBento(data: AppData, from: Account?, to: Account?, onFrom: (Lon
 @Composable
 private fun RouteTile(data: AppData, label: String, account: Account?, choices: List<Account>, onPick: (Long) -> Unit, modifier: Modifier, padding: PaddingValues) {
     var open by remember { mutableStateOf(false) }
+    // A tap on the tile while the list is open first dismisses the list (a tap outside it), and the
+    // click would open it again at once: a tap right after a dismissal only closes.
+    var dismissedAt by remember { mutableLongStateOf(0L) }
     Box(modifier) {
-        Tile(Modifier.fillMaxWidth().height(96.dp), onClick = { open = true }, padding = padding) {
+        Tile(Modifier.fillMaxWidth().height(96.dp), onClick = { if (System.currentTimeMillis() - dismissedAt > 300) open = !open }, padding = padding) {
             Caption(label)
             Spacer(Modifier.weight(1f))
             Text(account?.name ?: "—", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -603,7 +606,7 @@ private fun RouteTile(data: AppData, label: String, account: Account?, choices: 
                 )
             }
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = KeepKeyboard) {
+        DropdownMenu(expanded = open, onDismissRequest = { open = false; dismissedAt = System.currentTimeMillis() }, properties = KeepKeyboard) {
             choices.forEach { a ->
                 DropdownMenuItem(
                     text = { Text("${a.name} · ${Fmt.amount(data.states[a.id]?.balanceMinor ?: 0, a.currency)}") },
