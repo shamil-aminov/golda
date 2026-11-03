@@ -50,14 +50,14 @@ object ReviewPrompt {
         return buildString {
             appendLine("Период: с ${period.from.format(day)} по ${period.to.format(day)}, $days дн.")
             appendLine("Суммы — сколько это стоило в рублях.")
-            appendLine("Расходы всего: ${rub(report.spentRub)}; каждый день ${rub(report.dailyRub)}, регулярно ${rub(report.regularRub)}, крупное ${rub(report.bigRub)}.")
+            appendLine("Расходы всего: ${rub(report.spentRub)}; ежедневные ${rub(report.dailyRub)}, регулярные ${rub(report.regularRub)}, крупные ${rub(report.bigRub)}.")
             appendLine("Ежедневное в среднем: ${rub(report.averagePerDayRub)} в день.")
             appendLine("Доходы: ${rub(report.incomeRub)}. Потери на обмене против ЦБ: ${rub(report.fxLossRub)}.")
             appendLine()
             appendLine("По категориям:")
             report.categories.forEach { spend ->
                 val count = expenses.count { it.op.categoryId == spend.categoryId }
-                val bucket = spend.categoryId?.let { categories[it] }?.let { Buckets.of(it) }?.let { bucketWord(it) } ?: "каждый день"
+                val bucket = spend.categoryId?.let { categories[it] }?.let { Buckets.of(it) }?.let { bucketWord(it) } ?: "ежедневные"
                 appendLine("- ${name(spend.categoryId)} ($bucket): ${rub(spend.rubMinor)}, $count шт.")
             }
             appendLine()
@@ -77,9 +77,9 @@ object ReviewPrompt {
     }
 
     private fun bucketWord(bucket: sh.aminov.golda.data.Bucket) = when (bucket) {
-        sh.aminov.golda.data.Bucket.DAILY -> "каждый день"
-        sh.aminov.golda.data.Bucket.REGULAR -> "регулярно"
-        sh.aminov.golda.data.Bucket.BIG -> "крупное"
+        sh.aminov.golda.data.Bucket.DAILY -> "ежедневные"
+        sh.aminov.golda.data.Bucket.REGULAR -> "регулярные"
+        sh.aminov.golda.data.Bucket.BIG -> "крупные"
     }
 
     /**

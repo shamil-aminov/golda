@@ -57,8 +57,8 @@ class ReviewPromptTest {
             mapOf(1L to card), mapOf(1L to food, 2L to subs), Rates(emptyMap(), markup = 0.0), today, zone,
         )
         assertTrue(text, text.contains(", 31 дн."))
-        assertTrue(text, text.contains("- Еда (каждый день)") && text.contains(", 1 шт."))
-        assertTrue(text, text.contains("- Подписки (регулярно)"))
+        assertTrue(text, text.contains("- Еда (ежедневные)") && text.contains(", 1 шт."))
+        assertTrue(text, text.contains("- Подписки (регулярные)"))
         assertTrue(text, text.contains("| Ашан |") && text.contains("| Netflix |"))
         assertFalse(text, text.contains("сентябрь"))
     }
