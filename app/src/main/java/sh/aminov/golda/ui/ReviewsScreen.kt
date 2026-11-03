@@ -55,6 +55,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import sh.aminov.golda.R
+import sh.aminov.golda.domain.I18n
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.speech.RecognizerIntent
+import android.content.Intent
+import android.content.ActivityNotFoundException
 import sh.aminov.golda.data.ReviewMessage
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.imePadding
@@ -198,6 +205,25 @@ fun ReviewScreen(
     val scroll = rememberScrollState()
     // A new question or answer scrolls into view.
     LaunchedEffect(messages.size, working) { if (messages.isNotEmpty() || working) scroll.animateScrollTo(scroll.maxValue) }
+    // Speaking a question: the phone's own speech recognition writes it into the field, to read over
+    // and send. No recognizer on the phone: the mic says so instead of failing.
+    val context = LocalContext.current
+    val listen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let { heard ->
+            question = (question.trim() + " " + heard).trim().replaceFirstChar { it.uppercase() }
+        }
+    }
+    fun speak() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, I18n.locale.toLanguageTag())
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, tr("Спросите про эти траты", "Ask about this spending"))
+        try {
+            listen.launch(intent)
+        } catch (e: ActivityNotFoundException) {
+            error = tr("На телефоне нет распознавания речи", "This phone has no speech recognition")
+        }
+    }
     fun send() {
         val q = question.trim()
         if (q.isEmpty() || working) return
@@ -227,7 +253,9 @@ fun ReviewScreen(
                     placeholder = tr("Спросить про эти траты", "Ask about this spending"),
                     onDone = ::send,
                 )
-                RoundAction(R.drawable.ic_send, tr("Спросить", "Ask"), ::send)
+                // An empty field offers the mic, a written question the send arrow, as in messengers.
+                if (question.isBlank()) RoundAction(R.drawable.ic_mic, tr("Спросить голосом", "Ask by voice"), ::speak)
+                else RoundAction(R.drawable.ic_send, tr("Спросить", "Ask"), ::send)
             }
         },
     ) { padding ->
