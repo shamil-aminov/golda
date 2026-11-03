@@ -1,5 +1,19 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.BasicTextField
+import kotlinx.coroutines.Job
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
@@ -195,7 +209,8 @@ fun ReviewScreen(
     onBack: () -> Unit,
     onDelete: () -> Unit,
     /** Asks; [onDone] gets null, or what went wrong in words. */
-    onAsk: (question: String, onDone: (String?) -> Unit) -> Unit,
+    /** Asks; returns the request, so it can be stopped. */
+    onAsk: (question: String, onDone: (String?) -> Unit) -> Job,
 ) {
     BackHandler(onBack = onBack)
     val page = MaterialTheme.colorScheme.background
@@ -224,13 +239,23 @@ fun ReviewScreen(
             error = tr("На телефоне нет распознавания речи", "This phone has no speech recognition")
         }
     }
+    var asking by remember { mutableStateOf<Job?>(null) }
+    // A tap anywhere on the capsule types into it, not only on the line of text.
+    val field = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
     fun send() {
         val q = question.trim()
         if (q.isEmpty() || working) return
         working = true
         error = null
         question = ""
-        onAsk(q) { problem -> working = false; error = problem }
+        asking = onAsk(q) { problem -> working = false; error = problem; asking = null }
+    }
+    // Stopped by hand: the question stays, the answer never comes.
+    fun stop() {
+        asking?.cancel()
+        asking = null
+        working = false
     }
     // Like the list it opens from: a plain bar with back, and delete at its end; the question at the bottom.
     Scaffold(
@@ -248,14 +273,37 @@ fun ReviewScreen(
                 horizontalArrangement = Arrangement.spacedBy(Gap.s),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TonalField(
-                    question, { question = it }, Modifier.weight(1f),
-                    placeholder = tr("Спросить про эти траты", "Ask about this spending"),
-                    onDone = ::send,
-                )
-                // An empty field offers the mic, a written question the send arrow, as in messengers.
-                if (question.isBlank()) RoundAction(R.drawable.ic_mic, tr("Спросить голосом", "Ask by voice"), ::speak)
-                else RoundAction(R.drawable.ic_send, tr("Спросить", "Ask"), ::send)
+                // One capsule, as in Gemini's own app: the field with the mic inside it; beside it the
+                // send button once there is a question, or stop while the answer is being written.
+                Surface(onClick = { field.requestFocus(); keyboard?.show() }, shape = RoundedCornerShape(28.dp), color = tileColor(), modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+                    Row(Modifier.padding(start = Gap.m, end = Gap.xs), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f).padding(vertical = Gap.s)) {
+                            if (question.isEmpty()) Text(tr("Спросить про эти траты", "Ask about this spending"), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            BasicTextField(
+                                question, { question = it },
+                                Modifier.fillMaxWidth().focusRequester(field),
+                                textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
+                                maxLines = 5,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send, capitalization = KeyboardCapitalization.Sentences),
+                                keyboardActions = KeyboardActions(onSend = { send() }),
+                            )
+                        }
+                        IconButton(onClick = ::speak) { Icon(painterResource(R.drawable.ic_mic), tr("Спросить голосом", "Ask by voice")) }
+                    }
+                }
+                when {
+                    working -> FilledTonalIconButton(
+                        onClick = ::stop,
+                        modifier = Modifier.size(48.dp),
+                        colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
+                    ) { Icon(painterResource(R.drawable.ic_stop), tr("Остановить", "Stop"), Modifier.size(20.dp)) }
+                    question.isNotBlank() -> FilledIconButton(
+                        onClick = ::send,
+                        modifier = Modifier.size(48.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(containerColor = actionColor(), contentColor = onActionColor()),
+                    ) { Icon(painterResource(R.drawable.ic_send), tr("Спросить", "Ask")) }
+                }
             }
         },
     ) { padding ->

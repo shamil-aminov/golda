@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **The review chat's input works like a messenger's**: a rounded field with the
+  mic inside it, a separate send button that appears once something is typed,
+  and a stop button while the answer is coming. A tap anywhere on the field
+  starts typing.
+
 ## [0.17.3] — 2026-11-03
 
 ### Added
