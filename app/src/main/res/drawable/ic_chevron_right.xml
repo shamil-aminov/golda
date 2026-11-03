@@ -1,0 +1,12 @@
+<!-- Iconoteka (MIT, Oleg Turbaba): chevron_down r-s, turned to point right: a row that opens a choice. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group android:rotation="-90" android:pivotX="12" android:pivotY="12">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M21.9006 7.7251L12.0006 17.6251L2.10059 7.7251L3.50059 6.3501L12.0006 14.9251L20.5006 6.3501L21.9006 7.7251Z" />
+    </group>
+</vector>

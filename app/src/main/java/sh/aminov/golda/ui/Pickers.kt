@@ -99,7 +99,8 @@ fun AccountCards(accounts: List<Account>, picked: Long?, onPick: (Long) -> Unit,
         if (index < 0) return@LaunchedEffect
         val viewport = snapshotFlow { scroll.viewportSize }.first { it > 0 }
         val end = inset + index * (card + gap) + card + inset
-        if (end > viewport) scroll.scrollTo(end - viewport)
+        // Moved by whole cards, so a whole card stands at the left edge, never half of one.
+        if (end > viewport) scroll.scrollTo(((end - viewport + card + gap - 1) / (card + gap)) * (card + gap))
     }
     Row(
         Modifier.bleed(Gap.m).horizontalScroll(scroll).padding(horizontal = Gap.m).selectableGroup(),
@@ -120,8 +121,21 @@ fun AccountCards(accounts: List<Account>, picked: Long?, onPick: (Long) -> Unit,
                 contentColor = ink,
             ) {
                 // The name at the top, the balance at the bottom, as on a card.
-                Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Text(account.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 14.sp))
+                Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    // A long name of several words goes on two lines, split at a space, never inside a word,
+                    // so "Мультивалютная USD" and "… GEL" are told apart; one word shrinks to fit instead.
+                    val lines = account.name.trim().let { n ->
+                        val cut = n.lastIndexOf(' ')
+                        if (n.length > 12 && cut > 0) listOf(n.substring(0, cut), n.substring(cut + 1)) else listOf(n)
+                    }
+                    Column {
+                        lines.forEach { line ->
+                            Text(
+                                line, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                                autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp),
+                            )
+                        }
+                    }
                     Text(subtitle(account), style = MaterialTheme.typography.labelLarge.merge(Tnum), color = ink.copy(alpha = 0.8f), maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = 14.sp))
                 }
             }

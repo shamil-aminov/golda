@@ -59,6 +59,14 @@ class AppData(
     fun othersOf(minor: Long, code: String): String =
         (if (code == "RUB") minor else rates.rubMinor(minor, code))?.let { others(it, code) }.orEmpty()
 
+    /** [rubMinor] spent in a day, in the local currency in whole units ("63 ₾"); in rubles without a rate. */
+    fun dayTotal(rubMinor: Long): String {
+        val code = settings.localCurrency
+        val major = if (code == "RUB") null else rates.fromRub(rubMinor, code)
+        return if (major == null) Fmt.whole(rubMinor, "RUB") + " ₽"
+        else Fmt.whole(kotlin.math.round(major * Currencies.factor(code)).toLong(), code) + " " + Currencies.symbol(code)
+    }
+
     /** Operations worth listing: opening balances are bookkeeping, not events. */
     val visibleOperations = operations.filter { it.op.type != OpType.OPENING }
 

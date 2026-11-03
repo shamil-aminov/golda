@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Each day's spending beside its date** in the feed, quiet, in the local
+  currency in whole units.
 - **A mosaic tile opens its purchases**: tap "Еда" and see the period's meals,
   newest first; tap one to edit it. The grey "Ещё N" tile lists all of its
   categories' purchases.
@@ -24,6 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The entry form, calmer.** Under "Что купил", one card of rows, as in
+  Settings: the category, the account, the day (and "Каждый месяц" for a
+  regular expense); each opens its choice in a sheet. The pills stay only at
+  the top, for the type and the currency.
+- Picking a currency moves typing to the amount.
 - Years of records stay quick: the app's figures are worked out off the main
   thread, and a range of months or years is drawn in bars of a week or a month
   (and read so by reviews) instead of a sliver per day.

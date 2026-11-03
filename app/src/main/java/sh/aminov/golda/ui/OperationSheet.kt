@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
 import androidx.activity.compose.BackHandler
@@ -203,6 +206,8 @@ fun EntrySheet(
     var note by remember { mutableStateOf(from?.note ?: payment?.name.orEmpty()) }
     var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: data.today) }
     var pickingDate by remember { mutableStateOf(false) }
+    // The row whose choice is open in a sheet.
+    var choosing by remember { mutableStateOf<Choosing?>(null) }
 
     // An expense and an income are typed in a currency of their own (the account's or another);
     // a transfer in its source account's.
@@ -448,54 +453,62 @@ fun EntrySheet(
                     // Everything on the first level: currency, card and date are buttons, not menus.
                     if (priced) {
                         VSpace(Gap.s)
-                        CurrencyPicker(currencyChoices, purchaseCurrency, { purchaseCurrency = it; secondEdited = false }, Modifier.align(Alignment.CenterHorizontally))
+                        CurrencyPicker(
+                            currencyChoices, purchaseCurrency,
+                            // A currency picked means a sum comes next: typing goes to the amount, wherever it was.
+                            { purchaseCurrency = it; secondEdited = false; focus.requestFocus(); keyboard?.show() },
+                            Modifier.align(Alignment.CenterHorizontally),
+                        )
                     }
+                    // The note, then one card of rows, as in Settings: what it is, where it comes from,
+                    // when. Each row opens its choice in a sheet; the app fills them in meanwhile.
                     VSpace(Gap.l)
                     TonalField(
                         note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp),
                         placeholder = if (type == OpType.INCOME) tr("Откуда", "From") else tr("Что купил", "What for"),
                         onDone = { if (valid) save() },
                     )
-                    VSpace(Gap.l)
-                    // The bucket over its four categories: picking it changes them.
-                    if (type == OpType.EXPENSE) {
-                        ChoiceGroup(listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), bucket, { picked ->
-                            bucketAuto = false
-                            bucket = picked
-                            // A category of another bucket does not belong any more.
-                            if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != picked) { categoryId = null }
-                        }, Modifier.fillMaxWidth()) { ChoiceText(bucketLabel(it)) }
-                        VSpace(Gap.m)
-                    }
-                    // The four of the bucket (or of income). While the app picks, the tile is outlined.
-                    CategoryGrid(
-                        data = data,
-                        kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
-                        bucket = if (type == OpType.EXPENSE) bucket else null,
-                        selected = categoryId,
-                        auto = categoryAuto,
-                        onPick = { categoryId = if (categoryId == it && !categoryAuto) null else it; categoryAuto = false },
-                    )
+                    VSpace(Gap.m)
+                    val category = categoryId?.let { data.categoryById[it] }
+                    val rows = 3 + if (offersMonthly) 1 else 0
+                    GroupRow(
+                        0, rows,
+                        onClick = { choosing = Choosing.CATEGORY },
+                        leading = { GlyphCircle(categoryIcon(category?.key)) },
+                        supporting = when {
+                            thinking -> ({ Text(tr("Подбираю", "Finding one")) })
+                            type == OpType.EXPENSE -> ({ Text(bucketLabel(bucket)) })
+                            else -> null
+                        },
+                        trailing = { Icon(painterResource(R.drawable.ic_chevron_right), null, Modifier.size(20.dp)) },
+                        trailingOnTitle = false,
+                    ) { Text(category?.label() ?: tr("Без категории", "No category"), style = MaterialTheme.typography.titleMedium) }
+                    GroupRow(
+                        1, rows,
+                        onClick = { choosing = Choosing.ACCOUNT },
+                        leading = { GlyphCircle(account?.let { typeIcon(it.type) } ?: R.drawable.ic_wallet) },
+                        supporting = account?.let { a -> data.states[a.id]?.let { st -> { Text(Fmt.amount(st.balanceMinor, a.currency)) } } },
+                        trailing = { Icon(painterResource(R.drawable.ic_chevron_right), null, Modifier.size(20.dp)) },
+                        trailingOnTitle = false,
+                    ) { Text(account?.name ?: tr("Счёт", "Account"), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    GroupRow(
+                        2, rows,
+                        onClick = { choosing = Choosing.DATE },
+                        leading = { GlyphCircle(R.drawable.ic_calendar) },
+                        trailing = { Icon(painterResource(R.drawable.ic_chevron_right), null, Modifier.size(20.dp)) },
+                        trailingOnTitle = false,
+                    ) { Text(dayLabel(date, data.today), style = MaterialTheme.typography.titleMedium) }
                     if (offersMonthly) {
-                        VSpace(Gap.s)
-                        // The whole line flips the switch.
-                        Row(
-                            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp))
-                                .toggleable(value = monthly, role = Role.Switch) { monthly = it }
-                                .padding(horizontal = Gap.s, vertical = Gap.xs),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                tr("Каждый месяц, ${date.dayOfMonth} числа", "Every month, on the ${date.dayOfMonth}"),
-                                Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
-                            )
-                            CheckSwitch(monthly, null)
-                        }
+                        // A new expense in "Регулярные" comes back every month unless switched off.
+                        GroupRow(
+                            3, rows,
+                            Modifier.semantics { role = Role.Switch },
+                            onClick = { monthly = !monthly },
+                            leading = { GlyphCircle(R.drawable.ic_repeat) },
+                            trailing = { CheckSwitch(monthly, null) },
+                            trailingOnTitle = false,
+                        ) { Text(tr("Каждый месяц, ${date.dayOfMonth} числа", "Every month, on the ${date.dayOfMonth}"), style = MaterialTheme.typography.titleMedium) }
                     }
-                    VSpace(Gap.m)
-                    AccountCards(accounts.filter { it.type != AccountType.LOAN }, accountId, ::pickAccount) { a -> data.states[a.id]?.let { Fmt.amount(it.balanceMinor, a.currency) } ?: Currencies.symbol(a.currency) }
-                    VSpace(Gap.m)
-                    DateChoices(date, data.today) { picked -> if (picked == null) pickingDate = true else date = picked }
                     // Gemini's precise tag, under all that was chosen, while its note is unchanged.
                     op?.tag?.takeIf { OpTags.key(op.note) == OpTags.key(note) }?.let { tag ->
                         VSpace(Gap.m)
@@ -504,6 +517,66 @@ fun EntrySheet(
                 }
             }
         }
+    }
+
+    when (choosing) {
+        Choosing.CATEGORY -> FormSheet(onDismiss = { choosing = null }) {
+            Caption(tr("Категория", "Category"))
+            VSpace(Gap.m)
+            if (type == OpType.EXPENSE) {
+                ChoiceGroup(listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), bucket, { picked ->
+                    bucketAuto = false
+                    bucket = picked
+                    // A category of another bucket does not belong any more.
+                    if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != picked) { categoryId = null }
+                }, Modifier.fillMaxWidth()) { ChoiceText(bucketLabel(it)) }
+                VSpace(Gap.s)
+            }
+            CategoryGrid(
+                data = data,
+                kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
+                bucket = if (type == OpType.EXPENSE) bucket else null,
+                selected = categoryId,
+                auto = categoryAuto,
+                onPick = { categoryId = it; categoryAuto = false; choosing = null },
+            )
+        }
+        Choosing.ACCOUNT -> FormSheet(onDismiss = { choosing = null }) {
+            Caption(tr("Счёт", "Account"))
+            VSpace(Gap.m)
+            val choices = accounts.filter { it.type != AccountType.LOAN }
+            choices.forEachIndexed { i, a ->
+                GroupRow(
+                    i, choices.size,
+                    Modifier.semantics { selected = a.id == accountId },
+                    onClick = { pickAccount(a.id); choosing = null },
+                    leading = { GlyphCircle(typeIcon(a.type)) },
+                    supporting = data.states[a.id]?.let { st -> { Text(Fmt.amount(st.balanceMinor, a.currency)) } },
+                    trailing = if (a.id == accountId) ({ Icon(painterResource(R.drawable.ic_check), null) }) else null,
+                    container = if (a.id == accountId) unpickedColor() else tileColor(),
+                ) { Text(a.name, style = MaterialTheme.typography.titleMedium) }
+            }
+        }
+        Choosing.DATE -> FormSheet(onDismiss = { choosing = null }) {
+            Caption(tr("Когда", "When"))
+            VSpace(Gap.m)
+            val options = listOf(data.today, data.today.minusDays(1))
+            options.forEachIndexed { i, d ->
+                GroupRow(
+                    i, 3,
+                    onClick = { date = d; choosing = null },
+                    trailing = if (date == d) ({ Icon(painterResource(R.drawable.ic_check), null) }) else null,
+                ) { Text(dayLabel(d, data.today), style = MaterialTheme.typography.titleMedium) }
+            }
+            val other = date !in options
+            GroupRow(
+                2, 3,
+                onClick = { choosing = null; pickingDate = true },
+                leading = null,
+                trailing = if (other) ({ Icon(painterResource(R.drawable.ic_check), null) }) else ({ Icon(painterResource(R.drawable.ic_calendar), null) }),
+            ) { Text(if (other) dayLabel(date, data.today) else tr("Другой день", "Another day"), style = MaterialTheme.typography.titleMedium) }
+        }
+        null -> Unit
     }
 
     if (pickingDate) {
@@ -684,4 +757,5 @@ private fun CategoryGrid(data: AppData, kind: CategoryKind, bucket: Bucket?, sel
     }
 }
 
-
+/** Which of the entry form's rows has its choice open. */
+private enum class Choosing { CATEGORY, ACCOUNT, DATE }

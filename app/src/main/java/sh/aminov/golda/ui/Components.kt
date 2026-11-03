@@ -184,7 +184,15 @@ fun AmountColumn(
 fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>, accountId: Long? = null, onClick: (OperationFull) -> Unit) {
     val today = data.today
     operations.groupBy { Ledger.localDate(it.op.timestamp, data.zone) }.forEach { (date, list) ->
-        item(key = "day-$date") { GroupLabel(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) }
+        // The day's spending beside its date, quiet, in the local currency in whole units as on Home;
+        // not on an account's page, where every row already says what moved.
+        val spent = if (accountId == null) list.filter { it.op.type == OpType.EXPENSE }.sumOf { full -> -full.postings.sumOf { p -> p.rubMinor } } else 0
+        val total = spent.takeIf { it > 0 }?.let { rub -> data.dayTotal(rub) }
+        item(key = "day-$date") {
+            GroupLabel(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
+                total?.let { Text(it, style = MaterialTheme.typography.labelLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+            }
+        }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
             // New entries slide in, the rest make room.
             OperationRow(
