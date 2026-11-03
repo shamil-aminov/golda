@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Deeper reviews.** Reviews have their own model, gemini-3.8-flash by
+  default (gemini-4-argon with a paid key), apart from the fast one that hears
+  purchases. Gemini now gets the period before to compare with, spending by
+  weekday and time of day, the purchases that repeat, the regular payments and
+  each purchase's time, all worked out by the app, and is asked for patterns
+  with their numbers and an experiment or two for the next period.
 - A `dev` build to live with next to the real app: "Golda dev", a graphite
   icon, its own data (`./gradlew assembleDev`).
 

@@ -30,6 +30,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val markup = doublePreferencesKey("markup")
         val lastAccountId = longPreferencesKey("lastAccountId")
         val geminiModel = stringPreferencesKey("geminiModel")
+        val reviewModel = stringPreferencesKey("reviewModel")
         val geminiKey = stringPreferencesKey("geminiKey")
         val reconcileReminder = booleanPreferencesKey("reconcileReminder")
         val palette = stringPreferencesKey("palette")
@@ -68,6 +69,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             markup = this[K.markup] ?: d.markup,
             lastAccountId = this[K.lastAccountId],
             geminiModel = this[K.geminiModel] ?: d.geminiModel,
+            reviewModel = this[K.reviewModel] ?: d.reviewModel,
             hasGeminiKey = this[K.geminiKey] != null,
             reconcileReminder = this[K.reconcileReminder] ?: d.reconcileReminder,
             palette = this[K.palette] ?: d.palette,
@@ -89,6 +91,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         this[K.markup] = s.markup
         if (s.lastAccountId != null) this[K.lastAccountId] = s.lastAccountId else remove(K.lastAccountId)
         this[K.geminiModel] = s.geminiModel
+        this[K.reviewModel] = s.reviewModel
         this[K.reconcileReminder] = s.reconcileReminder
         this[K.palette] = s.palette
         this[K.savedThemes] = s.savedThemes.joinToString("|")

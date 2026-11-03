@@ -90,7 +90,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Which small sheet is open over the settings. */
-private enum class Edit { Local, Base, Shown, Markup, Key, Model, Language, Notes }
+private enum class Edit { Local, Base, Shown, Markup, Key, Model, ReviewModel, Language, Notes }
 
 /**
  * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
@@ -161,11 +161,13 @@ fun SettingsScreen(
                 },
             )
 
-            val defaultModel = Settings().geminiModel
+            val defaults = Settings()
+            fun modelLine(model: String, default: String) = model + if (model == default) tr(", по умолчанию", ", default") else ""
             SettingsGroup(
-                tr("Голос", "Voice"),
+                "Gemini",
                 SettingItem(tr("Ключ Gemini", "Gemini key"), if (s.hasGeminiKey) tr("Сохранён", "Saved") else tr("Нет", "None")) { edit = Edit.Key },
-                SettingItem(tr("Модель", "Model"), s.geminiModel + if (s.geminiModel == defaultModel) tr(", по умолчанию", ", default") else "") { edit = Edit.Model },
+                SettingItem(tr("Модель для голоса", "Voice model"), modelLine(s.geminiModel, defaults.geminiModel)) { edit = Edit.Model },
+                SettingItem(tr("Модель для разборов", "Review model"), modelLine(s.reviewModel, defaults.reviewModel)) { edit = Edit.ReviewModel },
                 // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
                 *listOfNotNull(
                     if (voiceBacklog > 0) SettingItem(tr("Не разобрано: $voiceBacklog", "Not processed: $voiceBacklog"), tr("Голосовые ждут разбора", "Voice notes waiting to be processed")) { edit = Edit.Notes } else null,
@@ -222,7 +224,17 @@ fun SettingsScreen(
             onDismiss = { edit = null },
         ) { v -> onChange { it.copy(markup = v / 100) } }
         Edit.Key -> KeySheet(s.hasGeminiKey, onDismiss = { edit = null }) { key -> onSaveKey(key); edit = null }
-        Edit.Model -> ModelSheet(s.geminiModel, Settings().geminiModel, onDismiss = { edit = null }) { model -> onChange { it.copy(geminiModel = model) }; edit = null }
+        Edit.Model -> ModelSheet(
+            tr("Модель для голоса: быстрая, слушает покупки", "Voice model: a fast one that hears purchases"),
+            s.geminiModel, Settings().geminiModel, listOf("gemini-3.5-flash-lite", "gemini-3.1-flash-lite"),
+            onDismiss = { edit = null },
+        ) { model -> onChange { it.copy(geminiModel = model) }; edit = null }
+        Edit.ReviewModel -> ModelSheet(
+            tr("Модель для разборов: думает дольше, пишет глубже", "Review model: thinks longer, writes deeper"),
+            s.reviewModel, Settings().reviewModel, listOf("gemini-3.8-flash", "gemini-4-argon", "gemini-3.5-flash-lite"),
+            note = tr("gemini-4-argon работает только с платным ключом", "gemini-4-argon needs a paid key"),
+            onDismiss = { edit = null },
+        ) { model -> onChange { it.copy(reviewModel = model) }; edit = null }
         Edit.Language -> LanguageSheet(onDismiss = { edit = null })
         Edit.Notes -> FormSheet(
             onDismiss = { edit = null },
@@ -391,18 +403,27 @@ private fun KeySheet(hasKey: Boolean, onDismiss: () -> Unit, onSave: (String) ->
 }
 
 @Composable
-private fun ModelSheet(current: String, default: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
+private fun ModelSheet(
+    caption: String,
+    current: String,
+    default: String,
+    /** The usual choices, one tap each; any other id can be typed. */
+    suggestions: List<String>,
+    onDismiss: () -> Unit,
+    note: String? = null,
+    onSave: (String) -> Unit,
+) {
     var model by remember { mutableStateOf(current) }
     FormSheet(onDismiss = onDismiss, actions = {
         if (model.trim() != default) TonalAction(tr("По умолчанию", "Default"), { model = default })
         PrimaryAction(tr("Сохранить", "Save"), { onSave(model.trim()) }, model.isNotBlank())
     }) {
-        Caption(tr("Модель Gemini", "Gemini model"))
+        Caption(caption)
+        VSpace(Gap.m)
+        ToggleFlow(suggestions, { it == model.trim() }, { model = it }, { it })
         VSpace(Gap.m)
         TonalField(model, { model = it }, Modifier.fillMaxWidth(), placeholder = default, onDone = { if (model.isNotBlank()) onSave(model.trim()) })
-        if (model.trim() != default) {
-            VSpace(Gap.s)
-        }
+        note?.let { VSpace(Gap.s); Caption(it) }
     }
 }
 

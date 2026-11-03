@@ -25,6 +25,8 @@ data class Settings(
     val markup: Double = 0.10,
     val lastAccountId: Long? = null,
     val geminiModel: String = "gemini-3.5-flash-lite",
+    /** The model that writes reviews: slower and deeper than the one that hears purchases. */
+    val reviewModel: String = "gemini-3.8-flash",
     /** The key itself stays encrypted in storage and never travels with the settings. */
     val hasGeminiKey: Boolean = false,
     /** Sunday-evening nudge to compare balances with the bank. */

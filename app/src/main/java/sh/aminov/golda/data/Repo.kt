@@ -151,10 +151,10 @@ class Repo(
         val today = LocalDate.now(zone)
         val data = ReviewPrompt.data(
             period, dao.operationsSince(0), dao.accountsNow().associateBy { it.id }, dao.categoriesNow().associateBy { it.id },
-            ratesNow(), today, zone,
+            ratesNow(), today, zone, dao.obligationsNow(),
         )
         val text = try {
-            Gemini.write(ReviewPrompt.system, data, key, s.geminiModel)
+            Gemini.write(ReviewPrompt.system, data, key, s.reviewModel)
         } catch (e: GeminiException) {
             return Result.failure(IllegalStateException(e.message ?: tr("Gemini не ответил", "Gemini did not answer")))
         }
