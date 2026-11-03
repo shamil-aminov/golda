@@ -1,5 +1,10 @@
 package sh.aminov.golda
 
+import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
@@ -63,7 +68,8 @@ class ScreenshotTest {
     }
 
     private fun shot(name: String, palette: String = "golda", content: @Composable () -> Unit) {
-        compose.setContent { GoldaTheme(palette) { content() } }
+        // The page's own background, as the app's scaffold gives it: a screen alone is transparent.
+        compose.setContent { GoldaTheme(palette) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
         compose.onRoot().captureRoboImage(
             "src/test/screenshots/$name.png",
             roborazziOptions = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.002f)),
