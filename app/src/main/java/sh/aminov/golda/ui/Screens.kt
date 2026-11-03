@@ -112,7 +112,8 @@ fun HomeScreen(
             val quiet = scheme.onSurfaceVariant
             // Two kinds of type on the tile and no more: the big number, and one style in one colour for
             // every word around it.
-            val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
+            // Golden-ratio steps: 14 for the words round the figure, 22 for the main line.
+            val text = MaterialTheme.typography.bodyMedium.merge(Tnum)
             HeroTile(Modifier.padding(horizontal = Gap.s), content = ink) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("Можно сегодня", "Safe to spend today"), Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
@@ -246,7 +247,8 @@ fun AccountsScreen(
             // The total is the hero here, as big as Home's number.
             val scheme = MaterialTheme.colorScheme
             // Like Home's tile: the big number, and one style in one colour for every word around it.
-            val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
+            // Golden-ratio steps: 14 for the words round the figure, 22 for the main line.
+            val text = MaterialTheme.typography.bodyMedium.merge(Tnum)
             val quiet = scheme.onPrimaryFixedVariant
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 Text(tr("Всего на счетах", "Total in accounts"), style = text, color = quiet, maxLines = 1)

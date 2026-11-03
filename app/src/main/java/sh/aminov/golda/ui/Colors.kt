@@ -37,6 +37,8 @@ class Tones(
     /** Lightness and chroma (OKLCH) of the colours that inform: categories and the pace bar. */
     val infoL: Float = if (dark) 0.68f else 0.80f,
     val infoC: Float = 0.09f,
+    /** The theme's own hue (OKLCH degrees): the leitmotif the biggest colours take. */
+    val seedHue: Int = hueOf(gold),
 )
 
 internal val GoldaLight = Tones(

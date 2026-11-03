@@ -763,7 +763,7 @@ fun HeroAmountField(
     placeholderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
 ) {
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val base = bigFigure((if (maxSp > 0f) maxSp else BIG_FIGURE_SP).sp)
+        val base = bigFigure((if (maxSp > 0f) maxSp else ENTRY_FIGURE_SP).sp)
         val chars = (if (text.isEmpty()) placeholder.length else text.length + text.length / 4).coerceAtLeast(1) + 1 + symbol.length
         val fit = with(LocalDensity.current) { (maxWidth * 0.9f / (chars * 0.66f)).toSp() }
         val big = if (fit < base.fontSize) base.copy(fontSize = fit, lineHeight = fit * 1.15f) else base.copy(lineHeight = base.fontSize * 1.15f)
@@ -1007,10 +1007,14 @@ fun Modifier.squish(interaction: InteractionSource): Modifier {
  */
 @Composable
 fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum)
-    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp)
+    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Medium, letterSpacing = (-2).sp)
 
-/** The size of a big figure; smaller only when it would not fit. */
-const val BIG_FIGURE_SP = 60f
+/**
+ * The type steps go by the golden ratio from 14 sp: 14, 22, 36, 58, 94. A tab's figure is the top
+ * step, 94, smaller only when it would not fit; the entry field's is one step down.
+ */
+const val BIG_FIGURE_SP = 94f
+const val ENTRY_FIGURE_SP = 58f
 
 /** Vertical space from the spacing scale. */
 @Composable

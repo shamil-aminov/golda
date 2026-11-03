@@ -82,7 +82,7 @@ object ThemeGen {
                 gold = if (spec.style == ThemeStyle.MONO) oklch(0.30, 0.0, h) else oklch(0.80, action, actionHue),
                 onGold = if (spec.style == ThemeStyle.MONO) Color.White else oklch(0.25, action * 0.5, actionHue),
                 error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF), errorSoft = Color(0xFFFEE2E2), onErrorSoft = Color(0xFF991B1B),
-                infoL = 0.80f, infoC = info.toFloat(),
+                infoL = 0.80f, infoC = info.toFloat(), seedHue = spec.hue,
             )
         } else {
             Tones(
@@ -94,7 +94,7 @@ object ThemeGen {
                 gold = if (spec.style == ThemeStyle.MONO) oklch(0.92, 0.0, h) else oklch(0.75, action, actionHue),
                 onGold = if (spec.style == ThemeStyle.MONO) Color.Black else oklch(0.20, action * 0.5, actionHue),
                 error = Color(0xFFF87171), onError = Color(0xFF450A0A), errorSoft = Color(0xFF4C1D1D), onErrorSoft = Color(0xFFFECACA),
-                infoL = 0.68f, infoC = info.toFloat(),
+                infoL = 0.68f, infoC = info.toFloat(), seedHue = spec.hue,
             )
         }
     }
@@ -121,19 +121,30 @@ fun categoryColor(key: String?, tones: Tones): Color {
 @ReadOnlyComposable
 fun categoryColor(key: String?): Color = categoryColor(key, LocalTones.current)
 
-/** How the money is doing, on the home bar: green, amber, red, at the theme's depth. */
+/**
+ * Steps round the wheel from the theme's hue for the second, third... biggest thing: a near
+ * complement first for contrast, then neighbours on either side, so the set stays one family.
+ */
+private val harmony = listOf(0.0, 150.0, 55.0, -55.0, 210.0, 25.0, -110.0, 95.0, -25.0, 180.0, 120.0, -150.0)
+
+/**
+ * The colour of the [rank]-th biggest thing in [tones]: the biggest in the theme's own hue, a touch
+ * deeper, the others round it by [harmony]. A null rank (no category) is the theme's grey.
+ */
+fun leitmotifColor(rank: Int?, tones: Tones): Color {
+    if (rank == null) return oklch(tones.infoL.toDouble(), 0.012, tones.seedHue.toDouble())
+    val chroma = tones.infoC.toDouble() * if (rank == 0) 1.25 else 1.0
+    return oklch(tones.infoL.toDouble() - if (rank == 0) 0.04 else 0.0, chroma.coerceAtLeast(0.06), tones.seedHue + harmony[rank % harmony.size])
+}
+
+/** How the money is doing, on the home bar: the theme's own colour while it lasts, red once overspent. */
 enum class Pace { LASTS, SHORT, OVER }
 
 @Composable
 @ReadOnlyComposable
 fun paceColor(pace: Pace): Color {
     val t = LocalTones.current
-    val hue = when (pace) {
-        Pace.LASTS -> 145.0
-        Pace.SHORT -> 65.0
-        Pace.OVER -> 28.0
-    }
-    return oklch(t.infoL - 0.06, (t.infoC * 1.15).coerceAtLeast(0.08), hue)
+    return if (pace == Pace.OVER) oklch(t.infoL - 0.06, (t.infoC * 1.15).coerceAtLeast(0.10), 28.0) else leitmotifColor(0, t)
 }
 
 /**

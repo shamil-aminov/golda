@@ -80,7 +80,6 @@ fun ThemeScreen(
         topBar = { CollapsingHeader(tr("Тема", "Theme"), onBack, bar) },
         bottomBar = {
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
                 PrimaryAction(if (current in saved) tr("Тема сохранена", "Theme kept") else tr("Сохранить тему", "Keep this theme"), { onSave(current) }, enabled = custom && current !in saved)
             }
         },

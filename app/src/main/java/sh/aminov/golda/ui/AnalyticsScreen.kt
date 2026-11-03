@@ -135,19 +135,27 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
     }
     // Each day's spending by category, biggest first: the day bars are stacked in the categories' colours.
     val tones = LocalTones.current
-    val stacks = remember(data, period, filter, tones) {
+    // Each category's colour by its rank in this period: the biggest in the theme's hue.
+    val colours = remember(shown, tones) {
+        shown.categories.withIndex().associate { (rank, spend) ->
+            val key = spend.categoryId?.let { data.categoryById[it]?.key }
+            key to leitmotifColor(if (key == null) null else rank, tones)
+        }
+    }
+    val stacks = remember(data, period, filter, tones, colours) {
         val want = filter ?: Bucket.DAILY
         data.operations
             .filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == want }
             .groupBy { Ledger.localDate(it.op.timestamp, data.zone) }
             .mapValues { (_, ops) ->
                 ops.groupBy { it.op.categoryId?.let(data.categoryById::get)?.key }
-                    .map { (key, list) -> categoryColor(key, tones) to -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } } }
+                    .map { (key, list) -> (colours[key] ?: leitmotifColor(null, tones)) to -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } } }
                     .filter { it.second > 0 }
                     .sortedByDescending { it.second }
             }
     }
-    val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
+    // The golden-ratio steps: 14 for words around the figure, 22 for the main line, the figure up to 94.
+    val text = MaterialTheme.typography.bodyMedium.merge(Tnum)
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
 
     // The whole page, not just the content: a short list left the pager without a back swipe here.
@@ -204,7 +212,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 // The categories as a mosaic: each a tile in its colour, as big as its share.
                 Mosaic(
                     shown.categories.map { spend ->
-                        MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, categoryColor(spend.categoryId?.let { data.categoryById[it]?.key }))
+                        MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, colours[spend.categoryId?.let { data.categoryById[it]?.key }] ?: leitmotifColor(null, tones))
                     },
                     Modifier.padding(horizontal = Gap.s),
                 )
