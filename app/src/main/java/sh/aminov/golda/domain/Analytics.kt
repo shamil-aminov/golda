@@ -24,8 +24,10 @@ data class Report(
     /** Everyday spending per day of the period, in rubles (kopecks), oldest first. */
     val days: List<Pair<LocalDate, Long>>,
     val spentRub: Long,
-    /** Everyday spending a day: regular payments and big one-offs would only make it jump. */
+    /** All of [spentRub] over the days counted so far: plain arithmetic, the total a day. */
     val averagePerDayRub: Long,
+    /** Everyday spending a day, for the review: regular payments and big one-offs would make it jump. */
+    val dailyPerDayRub: Long,
     /** The period's spending by bucket; the three add up to [spentRub]. */
     val dailyRub: Long,
     val regularRub: Long,
@@ -121,7 +123,8 @@ object Analytics {
             period = period,
             days = period.days.map { it to (byDay[it] ?: 0L) },
             spentRub = spent,
-            averagePerDayRub = daily / countedDays,
+            averagePerDayRub = spent / countedDays,
+            dailyPerDayRub = daily / countedDays,
             dailyRub = daily,
             regularRub = byBucket[Bucket.REGULAR] ?: 0,
             bigRub = byBucket[Bucket.BIG] ?: 0,

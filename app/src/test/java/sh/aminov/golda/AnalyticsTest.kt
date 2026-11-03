@@ -91,8 +91,9 @@ class AnalyticsTest {
         assertEquals(92_000L, r.regularRub)
         assertEquals(500_000L, r.bigRub)
         assertEquals(r.spentRub, r.dailyRub + r.regularRub + r.bigRub)
-        // The average and the bars are everyday spending only.
-        assertEquals(80_000L / 7, r.averagePerDayRub)
+        // The average is the whole total a day; everyday spending's own is kept for the review.
+        assertEquals(r.spentRub / 7, r.averagePerDayRub)
+        assertEquals(80_000L / 7, r.dailyPerDayRub)
         assertEquals(50_000L, r.days.last().second)
         assertEquals(30_000L, r.days[r.days.size - 2].second)
     }

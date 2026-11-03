@@ -99,7 +99,7 @@ object ReviewPrompt {
             appendLine("Период: с ${period.from.format(day)} по ${period.to.format(day)}, $days дн.")
             appendLine("Суммы — сколько это стоило в рублях.")
             appendLine("Расходы всего: ${rub(report.spentRub)}; ежедневные ${rub(report.dailyRub)}, регулярные ${rub(report.regularRub)}, крупные ${rub(report.bigRub)}.")
-            appendLine("Ежедневное в среднем: ${rub(report.averagePerDayRub)} в день.")
+            appendLine("Ежедневное в среднем: ${rub(report.dailyPerDayRub)} в день.")
             appendLine("Доходы: ${rub(report.incomeRub)}. Потери на обмене против ЦБ: ${rub(report.fxLossRub)}.")
             appendLine()
             appendLine("Прошлый такой же период, с ${before.from.format(day)} по ${before.to.format(day)}:")

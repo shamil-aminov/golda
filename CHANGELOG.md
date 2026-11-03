@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.7] — 2026-11-03
+
+### Changed
+
+- **Insights: the line under the total is the total a day**, "≈ 4 368 ₽ в
+  день": all spending over the days so far, plain arithmetic. It used to be
+  everyday spending alone, so it never matched the big number above it. Tap
+  "Ежедневные" (or another group) to see that group's own total and its day.
+
 ## [0.17.6] — 2026-11-03
 
 ### Fixed
@@ -408,7 +417,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.6...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.7...HEAD
+[0.17.7]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.7
 [0.17.6]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.6
 [0.17.5]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.5
 [0.17.4]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.4

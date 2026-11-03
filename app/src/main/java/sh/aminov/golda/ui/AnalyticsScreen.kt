@@ -197,8 +197,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                 }
                 VSpace(Gap.m)
                 HeroAmount(data.base.whole(shown.spentRub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL))
-                // The average of what is shown: the picked bucket's, or everyday spending's.
-                Text(tr("В среднем ${data.base.approx(shown.averagePerDayRub)} в день", "${data.base.approx(shown.averagePerDayRub)} a day on average"), style = text, color = quiet)
+                // The big number over the days so far: all spending, or the picked bucket's alone.
+                Text(tr("≈ ${data.base.approx(shown.averagePerDayRub)} в день", "≈ ${data.base.approx(shown.averagePerDayRub)} a day"), style = text, color = quiet)
                 VSpace(Gap.l)
                 Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                     listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
