@@ -31,24 +31,17 @@ import sh.aminov.golda.R
 import sh.aminov.golda.data.Obligation
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
-import sh.aminov.golda.domain.Regulars
 import sh.aminov.golda.domain.tr
 
 /**
- * Regular payments as a block under the accounts: the list with the month's total, "+ Платёж", and
- * what looks regular in the spending but is not listed yet, one tap to add.
+ * Regular payments as a block under the accounts: the list, and adding one from the header.
  */
-fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, onEdit: (Obligation) -> Unit) {
+fun LazyListScope.regularPayments(data: AppData, onEdit: (Obligation) -> Unit) {
     val payments = data.obligations
     item(key = "regulars-label") {
         VSpace(Gap.l)
-        // The month's total under the name; adding is the group's action, in its header.
-        val total = payments.takeIf { it.isNotEmpty() }?.let { data.base.approx(Regulars.monthlyRub(it, data.rates)) }
-        GroupLabel(
-            tr("Регулярные платежи", "Regular payments"),
-            Modifier.padding(horizontal = Gap.m),
-            supporting = total?.let { tr("$it в месяц", "$it a month") },
-        ) {
+        // Just the name; adding is the group's action, in its header.
+        GroupLabel(tr("Регулярные платежи", "Regular payments"), Modifier.padding(horizontal = Gap.m)) {
             HeaderAction(tr("Добавить", "Add")) {
                 onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
             }
@@ -57,15 +50,6 @@ fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, 
     val count = payments.size
     payments.forEachIndexed { i, payment ->
         item(key = "regular-${payment.id}") { PaymentRow(payment, i, count, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
-    }
-    if (suggestions.isNotEmpty()) {
-        item(key = "regulars-suggested") {
-            VSpace(Gap.l)
-            GroupLabel(tr("Похоже на регулярные", "Looks regular"), Modifier.padding(horizontal = Gap.m), supporting = tr("Нажми, чтобы добавить", "Tap one to add it"))
-        }
-        suggestions.forEachIndexed { i, payment ->
-            item(key = "suggested-${payment.name}") { PaymentRow(payment, i, suggestions.size, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
-        }
     }
 }
 

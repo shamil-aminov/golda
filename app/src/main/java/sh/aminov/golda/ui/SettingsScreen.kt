@@ -1,5 +1,9 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.state.ToggleableState
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.draw.clip
@@ -126,63 +130,66 @@ fun SettingsScreen(
         topBar = { CollapsingHeader(tr("Настройки", "Settings"), onBack, bar) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        // Android's own settings: no cards, a header with a hairline over each section, rows of
-        // plain text with the value under the title.
-        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(bottom = Gap.xl)) {
-            Section(tr("Где я", "Where I am"))
-            SettingRow(tr("Местная валюта", "Local currency"), currencyLabel(s.localCurrency) + tr(", для новых трат и голоса", ", for new purchases and voice")) { edit = Edit.Local }
-            SettingRow(tr("Основная валюта", "Main currency"), currencyLabel(s.baseCurrency) + tr(", крупные цифры и итоги", ", big numbers and totals")) { edit = Edit.Base }
-            SettingRow(tr("Показывать суммы в", "Show amounts in"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown }
+        // Like Accounts: a small label over each group, the group one card of rows.
+        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.xl)) {
+            SettingsGroup(
+                tr("Где я", "Where I am"),
+                SettingItem(tr("Местная валюта", "Local currency"), currencyLabel(s.localCurrency) + tr(", для новых трат и голоса", ", for new purchases and voice")) { edit = Edit.Local },
+                SettingItem(tr("Основная валюта", "Main currency"), currencyLabel(s.baseCurrency) + tr(", крупные цифры и итоги", ", big numbers and totals")) { edit = Edit.Base },
+                SettingItem(tr("Показывать суммы в", "Show amounts in"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown },
+            )
 
             val ratesDay = data.ratesDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            Section(tr("Курс", "Rates"))
-            SettingRow(tr("Наценка к ЦБ", "Markup over the CBR"), Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup }
             val foreign = s.displayCurrencies.filter { it != "RUB" }.filter { data.rates.official(it) != null && data.rates.display(it) != null }
-            foreign.forEach { code ->
-                SettingRow(
-                    "1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽",
-                    tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2),
-                )
-            }
-            // Rarely needed, so a plain row at the end rather than a button in the header.
-            SettingRow(tr("Обновить курс", "Update rates"), data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) }) { onRefreshRates() }
+            SettingsGroup(
+                tr("Курс", "Rates"),
+                SettingItem(tr("Наценка к ЦБ", "Markup over the CBR"), Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup },
+                *foreign.map { code ->
+                    SettingItem("1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽", tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2))
+                }.toTypedArray(),
+                // Rarely needed, so a plain row at the end rather than a button in the header.
+                SettingItem(tr("Обновить курс", "Update rates"), data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) }) { onRefreshRates() },
+            )
 
-            Section(tr("Голос", "Voice"))
             val defaultModel = Settings().geminiModel
-            SettingRow(tr("Ключ Gemini", "Gemini key"), if (s.hasGeminiKey) tr("Сохранён", "Saved") else tr("Нет", "None")) { edit = Edit.Key }
-            SettingRow(tr("Модель", "Model"), s.geminiModel + if (s.geminiModel == defaultModel) tr(", по умолчанию", ", default") else "") { edit = Edit.Model }
-            // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
-            if (voiceBacklog > 0) {
-                SettingRow(tr("Не разобрано: $voiceBacklog", "Not worked out: $voiceBacklog"), tr("Записи ещё не превратились в операции", "Notes not booked yet")) { edit = Edit.Notes }
-            }
+            SettingsGroup(
+                tr("Голос", "Voice"),
+                SettingItem(tr("Ключ Gemini", "Gemini key"), if (s.hasGeminiKey) tr("Сохранён", "Saved") else tr("Нет", "None")) { edit = Edit.Key },
+                SettingItem(tr("Модель", "Model"), s.geminiModel + if (s.geminiModel == defaultModel) tr(", по умолчанию", ", default") else "") { edit = Edit.Model },
+                // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
+                *listOfNotNull(
+                    if (voiceBacklog > 0) SettingItem(tr("Не разобрано: $voiceBacklog", "Not worked out: $voiceBacklog"), tr("Записи ещё не превратились в операции", "Notes not booked yet")) { edit = Edit.Notes } else null,
+                ).toTypedArray(),
+            )
 
-            Section(tr("Данные", "Data"))
-            SettingRow(tr("Сохранить копию", "Save a backup"), tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
-                exporter.launch("golda-${LocalDate.now()}.json")
-            }
-            SettingRow(tr("Восстановить", "Restore"), tr("Заменить всё содержимым файла", "Replace everything with a file")) {
-                importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
-            }
+            SettingsGroup(
+                tr("Данные", "Data"),
+                SettingItem(tr("Сохранить копию", "Save a backup"), tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
+                    exporter.launch("golda-${LocalDate.now()}.json")
+                },
+                SettingItem(tr("Восстановить", "Restore"), tr("Заменить всё содержимым файла", "Replace everything with a file")) {
+                    importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+                },
+            )
 
             val reminder: (Boolean) -> Unit = { on ->
                 onChange { it.copy(reconcileReminder = on) }
                 ReconcileSchedule.apply(context, on)
             }
-            Section(tr("Напоминания", "Reminders"))
-            // The whole row is the switch, for TalkBack too.
-            SettingRow(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), checked = s.reconcileReminder, trailing = { CheckSwitch(s.reconcileReminder, null) }) {
-                reminder(!s.reconcileReminder)
-            }
+            SettingsGroup(
+                tr("Напоминания", "Reminders"),
+                // The whole row is the switch, for TalkBack too.
+                SettingItem(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), checked = s.reconcileReminder) {
+                    reminder(!s.reconcileReminder)
+                },
+            )
 
-            Section(tr("Оформление", "Appearance"))
-            SettingRow(tr("Тема", "Theme"), themeLabel(s.palette), onClick = onTheme)
-
-            Section(tr("Язык", "Language"))
-            SettingRow(tr("Язык приложения", "App language"), languageName(currentLanguage())) { edit = Edit.Language }
+            SettingsGroup(tr("Оформление", "Appearance"), SettingItem(tr("Тема", "Theme"), themeLabel(s.palette), onClick = onTheme))
+            SettingsGroup(tr("Язык", "Language"), SettingItem(tr("Язык приложения", "App language"), languageName(currentLanguage())) { edit = Edit.Language })
 
             // The one irreversible thing stands apart, last, in the error colour; the confirmation carries the alarm.
-            Section("")
-            SettingRow(tr("Стереть всё", "Erase everything"), tr("Счета, операции и настройки", "Accounts, operations and settings"), danger = true) { confirmWipe = true }
+            VSpace(Gap.l)
+            SettingsGroup(null, SettingItem(tr("Стереть всё", "Erase everything"), tr("Счета, операции и настройки", "Accounts, operations and settings"), danger = true) { confirmWipe = true })
         }
     }
 
@@ -250,61 +257,33 @@ private fun fullDate(date: LocalDate): String = date.format(DateTimeFormatter.of
 /** "15-го" / "day 15". */
 private fun dayOfMonth(day: Int): String = tr("$day-го", "day $day")
 
-/**
- * A section's header the Android way: its name small and semibold, then a hairline to the edge.
- * An empty name is the line alone, to set a row apart.
- */
-@Composable
-private fun Section(title: String, trailing: (@Composable () -> Unit)? = null) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = Gap.l, end = if (trailing != null) Gap.s else Gap.l, top = Gap.l).heightIn(min = 32.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (title.isNotEmpty()) {
-            Text(title, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            Spacer(Modifier.width(Gap.s))
-        }
-        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
-        trailing?.invoke()
-    }
-}
+/** One setting: its title, what it is set to under it; [checked] makes the whole row a switch. */
+private class SettingItem(
+    val title: String,
+    val summary: String? = null,
+    val danger: Boolean = false,
+    val checked: Boolean? = null,
+    val onClick: (() -> Unit)? = null,
+)
 
-/** One setting: the title in large plain text, what it is set to under it; a switch at the end if it has one. */
+/** A group of settings as Accounts shows its rows: the label, then one card; no label for a row set apart. */
 @Composable
-private fun SettingRow(
-    title: String,
-    summary: String? = null,
-    danger: Boolean = false,
-    trailing: (@Composable () -> Unit)? = null,
-    /** Set for a switch row: the row toggles, as one control. */
-    checked: Boolean? = null,
-    onClick: (() -> Unit)? = null,
-) {
-    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier.fillMaxWidth()
-            .then(
-                when {
-                    checked != null && onClick != null -> Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = { onClick() })
-                    onClick != null -> Modifier.clickable(onClick = onClick)
-                    else -> Modifier
-                },
-            )
-            .padding(horizontal = Gap.l, vertical = Gap.m),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
+private fun SettingsGroup(title: String?, vararg items: SettingItem) {
+    if (title != null) GroupLabel(title, Modifier.padding(top = Gap.l))
+    items.forEachIndexed { i, item ->
+        val checked = item.checked
+        GroupRow(
+            i, items.size,
+            if (checked != null) Modifier.semantics { role = Role.Switch; toggleableState = ToggleableState(checked) } else Modifier,
+            onClick = item.onClick,
+            supporting = item.summary?.let { { Text(it) } },
+            trailing = checked?.let { { CheckSwitch(it, null) } },
+        ) {
             Text(
-                title,
-                // A row's title at the size every list row has.
+                item.title,
                 style = MaterialTheme.typography.titleMedium,
-                color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                color = if (item.danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
-            summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = quiet) }
-        }
-        trailing?.let {
-            Spacer(Modifier.width(Gap.m))
-            it()
         }
     }
 }

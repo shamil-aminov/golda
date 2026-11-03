@@ -234,7 +234,6 @@ fun AccountsScreen(
 ) {
     val total = data.states.values.sumOf { it.rubMinor }
     var payment by remember { mutableStateOf<Obligation?>(null) }
-    val suggestions = remember(data) { Regulars.suggest(data.operations, data.accountById, data.categoryById, data.obligations, data.today, data.zone) }
     var reconciling by remember { mutableStateOf<AccountState?>(null) }
     // In reconcile mode, the accounts already checked this round: true when the balance matched.
     var checked by remember(reconcileMode) { mutableStateOf(mapOf<Long, Boolean>()) }
@@ -299,7 +298,7 @@ fun AccountsScreen(
                 )
             }
         }
-        if (!reconcileMode) regularPayments(data, suggestions) { payment = it }
+        if (!reconcileMode) regularPayments(data) { payment = it }
     }
     payment?.let { shown ->
         PaymentSheet(
