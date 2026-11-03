@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,8 +85,15 @@ fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit)
 @Composable
 fun AccountCards(accounts: List<Account>, picked: Long?, onPick: (Long) -> Unit, subtitle: (Account) -> String) {
     val cardWidth = 120.dp * LocalDensity.current.fontScale.coerceIn(1f, 1.4f)
+    // Opens on the picked card, so the account a purchase comes from is in sight, not past the edge.
+    val scroll = rememberScrollState()
+    val step = with(LocalDensity.current) { (cardWidth + Gap.s).roundToPx() }
+    LaunchedEffect(Unit) {
+        val index = accounts.indexOfFirst { it.id == picked }
+        if (index > 0) scroll.scrollTo(step * index - step / 2)
+    }
     Row(
-        Modifier.bleed(Gap.m).horizontalScroll(rememberScrollState()).padding(horizontal = Gap.m).selectableGroup(),
+        Modifier.bleed(Gap.m).horizontalScroll(scroll).padding(horizontal = Gap.m).selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(Gap.s),
     ) {
         accounts.forEach { account ->

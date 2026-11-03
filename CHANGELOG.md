@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Screenshot tests** (Roborazzi) of home, accounts, insights, a new
+  expense and settings, light, dark and the clear theme; and the agreed
+  design rules as tests.
+- The entry form opens its account cards on the picked one.
 - **Property tests** (Kotest) for the money rules: transfers make and lose
   nothing, an account spent to zero keeps no ruble cost, amounts read back as
   shown, debts and the spending period hold for any balance and day, the

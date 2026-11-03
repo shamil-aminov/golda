@@ -183,6 +183,14 @@ mosaic covers its area without overlaps.
 one small way at a time and reports every break no test noticed. CI fails
 below 82 % of breaks caught; the floor only goes up.
 
+Screenshot tests draw the main screens on the JVM (Robolectric and Roborazzi)
+with a fixed made-up life abroad and compare them with the images in
+`app/src/test/screenshots`. After an intended change of the look,
+`./gradlew recordRoborazziDebug` stores the new images;
+`./gradlew verifyRoborazziDebug` fails on any difference. Design rules the
+owner agreed on (no full stops in one-sentence texts, no ellipses, type from
+the scale) are tests too.
+
 Debug builds can fill the app with a made-up demo, which **erases everything
 in the app first**. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to run it
 next to a real install safely.
