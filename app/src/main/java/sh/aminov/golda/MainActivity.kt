@@ -127,9 +127,9 @@ class MainActivity : ComponentActivity() {
         intent.getIntExtra(EXTRA_TAB, -1).takeIf { it >= 0 }?.let { tabRequests.trySend(it) }
     }
 
-    /** adb shell am start -n sh.aminov.golda/.MainActivity --ez golda.demo true */
+    /** adb shell am start -n sh.aminov.golda.dev/sh.aminov.golda.MainActivity --ez golda.samples true; debug and dev builds only. */
     private suspend fun debugCommands(intent: Intent) {
-        if (!BuildConfig.DEBUG) return
+        if (!BuildConfig.DEMO_COMMANDS) return
         when {
             intent.getBooleanExtra("golda.samples", false) -> Demo.samples(repo)
             intent.getBooleanExtra("golda.demo", false) -> Demo.fill(repo)

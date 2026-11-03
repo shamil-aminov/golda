@@ -57,6 +57,9 @@ android {
         // Scenario tests run in an application with in-memory data and refuse to start anywhere but
         // an emulator; see CONTRIBUTING.md before running them.
         testInstrumentationRunner = "sh.aminov.golda.GoldaTestRunner"
+
+        // The adb shortcuts that wipe the app and fill it with a made-up person: never in the real app.
+        buildConfigField("boolean", "DEMO_COMMANDS", "false")
     }
 
     signingConfigs {
@@ -81,6 +84,7 @@ android {
     buildTypes {
         debug {
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+            buildConfigField("boolean", "DEMO_COMMANDS", "true")
         }
         release {
             isMinifyEnabled = true
@@ -94,6 +98,7 @@ android {
             initWith(getByName("release"))
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            buildConfigField("boolean", "DEMO_COMMANDS", "true")
             matchingFallbacks += "release"
         }
     }
