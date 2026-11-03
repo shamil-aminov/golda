@@ -160,6 +160,26 @@ class ReviewPromptTest {
     }
 
     @Test
+    fun dataHasWhatComesNextAndWhatLooksPaidTwice() {
+        val ops = listOf(
+            OperationFull(Operation(1, OpType.OPENING, LocalDate.of(2026, 10, 1).atTime(9, 0, 7).toInstant(zone).toEpochMilli()), listOf(Posting(operationId = 1, accountId = 1, amountMinor = 1_000_000, rubMinor = 1_000_000))),
+            spend(2, LocalDate.of(2026, 10, 27).atTime(12, 1).toInstant(zone).toEpochMilli(), 1, 500, "Интернет"),
+            spend(3, LocalDate.of(2026, 10, 27).atTime(12, 2).toInstant(zone).toEpochMilli(), 1, 500, "Интернет"),
+            spend(4, LocalDate.of(2026, 10, 27).atTime(12, 3).toInstant(zone).toEpochMilli(), 1, 4_200, "Интернет"),
+        )
+        val text = ReviewPrompt.data(
+            Period(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)), ops,
+            mapOf(1L to card), mapOf(1L to food), Rates(emptyMap(), markup = 0.0), today, zone,
+            regulars = listOf(sh.aminov.golda.data.Obligation(1, "Аренда", 35_000, "USD", 1), sh.aminov.golda.data.Obligation(2, "ChatGPT", 2_360, "USD", 18)),
+        )
+        // Today is November 3: the 18th comes first, rent next month.
+        assertTrue(text, text.indexOf("18 ноября 2026: ChatGPT") in 0 until text.indexOf("1 декабря 2026: Аренда"))
+        assertTrue(text, Regex("""- TBC: 9.?948 ₽""").containsMatchIn(text))
+        assertTrue(text, text.contains("- 2026-10-27: 2 раза по 5 ₽ (Интернет, Интернет)"))
+        assertFalse(text, text.contains("по 42 ₽"))
+    }
+
+    @Test
     fun dataShowsFallsAndTheLatestWhenThereAreMany() {
         fun day(d: Int) = LocalDate.of(2026, 10, d).atTime(12, 0).toInstant(zone).toEpochMilli()
         val before = listOf(spend(1, LocalDate.of(2026, 9, 25).atTime(12, 0).toInstant(zone).toEpochMilli(), 1, 400_000, "раньше"))
@@ -177,7 +197,7 @@ class ReviewPromptTest {
             mapOf(1L to card), mapOf(1L to food), Rates(emptyMap(), markup = 0.0), today, zone,
         )
         assertTrue(equal, equal.contains("было 10 ₽, 0 %"))
-        assertTrue(ReviewPrompt.system.contains("Что заметно"))
+        assertTrue(ReviewPrompt.system.contains("Стоит проверить") && ReviewPrompt.system.contains("Ничего необычного"))
     }
 
     @Test

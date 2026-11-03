@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.18.0] — 2026-11-03
+
+### Changed
+
+- **A review is a check-up, not a hunt for insights.** Asked for 3–5 habits
+  "you don't notice", a month of records made Gemini stretch the data or retell
+  what was obvious. Now it writes one line on the main thing, then "Стоит
+  проверить": up to three things the data shows (a payment that looks doubled,
+  fees and exchange losses, a regular payment that came out different), or
+  "Ничего необычного"; then "Что дальше": the regular payments still ahead and
+  whether the accounts cover them. Up to 200 words.
+- The review's data now has the next date of every regular payment, every
+  account's balance, and the same sum paid from one account twice in a day,
+  all counted by the app.
+
 ## [0.17.9] — 2026-11-03
 
 ### Fixed
@@ -447,7 +462,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.9...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.18.0
 [0.17.9]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.9
 [0.17.8]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.8
 [0.17.7]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.7
