@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import sh.aminov.golda.domain.Ledger
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import kotlinx.coroutines.delay
 import androidx.compose.runtime.LaunchedEffect
@@ -126,6 +129,19 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         val asDaily = data.categoryById.mapValues { (_, c) -> c.copy(bucket = Bucket.DAILY) }
         Analytics.report(only.map { it.copy(op = it.op.copy(bucket = null)) }, data.accountById, asDaily, period, today, data.zone, data.rates)
     }
+    // Each day's spending by category, biggest first: the day bars are stacked in the categories' colours.
+    val stacks = remember(data, period, filter) {
+        val want = filter ?: Bucket.DAILY
+        data.operations
+            .filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == want }
+            .groupBy { Ledger.localDate(it.op.timestamp, data.zone) }
+            .mapValues { (_, ops) ->
+                ops.groupBy { it.op.categoryId?.let(data.categoryById::get)?.key }
+                    .map { (key, list) -> categoryColor(key) to -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } } }
+                    .filter { it.second > 0 }
+                    .sortedByDescending { it.second }
+            }
+    }
     val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -181,7 +197,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         } else {
             item(key = "bars") {
                 // Each category a bar as long as its share of the biggest: the chart and the list in one.
-                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
                     val top = shown.categories.first().rubMinor.coerceAtLeast(1)
                     shown.categories.forEachIndexed { index, spend ->
                         if (index > 0) VSpace(Gap.l)
@@ -190,13 +206,13 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 }
             }
             item(key = "chart") {
-                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
-                    DayBars(shown.days, today, kind, data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter in listOf(null, Bucket.DAILY) }, data.base)
+                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
+                    DayBars(shown.days, today, kind, data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter in listOf(null, Bucket.DAILY) }, data.base, stacks)
                 }
             }
         }
         item(key = "more") {
-            Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+            Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
                 LabelAmount(tr("Доходы", "Income"), data.base.approx(report.incomeRub))
                 if (report.fxVolumeRub > 0) {
                     VSpace(Gap.m)
@@ -241,9 +257,9 @@ private fun CategoryBar(name: String, amount: String, fraction: Float, color: Co
         // Grows in from the left when the screen opens, one bar after another.
         val grown = remember { Animatable(0f) }
         LaunchedEffect(fraction) { delay(order * 60L); grown.animateTo(fraction.coerceIn(0.01f, 1f), motion) }
-        Box(Modifier.fillMaxWidth().height(12.dp)) {
+        Box(Modifier.fillMaxWidth().height(16.dp)) {
             // The category's own pastel: the same colour wherever it is drawn.
-            Box(Modifier.fillMaxHeight().fillMaxWidth(grown.value.coerceAtLeast(0.01f)).background(color, RoundedCornerShape(6.dp)))
+            Box(Modifier.fillMaxHeight().fillMaxWidth(grown.value.coerceAtLeast(0.01f)).background(color, RoundedCornerShape(8.dp)))
         }
     }
 }
@@ -339,7 +355,7 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
  * The dashed line is the daily budget.
  */
 @Composable
-private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base) {
+private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<Pair<Color, Long>>>) {
     if (days.isEmpty()) return
     // The last day with spending, so the pill opens on something, not on an empty today.
     val start = days.indexOfLast { it.second > 0 }.takeIf { it >= 0 } ?: days.lastIndex
@@ -383,7 +399,7 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
             ) {
                 val barWidth = step * 0.62f
                 val radius = minOf(barWidth / 2, 12.dp.toPx())
-                days.forEachIndexed { i, (_, value) ->
+                days.forEachIndexed { i, (day, value) ->
                     val h = if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()
                     val left = step * i + (step - barWidth) / 2
                     val path = Path().apply {
@@ -394,7 +410,22 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                             ),
                         )
                     }
-                    drawPath(path, if (i == picked) strong else normal)
+                    val parts = stacks[day].orEmpty()
+                    val sum = parts.sumOf { it.second }
+                    if (value > 0 && sum > 0) {
+                        // The day's categories stacked in their colours, biggest at the bottom; the picked day full, the rest softer.
+                        val alpha = if (i == picked) 1f else 0.5f
+                        clipPath(path) {
+                            var y = size.height
+                            parts.forEach { (color, rub) ->
+                                val part = h * rub / sum
+                                drawRect(color.copy(alpha = alpha), Offset(left, y - part), Size(barWidth, part))
+                                y -= part
+                            }
+                        }
+                    } else {
+                        drawPath(path, if (i == picked) strong else normal)
+                    }
                 }
                 budget?.let {
                     val y = size.height - size.height * it / top
@@ -422,6 +453,17 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                     )
+                }
+            }
+            // What the dashed line is: the plan for a day.
+            budget?.let {
+                VSpace(Gap.m)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Canvas(Modifier.width(20.dp).height(2.dp)) {
+                        drawLine(line, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), strokeWidth = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+                    }
+                    Spacer(Modifier.width(Gap.s))
+                    Text(tr("План ", "Plan ") + base.approx(it) + tr(" в день", " a day"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

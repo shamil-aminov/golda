@@ -128,14 +128,7 @@ fun SettingsScreen(
             SettingRow(tr("Показывать суммы в", "Show amounts in"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown }
 
             val ratesDay = data.ratesDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            Section(
-                tr("Курс", "Rates") + (data.ratesDate?.let { tr(" ЦБ на ", ", CBR of ") + (ratesDay?.let(::fullDate) ?: it) } ?: ""),
-                trailing = {
-                    IconButton(onClick = onRefreshRates, modifier = Modifier.offset(x = 12.dp)) {
-                        Icon(painterResource(R.drawable.ic_refresh), tr("Обновить курсы", "Update rates"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                },
-            )
+            Section(tr("Курс", "Rates"))
             SettingRow(tr("Наценка к ЦБ", "Markup over the CBR"), Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup }
             val foreign = s.displayCurrencies.filter { it != "RUB" }.filter { data.rates.official(it) != null && data.rates.display(it) != null }
             foreign.forEach { code ->
@@ -144,6 +137,8 @@ fun SettingsScreen(
                     tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2),
                 )
             }
+            // Rarely needed, so a plain row at the end rather than a button in the header.
+            SettingRow(tr("Обновить курс", "Update rates"), data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) }) { onRefreshRates() }
 
             Section(tr("Голос", "Voice"))
             val defaultModel = Settings().geminiModel

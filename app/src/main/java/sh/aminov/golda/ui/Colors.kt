@@ -14,8 +14,7 @@ import androidx.compose.ui.graphics.Color
  * - [Tones.line]: tracks, dividers, the quietest chart marks.
  * - [Tones.muted] / [Tones.text]: secondary and primary text and icons.
  * - [Tones.graphite]: what is picked (a tab, a toggle, a category): a light slate, with dark ink.
- * - [Tones.gold]: the one action to take (the mic, Записать, Сохранить, Разбор), ice blue now: a cool
- *   action keeps apart from the warm colours that inform (the ochre "runs out sooner", Транспорт).
+ * - [Tones.gold]: the one action to take (the mic, Записать, Сохранить, Готово). Golda's gold.
  * - red: bad news only (overspending, debts, erasing).
  */
 private class Tones(
@@ -44,8 +43,8 @@ private val Light = Tones(
     text = Color(0xFF27272A),
     graphite = Color(0xFFCBD5DE),
     onGraphite = Color(0xFF18222B),
-    gold = Color(0xFFBEE0F5),
-    onGold = Color(0xFF0E3B57),
+    gold = Color(0xFFD9A93E),
+    onGold = Color(0xFF2B1D00),
     error = Color(0xFFDC2626),
     onError = Color(0xFFFFFFFF),
     errorSoft = Color(0xFFFEE2E2),
@@ -61,8 +60,8 @@ private val Dark = Tones(
     text = Color(0xFFF4F4F5),
     graphite = Color(0xFF4A5561),
     onGraphite = Color(0xFFEEF2F6),
-    gold = Color(0xFF2A5674),
-    onGold = Color(0xFFDCEFFB),
+    gold = Color(0xFFE2B655),
+    onGold = Color(0xFF2B1D00),
     error = Color(0xFFF87171),
     onError = Color(0xFF450A0A),
     errorSoft = Color(0xFF4C1D1D),

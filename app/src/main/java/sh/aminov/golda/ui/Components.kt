@@ -139,7 +139,7 @@ fun BigNumber(
         // Emphasized digits run about two thirds of an em wide; keep a little air at the edge.
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.66f)).toSp().value }
         val size = minOf(fit, maxSp).sp
-        val style = MaterialTheme.typography.displayLargeEmphasized.copy(fontSize = size, lineHeight = size * 1.1f)
+        val style = bigFigure(size)
         RollingNumber(text, value, style, color = color, quiet = quiet, quietColor = quietColor)
     }
 }

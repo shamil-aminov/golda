@@ -1,5 +1,10 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,9 +55,11 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Gemini's reviews: the ones written before, newest first, and at the bottom the button that writes
- * one for the period picked in insights ("Разобрать октябрь"). Back sits by it, as on the forms.
+ * Gemini's reviews, laid out like Settings: a big title that folds into a bar with back, the past
+ * reviews under it, and one wide button at the bottom that writes a review of the period picked in
+ * insights ("Разобрать октябрь").
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewsScreen(
     reviews: List<Review>,
@@ -65,49 +72,53 @@ fun ReviewsScreen(
     BackHandler(onBack = onBack)
     var working by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    BottomPage(
-        actions = {
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-            Button(
-                onClick = {
-                    working = true
-                    error = null
-                    onReview { problem -> working = false; error = problem }
-                },
-                enabled = !working,
-                colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
-                modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight),
-            ) {
-                Text(
-                    if (working) tr("Gemini пишет разбор", "Gemini is writing") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+    val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
+        topBar = { CollapsingHeader(tr("Разборы", "Reviews"), onBack, bar) },
+        bottomBar = {
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m)) {
+                Button(
+                    onClick = {
+                        working = true
+                        error = null
+                        onReview { problem -> working = false; error = problem }
+                    },
+                    enabled = !working,
+                    colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = ButtonDefaults.MediumContainerHeight),
+                ) {
+                    Text(
+                        if (working) tr("Gemini пишет разбор", "Gemini is writing") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                    )
+                }
             }
         },
-    ) {
-        Text(tr("Разборы", "Reviews"), Modifier.padding(horizontal = Gap.s), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold))
-        VSpace(Gap.l)
-        error?.let {
-            Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-            VSpace(Gap.m)
-        }
-        if (reviews.isEmpty()) {
-            Text(
-                tr("Разборов пока нет. Gemini посмотрит траты за период и коротко напишет, куда ушли деньги и что можно урезать.",
-                    "No reviews yet. Gemini reads the period's spending and writes briefly where the money went and what could be cut."),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        reviews.forEachIndexed { i, review ->
-            val span = Period(LocalDate.ofEpochDay(review.fromDay), LocalDate.ofEpochDay(review.toDay))
-            GroupRow(
-                i, reviews.size,
-                onClick = { onOpen(review.id) },
-                supporting = { Text(tr("Написан ", "Written ") + written(review), maxLines = 1) },
-            ) { Text(ReviewPrompt.title(span, LocalDate.MAX).replaceFirstChar { it.uppercase() }) }
+    ) { padding ->
+        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l)) {
+            error?.let {
+                Text(it, Modifier.padding(horizontal = Gap.s), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                VSpace(Gap.m)
+            }
+            if (reviews.isEmpty()) {
+                Text(
+                    tr("Разборов пока нет. Gemini посмотрит траты за период и коротко напишет, куда ушли деньги и что можно урезать.",
+                        "No reviews yet. Gemini reads the period's spending and writes briefly where the money went and what could be cut."),
+                    Modifier.padding(horizontal = Gap.s),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            reviews.forEachIndexed { i, review ->
+                val span = Period(LocalDate.ofEpochDay(review.fromDay), LocalDate.ofEpochDay(review.toDay))
+                GroupRow(
+                    i, reviews.size,
+                    onClick = { onOpen(review.id) },
+                    supporting = { Text(tr("Написан ", "Written ") + written(review), maxLines = 1) },
+                ) { Text(ReviewPrompt.title(span, LocalDate.MAX).replaceFirstChar { it.uppercase() }) }
+            }
         }
     }
 }

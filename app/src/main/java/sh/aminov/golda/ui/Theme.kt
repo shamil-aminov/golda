@@ -66,15 +66,15 @@ fun GoldaTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** Ice blue, the action colour: the same as [actionColor], kept as a name for Разбор and the mic. */
+/** Ice blue: the one cool colour, for the way to Gemini's reviews. The gold stays the action. */
 @Composable
 @ReadOnlyComposable
-fun iceColor(): Color = actionColor()
+fun iceColor(): Color = if (isSystemInDarkTheme()) Color(0xFF234A63) else Color(0xFFCFE7F7)
 
 /** Ink on [iceColor]. */
 @Composable
 @ReadOnlyComposable
-fun onIceColor(): Color = onActionColor()
+fun onIceColor(): Color = if (isSystemInDarkTheme()) Color(0xFFD7EEFB) else Color(0xFF0E3B57)
 
 /** How the money is doing, on the home bar only: calm green, ochre, muted red. */
 enum class Pace { LASTS, SHORT, OVER }
@@ -96,7 +96,7 @@ fun paceColor(pace: Pace): Color {
  */
 fun categoryColor(key: String?): Color = when (key) {
     "food" -> Color(0xFF8CC084)
-    "transport" -> Color(0xFFE2B95E)
+    "transport" -> Color(0xFFC9A0DC)
     "household" -> Color(0xFF6FBDAE)
     "treats" -> Color(0xFFE39AB4)
     "housing" -> Color(0xFF7FA6D6)

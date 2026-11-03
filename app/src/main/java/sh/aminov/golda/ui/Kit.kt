@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.interaction.InteractionSource
@@ -242,15 +243,15 @@ fun HeroTile(
     }
 }
 
-/** A block of the page: 16 dp inside, flat (no card) unless a colour is asked for. */
+/** A block of the page as one card: 16 dp inside. */
 @Composable
 fun Tile(
     modifier: Modifier = Modifier,
-    container: Color = Color.Transparent,
+    container: Color = tileColor(),
     content: Color = MaterialTheme.colorScheme.onSurface,
     onClick: (() -> Unit)? = null,
-    // Flat, 8 inside the page's 16: text 24 from the edge. A tile with a colour passes its own.
-    padding: PaddingValues = PaddingValues(horizontal = Gap.s, vertical = Gap.m),
+    // Placed 8 from the screen's edge, 16 inside: the text 24 from the edge, like the rows'.
+    padding: PaddingValues = PaddingValues(Gap.m),
     body: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = MaterialTheme.shapes.extraLarge
@@ -281,7 +282,8 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
-            HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+            // The cards set the groups apart; no hairline needed here.
+            Spacer(Modifier.weight(1f))
             trailing?.let {
                 Spacer(Modifier.width(Gap.s))
                 it()
@@ -293,8 +295,9 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
 
 /** Corner 28 at the ends of a grouped list, 4 between its rows. */
 fun groupShape(index: Int, count: Int): Shape {
+    // One card per group: round at its ends, square where its rows meet.
     val outer = 28.dp
-    val inner = 4.dp
+    val inner = 0.dp
     return RoundedCornerShape(
         topStart = if (index == 0) outer else inner,
         topEnd = if (index == 0) outer else inner,
@@ -318,15 +321,14 @@ fun GroupRow(
     leading: (@Composable () -> Unit)? = null,
     supporting: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
-    // Flat by default: rows on the page itself, no card round the group.
-    container: Color = Color.Transparent,
+    // A group of rows is one card, not a card per row.
+    container: Color = tileColor(),
     headline: @Composable () -> Unit,
 ) {
-    val flat = container == Color.Transparent
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
-    // A flat row reaches 8 dp into the page's margin, so its 16 of padding puts the text 24 from the edge.
-    val spaced = (if (flat) modifier.bleed(Gap.s) else modifier).padding(bottom = if (index < count - 1 && !flat) GroupGap else 0.dp)
+    // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
+    val spaced = modifier.bleed(Gap.s)
     if (onClick != null) {
         SegmentedListItem(
             onClick = onClick,
@@ -761,9 +763,7 @@ fun HeroAmountField(
     placeholderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
 ) {
     BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val base = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum).let {
-            if (maxSp > 0f) it.copy(fontSize = maxSp.sp) else it
-        }
+        val base = bigFigure((if (maxSp > 0f) maxSp else BIG_FIGURE_SP).sp)
         val chars = (if (text.isEmpty()) placeholder.length else text.length + text.length / 4).coerceAtLeast(1) + 1 + symbol.length
         val fit = with(LocalDensity.current) { (maxWidth * 0.9f / (chars * 0.66f)).toSp() }
         val big = if (fit < base.fontSize) base.copy(fontSize = fit, lineHeight = fit * 1.15f) else base.copy(lineHeight = base.fontSize * 1.15f)
@@ -773,7 +773,9 @@ fun HeroAmountField(
         Box(Modifier.height(height), contentAlignment = Alignment.Center) {
         BasicTextField(
             value = text,
-            onValueChange = onText,
+            // Digits and one decimal mark, nothing else: a typed space or dash would make a number
+            // the app reads differently from what the field shows.
+            onValueChange = { typed -> onText(amountInput(typed)) },
             modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier,
             textStyle = big.copy(color = color),
             singleLine = true,
@@ -997,6 +999,17 @@ fun Modifier.squish(interaction: InteractionSource): Modifier {
     return graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
+/**
+ * Every big figure in the app (the tabs' heroes, an account's balance, the entry amount): one bold,
+ * tight style, so a number reads the same wherever it is the main thing.
+ */
+@Composable
+fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum)
+    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp)
+
+/** The size of a big figure; smaller only when it would not fit. */
+const val BIG_FIGURE_SP = 60f
+
 /** Vertical space from the spacing scale. */
 @Composable
 fun VSpace(height: Dp) = Spacer(Modifier.height(height))
@@ -1051,4 +1064,18 @@ fun RowScope.RoundAction(icon: Int, description: String, onClick: () -> Unit) {
         modifier = Modifier.size(ButtonDefaults.MediumContainerHeight),
         colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
     ) { Icon(painterResource(icon), description) }
+}
+
+/** What an amount field keeps of what was typed: digits and the first "," or "." (as ","), two decimals at most. */
+fun amountInput(typed: String): String {
+    val out = StringBuilder()
+    var mark = false
+    var decimals = 0
+    for (c in typed) {
+        when {
+            c.isDigit() -> if (!mark || decimals < 2) { out.append(c); if (mark) decimals++ }
+            (c == ',' || c == '.') && !mark -> { mark = true; out.append(',') }
+        }
+    }
+    return out.toString()
 }

@@ -142,7 +142,8 @@ fun HomeScreen(
                     envelope.lasts(today) -> Pace.LASTS
                     else -> Pace.SHORT
                 }
-                WavyBar(share, ink = paceColor(pace), hero = true, flat = over || share >= 1f)
+                // Wavy while there is money for today, Material Expressive's live line; flat once it is spent.
+                WavyBar(share, ink = paceColor(pace), hero = true, flat = over)
                 VSpace(Gap.m)
                 // Looking ahead from today: the days still to get through, and the days the money lasts
                 // at the pace it really goes. Worked out again every day. A tap changes the period.
@@ -271,7 +272,8 @@ fun AccountsScreen(
         }
         // One list: one bank, one account, so there is nothing to group.
         val count = data.accounts.size + 1
-        item(key = "gap") { VSpace(if (reconcileMode) 0.dp else Gap.l) }
+        // A label over the accounts too, like the dates on Home and the payments below.
+        item(key = "gap") { if (!reconcileMode) GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) }
         data.accounts.forEachIndexed { i, account ->
             item(key = account.id) {
                 val state = data.states.getValue(account.id)
@@ -433,7 +435,7 @@ fun AccountScreen(
                     VSpace(Gap.xs)
                     val amount = Fmt.amount(state.balanceMinor, state.currency)
                     // The kopecks are the same ink, only quieter.
-                    BigNumber(amount, state.balanceMinor, ink, maxSp = 96f, quiet = centsOf(amount), quietColor = ink.copy(alpha = 0.55f))
+                    BigNumber(amount, state.balanceMinor, ink, maxSp = BIG_FIGURE_SP, quiet = centsOf(amount), quietColor = ink.copy(alpha = 0.55f))
                     data.others(state.rubMinor, state.currency).takeIf { it.isNotBlank() }?.let {
                         Text(it, style = MaterialTheme.typography.bodyLarge.merge(Tnum), color = quiet)
                     }
@@ -469,7 +471,7 @@ fun AccountScreen(
             }
             if (account.type == AccountType.CREDIT || account.type == AccountType.LOAN) {
                 item(key = "debt") {
-                    Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m).padding(top = Gap.s)) { DebtDetails(data, state) }
+                    Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(top = Gap.s)) { DebtDetails(data, state) }
                 }
             }
             operationItems(data, operations, accountId, onEditOperation)
@@ -581,19 +583,19 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         // Tabular figures run about 0.6 em wide; keep a little air at the edge.
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
-        val size = minOf(fit, 72f).sp
+        // One size on every tab, so the figure does not jump when swiping; smaller only to fit.
+        val size = minOf(fit, BIG_FIGURE_SP).sp
         // Bold and tight: the one loud thing on a tab. The sign in the muted ink, lighter, so the
         // digits are read first. Each character rolls to its new value, so a saved purchase is seen.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
-        val style = MaterialTheme.typography.titleMedium.merge(Tnum)
-            .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp)
+        val style = bigFigure(size)
         val muted = MaterialTheme.colorScheme.onSurfaceVariant
         // Read as one figure, not as its characters.
         Row(Modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }) {
-            text.forEachIndexed { i, ch ->
-                val isSign = sign != null && i >= text.length - sign.length
-                RollingChar(ch, style.copy(fontWeight = if (isSign) FontWeight.SemiBold else FontWeight.Bold), if (isSign) muted else color)
-            }
+            // The digits roll; the sign stands after them as in the entry field, one space away.
+            val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
+            digits.forEach { ch -> RollingChar(ch, style, color) }
+            if (sign != null) Text(" $sign", style = style.copy(fontWeight = FontWeight.SemiBold), color = muted, maxLines = 1)
         }
     }
 }

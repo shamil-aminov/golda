@@ -227,9 +227,9 @@ fun GoldaToolbar(
 ) {
     val scheme = MaterialTheme.colorScheme
     // The one action to take: gold, like every main action.
-    // Ice blue, like Разбор: the app's one action colour on the island.
-    val mic = iceColor()
-    val onMic = onIceColor()
+    // Golda's gold: the one action to take.
+    val mic = actionColor()
+    val onMic = onActionColor()
     val label = when (voice.state) {
         VoiceState.Idle -> tr("Сказать", "Say it")
         VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
