@@ -26,6 +26,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,12 +87,19 @@ fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit)
 @Composable
 fun AccountCards(accounts: List<Account>, picked: Long?, onPick: (Long) -> Unit, subtitle: (Account) -> String) {
     val cardWidth = 120.dp * LocalDensity.current.fontScale.coerceIn(1f, 1.4f)
-    // Opens on the picked card, so the account a purchase comes from is in sight, not past the edge.
+    // The picked card is always in sight: when it would sit past the right edge, the row moves just
+    // enough to show it whole; when it is already in view, the row stays at its start.
     val scroll = rememberScrollState()
-    val step = with(LocalDensity.current) { (cardWidth + Gap.s).roundToPx() }
+    val density = LocalDensity.current
+    val card = with(density) { cardWidth.roundToPx() }
+    val gap = with(density) { Gap.s.roundToPx() }
+    val inset = with(density) { Gap.m.roundToPx() }
     LaunchedEffect(Unit) {
         val index = accounts.indexOfFirst { it.id == picked }
-        if (index > 0) scroll.scrollTo(step * index - step / 2)
+        if (index < 0) return@LaunchedEffect
+        val viewport = snapshotFlow { scroll.viewportSize }.first { it > 0 }
+        val end = inset + index * (card + gap) + card + inset
+        if (end > viewport) scroll.scrollTo(end - viewport)
     }
     Row(
         Modifier.bleed(Gap.m).horizontalScroll(scroll).padding(horizontal = Gap.m).selectableGroup(),

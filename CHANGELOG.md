@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The entry form no longer cuts the first account card in half: the row moves
+  only when the picked card would sit past the edge, and just enough to show it.
+
 ## [0.17.0] — 2026-11-03
 
 ### Added
