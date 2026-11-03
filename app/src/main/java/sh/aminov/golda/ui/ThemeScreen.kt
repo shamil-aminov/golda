@@ -29,6 +29,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,10 +81,18 @@ fun ThemeScreen(
     val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
-        topBar = { CollapsingHeader(tr("Тема", "Theme"), onBack, bar) },
-        bottomBar = {
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                PrimaryAction(if (current in saved) tr("Тема сохранена", "Theme kept") else tr("Сохранить тему", "Keep this theme"), { onSave(current) }, enabled = custom && current !in saved)
+        // Up top, like Android's own bars: a generated theme not kept yet can be kept; a kept one in use
+        // can be deleted (it stays on, unkept, so "Сохранить" brings it back). Presets need neither.
+        topBar = {
+            CollapsingHeader(tr("Тема", "Theme"), onBack, bar) {
+                when {
+                    custom && current !in saved -> TextButton(onClick = { onSave(current) }, modifier = Modifier.padding(end = Gap.s)) {
+                        Text(tr("Сохранить", "Keep"), style = MaterialTheme.typography.titleMedium)
+                    }
+                    current in saved -> IconButton(onClick = { onForget(current) }) {
+                        Icon(painterResource(R.drawable.ic_delete), tr("Удалить тему", "Delete theme"))
+                    }
+                }
             }
         },
     ) { padding ->

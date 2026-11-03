@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -609,7 +610,7 @@ fun FormPage(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollBehavior) {
+fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollBehavior, actions: @Composable RowScope.() -> Unit = {}) {
     val type = MaterialTheme.typography
     val page = MaterialTheme.colorScheme.background
     Column {
@@ -624,6 +625,7 @@ fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollB
                 // The title 24 from the edge, like the rows under it.
                 title = { Text(title, Modifier.padding(start = Gap.s), maxLines = 1) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
+                actions = actions,
                 expandedHeight = 200.dp,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
                 scrollBehavior = scroll,
@@ -1007,7 +1009,8 @@ fun Modifier.squish(interaction: InteractionSource): Modifier {
  */
 @Composable
 fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum)
-    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Medium, letterSpacing = (-2).sp)
+    // −6 %: the digits read as one word without touching.
+    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Medium, letterSpacing = (-0.06).em)
 
 /**
  * The type steps go by the golden ratio from 14 sp: 14, 22, 36, 58, 94. A tab's figure is the top
