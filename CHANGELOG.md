@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.6] — 2026-11-03
+
+### Fixed
+
+- **Deleting an account no longer moves money on the others.** Its own
+  operations go with it; a transfer to or from another account stays there as
+  an adjustment ("Перевод на «Кредитка»"). Before, deleting a paid-off credit
+  card put the 40 793 ₽ that paid it back onto the savings.
+- **Reconciling savings no longer books the gap as everyday spending by
+  default.** The switch "Это ежедневные траты" starts on only for cards and
+  cash, where a shortfall is usually unrecorded spending.
+
 ## [0.17.5] — 2026-11-03
 
 ### Changed
@@ -396,7 +408,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.5...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.6...HEAD
+[0.17.6]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.6
 [0.17.5]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.5
 [0.17.4]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.4
 [0.17.3]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.3

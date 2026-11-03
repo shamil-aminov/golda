@@ -210,7 +210,7 @@ fun AccountSheet(
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text(tr("Удалить «${editing.name}»?", "Delete “${editing.name}”?")) },
-            text = { Text(tr("Удалятся и все операции с этим счётом, включая переводы", "All operations with this account go too, transfers included")) },
+            text = { Text(tr("Его операции удалятся. Переводы с другими счетами останутся на них поправкой, их балансы не изменятся", "Its operations go too. Transfers with other accounts stay on them as adjustments, so their balances don't change")) },
             confirmButton = {
                 TextButton(onClick = { confirmDelete = false; onDelete(editing.id) }) {
                     Text(tr("Удалить", "Delete"), color = MaterialTheme.colorScheme.error)

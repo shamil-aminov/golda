@@ -507,9 +507,11 @@ fun AccountScreen(
 @Composable
 fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Long, Boolean) -> Unit) {
     var text by remember { mutableStateOf("") }
-    // Less money than recorded is usually spending nobody wrote down: by default it is booked as
-    // everyday spending, so the pace stays honest (SPEC §5). A debt's difference is never spending.
-    var asSpending by remember { mutableStateOf(true) }
+    // Less money on a card or in cash is usually spending nobody wrote down: by default it is booked
+    // as everyday spending, so the pace stays honest (SPEC §5). On savings it is rarely that (a debt
+    // paid from them, a transfer left out), so there the default is a plain adjustment. A debt's
+    // difference is never spending.
+    var asSpending by remember { mutableStateOf(state.account.type == AccountType.CARD || state.account.type == AccountType.CASH) }
     // A debt is checked the way the bank shows it: what is owed. "15 000" on a credit card is a balance
     // of −15 000; only "+…" means money on it. Any other account takes the number as it is, "−" included.
     val debt = state.account.type == AccountType.CREDIT || state.account.type == AccountType.LOAN

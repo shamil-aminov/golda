@@ -197,3 +197,30 @@ object Budget {
         return (base * rate / 100 * today.lengthOfMonth() / 365).roundToLong()
     }
 }
+
+/**
+ * Deleting an account must not move money on the accounts that stay. Its own operations go with it;
+ * a transfer to or from another account stays there as an adjustment of that account, so the
+ * 40 793 ₽ that left the savings for a closed credit card stays gone from the savings.
+ */
+object AccountRemoval {
+    /** What stays of an operation: the same operation, now an adjustment, with the other accounts' postings. */
+    data class Kept(val op: Operation, val postings: List<Posting>)
+
+    data class Plan(val delete: List<Long>, val keep: List<Kept>)
+
+    fun plan(account: Account, operations: List<OperationFull>): Plan {
+        val touching = operations.filter { full -> full.postings.any { it.accountId == account.id } }
+        val (shared, own) = touching.partition { full -> full.postings.any { it.accountId != account.id } }
+        val keep = shared.map { full ->
+            val rest = full.postings.filter { it.accountId != account.id }
+            // "Перевод на «Кредитка»": the list says where the money went once the account is gone.
+            val out = rest.sumOf { it.amountMinor } < 0
+            val note = full.op.note.ifBlank {
+                if (out) tr("Перевод на «${account.name}»", "Transfer to “${account.name}”") else tr("Перевод с «${account.name}»", "Transfer from “${account.name}”")
+            }
+            Kept(full.op.copy(type = OpType.ADJUSTMENT, categoryId = null, note = note), rest)
+        }
+        return Plan(own.map { it.op.id }, keep)
+    }
+}

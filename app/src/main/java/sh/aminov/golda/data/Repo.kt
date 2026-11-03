@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import sh.aminov.golda.domain.AccountRemoval
 import sh.aminov.golda.domain.VoiceAction
 import sh.aminov.golda.domain.VoiceMapper
 import sh.aminov.golda.domain.VoicePrompt
@@ -279,7 +280,15 @@ class Repo(
         id
     }
 
+    /** The account and its own operations; its transfers stay on the other accounts (see [AccountRemoval]). */
     suspend fun deleteAccount(id: Long) = write {
+        val account = dao.accountsNow().firstOrNull { it.id == id } ?: return@write
+        val plan = AccountRemoval.plan(account, dao.operationsSince(0))
+        plan.keep.forEach { kept ->
+            dao.updateOperation(kept.op)
+            dao.deletePostings(kept.op.id)
+            dao.insertPostings(kept.postings)
+        }
         dao.deleteOperationsOf(id)
         dao.deleteAccount(id)
     }

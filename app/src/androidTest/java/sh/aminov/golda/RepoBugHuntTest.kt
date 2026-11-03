@@ -19,6 +19,7 @@ import sh.aminov.golda.data.Rate
 import sh.aminov.golda.data.Repo
 import sh.aminov.golda.data.VoiceQueue
 import sh.aminov.golda.domain.Draft
+import sh.aminov.golda.domain.Ledger
 import java.io.File
 
 /** The data side of the bug hunt, on the test app's isolated storage. */
@@ -72,6 +73,19 @@ class RepoBugHuntTest {
         repo.deleteAccount(lari.id)
         assertFalse(repo.restoreOperation(full))
         assertNull(repo.save(Draft(OpType.EXPENSE, System.currentTimeMillis(), lari.id, 1_500)))
+    }
+
+    /** Deleting an account leaves the others' balances: its transfers stay on them as adjustments. */
+    @Test
+    fun deletingAnAccountKeepsTheOthersBalances() = runBlocking {
+        val rub = account("Карта ₽")
+        val usd = account("Доллары")
+        repo.save(Draft(OpType.TRANSFER, System.currentTimeMillis(), rub.id, 4_600_000, toAccountId = usd.id, toAmountMinor = 50_000))!!
+        suspend fun balance() = Ledger.states(dao.accountsNow(), dao.postingsNow()).getValue(rub.id).balanceMinor
+        val before = balance()
+        repo.deleteAccount(usd.id)
+        assertEquals(before, balance())
+        assertTrue(repo.accounts.first().none { it.id == usd.id })
     }
 
     /** #17: a backup that decodes but does not fit changes nothing. */
