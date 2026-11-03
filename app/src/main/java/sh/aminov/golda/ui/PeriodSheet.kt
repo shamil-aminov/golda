@@ -110,5 +110,6 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
     }
 }
 
-/** "26 октября – 26 ноября": the period, for its settings row. */
-fun periodLabel(start: LocalDate, end: LocalDate, today: LocalDate): String = "${dayLabel(start, today)} – ${dayLabel(end, today)}"
+/** "С 26 октября по 26 ноября": the period, for its settings row. */
+fun periodLabel(start: LocalDate, end: LocalDate, today: LocalDate): String =
+    sh.aminov.golda.domain.ReviewPrompt.span(start, end).replaceFirstChar { it.titlecase(sh.aminov.golda.domain.I18n.locale) }

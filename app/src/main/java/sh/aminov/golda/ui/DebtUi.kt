@@ -61,7 +61,7 @@ fun DebtDetails(data: AppData, state: AccountState) {
                         "≈ ${months(ceil(n).toLong())} to go, ≈ ${Fmt.approx(interest / Currencies.factor(code), code)} in interest"),
                     style = body,
                 )
-                FilledTonalButton(onClick = { prepaying = true }) { Text(tr("Погасить досрочно…", "Pay off early…")) }
+                FilledTonalButton(onClick = { prepaying = true }) { Text(tr("Погасить досрочно", "Pay off early")) }
             }
         }
         graceWarning(data, state, today)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = body) }

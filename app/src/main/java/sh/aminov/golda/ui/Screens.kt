@@ -241,7 +241,15 @@ fun AccountsScreen(
             if (group != null) {
                 item(key = "group-$group") {
                     val rub = accounts.sumOf { data.states[it.id]?.rubMinor ?: 0 }
-                    GroupLabel("$group · ${data.base.approx(rub)}", Modifier.padding(horizontal = Gap.m))
+                    // The bank's total on the right, under the accounts' amounts: what its app shows.
+                    GroupLabel(group, Modifier.padding(horizontal = Gap.m)) {
+                        Text(
+                            data.base.approx(rub),
+                            Modifier.padding(end = Gap.m),
+                            style = MaterialTheme.typography.labelLarge.merge(Tnum),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             val count = accounts.size + if (withAdd) 1 else 0

@@ -163,7 +163,7 @@ fun AccountSheet(
                     if (type == AccountType.CREDIT) {
                         Box(Modifier.weight(1f)) {
                             MetaPill(
-                                graceUntil?.let { tr("Льгота до ", "Free until ") + it.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMM" else "MMM d", I18n.locale)) }
+                                graceUntil?.let { tr("Льгота до ", "Free until ") + it.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale)) }
                                     ?: tr("Льготный период", "Grace period"),
                                 onClick = { pickingGrace = true },
                                 painter = painterResource(R.drawable.ic_calendar),
@@ -260,12 +260,12 @@ private fun AccountCurrency(data: AppData, currency: String, onPick: (String) ->
     var menu by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         ChoiceGroup(
-            options = shown + "…",
+            options = shown + MORE,
             selected = currency,
-            onSelect = { if (it == "…") menu = true else onPick(it) },
+            onSelect = { if (it == MORE) menu = true else onPick(it) },
             fill = false,
             minWidth = 56.dp,
-        ) { Text(if (it == "…") "…" else Currencies.symbol(it), style = MaterialTheme.typography.titleMedium) }
+        ) { Text(if (it == MORE) tr("Ещё", "More") else Currencies.symbol(it), style = MaterialTheme.typography.titleMedium) }
         Box(Modifier.align(Alignment.CenterEnd)) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 others.forEach { code ->
@@ -276,7 +276,10 @@ private fun AccountCurrency(data: AppData, currency: String, onPick: (String) ->
     }
 }
 
-/** A bank's accounts stand together: the groups there are, and "Новая…" for another. */
+/** The choice that opens the rest of the currencies. */
+private const val MORE = "more"
+
+/** A bank's accounts stand together: the groups there are, and "Новая" for another. */
 @Composable
 private fun GroupPicker(
     data: AppData,
@@ -290,7 +293,7 @@ private fun GroupPicker(
     Caption(tr("Группа", "Group"))
     VSpace(Gap.s)
     if (existing.isNotEmpty()) {
-        val newLabel = tr("Новая…", "New…")
+        val newLabel = tr("Новая", "New")
         ToggleFlow(
             options = existing + newLabel,
             isOn = { if (it == newLabel) typingNew || (group.isNotBlank() && group !in existing) else it == group && !typingNew },
