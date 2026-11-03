@@ -43,7 +43,7 @@ fun DebtDetails(data: AppData, state: AccountState) {
         if (account.paymentDay != null && account.paymentMinor != null) {
             val due = Budget.nextDue(account.paymentDay, today)
             Text(
-                tr("Платёж ${Fmt.amount(account.paymentMinor, code)}, следующий — ${dayLabel(due, today).lowercase()}",
+                tr("Платёж ${Fmt.amount(account.paymentMinor, code)}, следующий ${dayLabel(due, today).lowercase()}",
                     "Payment ${Fmt.amount(account.paymentMinor, code)}, next due " + if (due == today || due == today.plusDays(1)) dayLabel(due, today).lowercase() else dayLabel(due, today)),
                 style = body,
             )
@@ -54,7 +54,7 @@ fun DebtDetails(data: AppData, state: AccountState) {
             val n = Debts.monthsLeft(owed, rate, payment)
             val interest = Debts.interestLeft(owed, rate, payment)
             if (n == null || interest == null) {
-                Text(tr("Платёж не покрывает даже проценты — долг растёт", "The payment does not even cover the interest; the debt grows"), color = MaterialTheme.colorScheme.error)
+                Text(tr("Платёж не покрывает даже проценты, долг растёт", "The payment does not even cover the interest; the debt grows"), color = MaterialTheme.colorScheme.error)
             } else {
                 Text(
                     tr("Осталось ≈ ${months(ceil(n).toLong())}, переплата ≈ ${Fmt.approx(interest / Currencies.factor(code), code)}",
@@ -81,7 +81,7 @@ fun graceWarning(data: AppData, state: AccountState, today: LocalDate): String? 
     if (days !in 0..7) return null
     val amount = Fmt.amount(owed, state.account.currency)
     return when (days) {
-        0L -> tr("«${state.account.name}»: льготный период кончается сегодня — погаси $amount", "“${state.account.name}”: the interest-free period ends today; pay $amount")
+        0L -> tr("«${state.account.name}»: льготный период кончается сегодня, погаси $amount", "“${state.account.name}”: the interest-free period ends today; pay $amount")
         else -> tr(
             "«${state.account.name}»: льготный период кончается через $days ${plural(days, "день", "дня", "дней", "day", "days")} — погаси $amount",
             "“${state.account.name}”: the interest-free period ends in $days ${plural(days, "день", "дня", "дней", "day", "days")}; pay $amount",
@@ -138,7 +138,7 @@ private fun PrepayDialog(data: AppData, owedMinor: Long, rate: Double, paymentMi
                         )
                     }
                     Text(
-                        tr("Расчёт по аннуитетной схеме; точные цифры — в графике банка.", "Annuity estimate; the bank's schedule has the exact figures."),
+                        tr("Расчёт по аннуитетной схеме, точные цифры в графике банка.", "Annuity estimate; the bank's schedule has the exact figures."),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

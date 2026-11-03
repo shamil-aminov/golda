@@ -98,7 +98,11 @@ object Fmt {
         text.replace(" ", "").replace(NBSP.toString(), "").replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
 
     /** The text a field starts with for an existing amount. */
-    fun editable(minor: Long, code: String): String =
-        BigDecimal.valueOf(minor).movePointLeft(Currencies.digits(code)).stripTrailingZeros().toPlainString()
-            .replace('.', ',')
+    fun editable(minor: Long, code: String): String {
+        val digits = Currencies.digits(code)
+        val value = BigDecimal.valueOf(minor).movePointLeft(digits)
+        // "18,50" like the lists show it; a whole amount without ",00".
+        val whole = minor % BigDecimal.TEN.pow(digits).toLong() == 0L
+        return (if (whole) value.stripTrailingZeros() else value).toPlainString().replace('.', ',')
+    }
 }

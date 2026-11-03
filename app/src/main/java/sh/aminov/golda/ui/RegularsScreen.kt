@@ -47,7 +47,6 @@ fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, 
                 val total = data.base.approx(Regulars.monthlyRub(payments, data.rates))
                 Text(
                     tr("$total в месяц", "$total a month"),
-                    Modifier.padding(end = Gap.m),
                     style = MaterialTheme.typography.labelLarge.merge(Tnum),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -80,7 +79,8 @@ private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Mo
     GroupRow(
         index, count, modifier,
         onClick = onClick,
-        supporting = { Text(dayOfMonth(payment.dayOfMonth)) },
+        // A suggestion says how to take it; its amount stays in the column with the others.
+        supporting = { Text(dayOfMonth(payment.dayOfMonth) + if (add) tr(" · нажми, чтобы добавить", " · tap to add") else "") },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 Text(
@@ -89,7 +89,7 @@ private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Mo
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-                if (add) Icon(painterResource(R.drawable.ic_add), tr("Добавить", "Add"), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+
             }
         },
     ) { Text(payment.name, style = MaterialTheme.typography.titleMedium) }

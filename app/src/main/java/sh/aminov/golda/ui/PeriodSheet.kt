@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,7 +67,7 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
             ChoiceText(data.accountById[id]?.name.orEmpty())
         }
         VSpace(Gap.l)
-        Caption(tr("Деньги на ней — на", "The money on it is for"))
+        Caption(tr("На сколько этих денег", "How long the money is for"))
         VSpace(Gap.s)
         ChoiceGroup(Envelopes.Length.entries, length, { end = Envelopes.end(start, it) }, Modifier.fillMaxWidth()) {
             ChoiceText(
@@ -79,11 +80,11 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
         }
         VSpace(Gap.m)
         Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-            MetaPill(tr("с ", "from ") + dayLabel(start, data.today), { picking = Picking.START }, painter = painterResource(R.drawable.ic_calendar))
-            MetaPill(tr("до ", "until ") + dayLabel(end, data.today), { picking = Picking.END }, painter = painterResource(R.drawable.ic_calendar))
+            Box(Modifier.weight(1f)) { MetaPill(tr("с ", "from ") + dayLabel(start, data.today), { picking = Picking.START }, painter = painterResource(R.drawable.ic_calendar)) }
+            Box(Modifier.weight(1f)) { MetaPill(tr("до ", "until ") + dayLabel(end, data.today), { picking = Picking.END }, painter = painterResource(R.drawable.ic_calendar)) }
         }
         VSpace(Gap.s)
-        UnderLine(tr("Начало — последнее пополнение карты", "It starts at the card's last top-up"))
+        Caption(tr("Период начинается с последнего пополнения карты", "It starts at the card's last top-up"))
     }
 
     picking?.let { which ->

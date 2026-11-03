@@ -240,7 +240,7 @@ private fun TypeTiles(selected: AccountType, onPick: (AccountType) -> Unit) {
             ) {
                 Column(Modifier.padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Icon(painterResource(typeIcon(type)), null, Modifier.size(22.dp))
-                    Text(shortTypeLabel(type), style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    Text(shortTypeLabel(type), style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center)
                 }
             }
         }

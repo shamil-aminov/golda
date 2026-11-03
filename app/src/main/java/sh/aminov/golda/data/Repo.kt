@@ -411,11 +411,11 @@ class Repo(
                     voiceParser.parse(file, system, s.geminiModel)
                 } catch (e: GeminiException) {
                     return@write when (e.kind) {
-                        GeminiException.Kind.NO_KEY -> VoiceOutcome.Waiting(tr("Добавь ключ Gemini в настройках — запись сохранена", "Add a Gemini key in settings; the note is kept"))
-                        GeminiException.Kind.OFFLINE -> VoiceOutcome.Waiting(tr("Нет связи — запись разберётся позже", "No connection; the note will be worked out later"))
+                        GeminiException.Kind.NO_KEY -> VoiceOutcome.Waiting(tr("Добавь ключ Gemini в настройках, запись сохранена", "Add a Gemini key in settings; the note is kept"))
+                        GeminiException.Kind.OFFLINE -> VoiceOutcome.Waiting(tr("Нет связи, запись разберётся позже", "No connection; the note will be worked out later"))
                         GeminiException.Kind.BUSY -> if (VoiceQueue.attempts(file) + 1 < VoiceQueue.MAX_ATTEMPTS) {
                             VoiceQueue.countAttempt(file)
-                            VoiceOutcome.Waiting(tr("Gemini не ответил (${e.message}) — запись сохранена, попробую при следующем запуске", "Gemini did not answer (${e.message}); the note is kept and will be tried at the next start"))
+                            VoiceOutcome.Waiting(tr("Gemini не ответил (${e.message}), запись сохранена, попробую при следующем запуске", "Gemini did not answer (${e.message}); the note is kept and will be tried at the next start"))
                         } else {
                             VoiceQueue.putAside(context, file)
                             VoiceOutcome.Failed("Gemini: ${e.message}." + aside)

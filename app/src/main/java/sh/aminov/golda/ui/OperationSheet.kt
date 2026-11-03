@@ -660,7 +660,7 @@ private fun CategoryTile(icon: Int, label: String, on: Boolean, auto: Boolean, m
         Column(Modifier.padding(horizontal = Gap.xs), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (filled) ink else MaterialTheme.colorScheme.onSurfaceVariant)
             VSpace(Gap.xs)
-            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center)
         }
     }
 }
@@ -720,7 +720,7 @@ private fun AccountCards(accounts: List<Account>, selected: Long?, onPick: (Long
                     Text(account.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         Currencies.symbol(account.currency),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         color = quiet,
                     )
                 }

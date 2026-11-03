@@ -134,7 +134,7 @@ class ReconcileReminder(context: Context, params: WorkerParameters) : CoroutineW
         notify(
             app, "reconcile", tr("Сверка", "Reconciling"), 300_000,
             tr("Сверь балансы", "Check your balances"),
-            tr("Неделя прошла. Открой банк и сравни счета в Golda — забытые траты найдутся сами.",
+            tr("Неделя прошла. Открой банк и сравни счета в Golda, забытые траты найдутся сами.",
                 "A week has passed. Open your bank and compare the accounts in Golda; forgotten purchases will show up."),
             tab = TAB_ACCOUNTS,
         )

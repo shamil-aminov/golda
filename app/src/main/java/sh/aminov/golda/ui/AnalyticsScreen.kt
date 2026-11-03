@@ -1,5 +1,9 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.text.font.FontWeight
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.core.Animatable
 import sh.aminov.golda.domain.ReviewPrompt
 import sh.aminov.golda.R
 import androidx.compose.ui.res.painterResource
@@ -130,13 +134,15 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         item(key = "header") {
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(ReviewPrompt.title(period, today).replaceFirstChar { it.titlecase(I18n.locale) }, Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
+                    // The caption names the quantity, like Можно сегодня and Всего на счетах: "Траты за октябрь".
+                    val span = ReviewPrompt.title(period, today)
+                    Text((if (span.startsWith("с ")) tr("Траты ", "Spent ") else tr("Траты за ", "Spent in ")) + span, Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
                     // The one ice-blue thing in the app: the way to Gemini's reviews.
                     Button(
                         onClick = { onReviews(period) },
                         colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
                         contentPadding = PaddingValues(horizontal = Gap.m),
-                        modifier = Modifier.height(36.dp),
+                        modifier = Modifier.height(40.dp),
                     ) { Text(tr("Разбор", "Review"), style = MaterialTheme.typography.labelLarge) }
                 }
                 VSpace(Gap.m)
@@ -157,7 +163,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM),
                 selected = kind,
                 onSelect = { if (it == PeriodKind.CUSTOM) picking = true else kind = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Gap.m),
+                // On the hero's edge, 8 from the screen.
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Gap.s),
                 height = 40.dp,
             ) {
                 when (it) {
@@ -177,8 +184,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
                     val top = shown.categories.first().rubMinor.coerceAtLeast(1)
                     shown.categories.forEachIndexed { index, spend ->
-                        if (index > 0) VSpace(Gap.m)
-                        CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top, categoryColor(spend.categoryId?.let { data.categoryById[it]?.key }))
+                        if (index > 0) VSpace(Gap.l)
+                        CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top, categoryColor(spend.categoryId?.let { data.categoryById[it]?.key }), index)
                     }
                 }
             }
@@ -212,25 +219,31 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
 @Composable
 private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
-    val container by animateColorAsState(if (on) pickedColor() else MaterialTheme.colorScheme.surfaceContainerHighest, spec, label = "bucket")
+    // Idle on the white hero is the page's grey: one step off what it sits on.
+    val container by animateColorAsState(if (on) pickedColor() else MaterialTheme.colorScheme.surface, spec, label = "bucket")
     val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "bucket-ink")
-    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp), color = container, contentColor = ink) {
-        Column(Modifier.padding(horizontal = Gap.s, vertical = Gap.s)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(amount, style = MaterialTheme.typography.titleSmall.merge(Tnum), maxLines = 1)
+    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(16.dp), color = container, contentColor = ink) {
+        Column(Modifier.padding(12.dp)) {
+            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+            VSpace(2.dp)
+            Text(amount, style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
         }
     }
 }
 
 /** One category: its name and amount on a line, and under them a bar as long as its share of the biggest. */
 @Composable
-private fun CategoryBar(name: String, amount: String, fraction: Float, color: Color) {
+private fun CategoryBar(name: String, amount: String, fraction: Float, color: Color, order: Int) {
+    val motion = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
     Column {
         LabelAmount(name, amount)
-        VSpace(Gap.xs)
-        Box(Modifier.fillMaxWidth().height(6.dp)) {
+        VSpace(Gap.s)
+        // Grows in from the left when the screen opens, one bar after another.
+        val grown = remember { Animatable(0f) }
+        LaunchedEffect(fraction) { delay(order * 60L); grown.animateTo(fraction.coerceIn(0.01f, 1f), motion) }
+        Box(Modifier.fillMaxWidth().height(12.dp)) {
             // The category's own pastel: the same colour wherever it is drawn.
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.01f, 1f)).background(color, RoundedCornerShape(3.dp)))
+            Box(Modifier.fillMaxHeight().fillMaxWidth(grown.value.coerceAtLeast(0.01f)).background(color, RoundedCornerShape(6.dp)))
         }
     }
 }
@@ -241,7 +254,7 @@ private fun LabelAmount(label: String, amount: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.width(Gap.m))
-        Text(amount, style = MaterialTheme.typography.bodyLarge.merge(Tnum), maxLines = 1)
+        Text(amount, style = MaterialTheme.typography.bodyLarge.merge(Tnum).copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
     }
 }
 
@@ -328,7 +341,8 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
 @Composable
 private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base) {
     if (days.isEmpty()) return
-    val start = days.indexOfFirst { it.first == today }.takeIf { it >= 0 } ?: days.lastIndex
+    // The last day with spending, so the pill opens on something, not on an empty today.
+    val start = days.indexOfLast { it.second > 0 }.takeIf { it >= 0 } ?: days.lastIndex
     var picked by remember(days) { mutableStateOf(start) }
     // The text's ink, like every figure: full for the picked day, faint for the rest.
     val strong = MaterialTheme.colorScheme.onSurface
@@ -349,8 +363,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                 Surface(
                     modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.onSizeChanged { pillWidth = it.width },
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    contentColor = MaterialTheme.colorScheme.surface,
+                    color = pickedColor(),
+                    contentColor = onPickedColor(),
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                         Text(dayShort(date, today), style = MaterialTheme.typography.labelLarge, maxLines = 1)
@@ -394,7 +408,9 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     val label = when {
                         // Two letters: "Пн Вт Ср", never the ambiguous single "В".
                         kind == PeriodKind.WEEK || days.size <= 7 -> d.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).take(2).replaceFirstChar { it.titlecase(I18n.locale) }
-                        d == today || d.dayOfMonth in listOf(1, 10, 20) -> d.dayOfMonth.toString()
+                        d == today -> d.dayOfMonth.toString()
+                        // A fixed mark too near today would run into today's.
+                        d.dayOfMonth in listOf(1, 10, 20) && kotlin.math.abs(d.toEpochDay() - today.toEpochDay()) > 2 -> d.dayOfMonth.toString()
                         else -> null
                     } ?: return@forEachIndexed
                     // Wider than a bar, centred on it, so "20" is never cut to "2".

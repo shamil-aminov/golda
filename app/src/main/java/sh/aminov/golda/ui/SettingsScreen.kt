@@ -131,7 +131,7 @@ fun SettingsScreen(
             Section(
                 tr("Курс", "Rates") + (data.ratesDate?.let { tr(" ЦБ на ", ", CBR of ") + (ratesDay?.let(::fullDate) ?: it) } ?: ""),
                 trailing = {
-                    IconButton(onClick = onRefreshRates) {
+                    IconButton(onClick = onRefreshRates, modifier = Modifier.offset(x = 12.dp)) {
                         Icon(painterResource(R.drawable.ic_refresh), tr("Обновить курсы", "Update rates"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 },
@@ -181,10 +181,10 @@ fun SettingsScreen(
     }
 
     when (edit) {
-        Edit.Base -> PickSheet(tr("Основная валюта — итоги по сегодняшнему курсу", "Main currency: totals at today's rate"), onDismiss = { edit = null }) {
+        Edit.Base -> PickSheet(tr("Основная валюта: итоги по сегодняшнему курсу", "Main currency: totals at today's rate"), onDismiss = { edit = null }) {
             BaseCurrencyChoice(s) { f -> onChange(f); edit = null }
         }
-        Edit.Local -> PickSheet(tr("Местная валюта — в ней суммы, сказанные без валюты", "Local currency, for amounts said without one"), onDismiss = { edit = null }) {
+        Edit.Local -> PickSheet(tr("Местная валюта: в ней суммы, сказанные без валюты", "Local currency, for amounts said without one"), onDismiss = { edit = null }) {
             LocalCurrencyChoice(s) { f -> onChange(f); edit = null }
         }
         Edit.Shown -> PickSheet(tr("Показывать суммы в", "Show amounts in"), onDismiss = { edit = null }, done = true) {
@@ -282,10 +282,10 @@ private fun SettingRow(
         Column(Modifier.weight(1f)) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp).merge(Tnum),
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
                 color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
-            summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium.merge(Tnum), color = quiet) }
+            summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = quiet) }
         }
         trailing?.let {
             Spacer(Modifier.width(Gap.m))

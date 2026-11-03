@@ -87,7 +87,7 @@ fun ReviewsScreen(
             }
         },
     ) {
-        Text(tr("Разборы", "Reviews"), style = MaterialTheme.typography.headlineMedium)
+        Text(tr("Разборы", "Reviews"), Modifier.padding(horizontal = Gap.s), style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold))
         VSpace(Gap.l)
         error?.let {
             Text(it, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)

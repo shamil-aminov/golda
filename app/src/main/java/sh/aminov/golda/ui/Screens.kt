@@ -1,5 +1,12 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.slideInVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.navigationBarsPadding
 import sh.aminov.golda.domain.Regulars
@@ -157,8 +164,8 @@ fun HomeScreen(
                             else -> tr("Хватит на $lasts из $ahead $ofDays", "Lasts $lasts of $ahead $ofDays")
                         },
                         Modifier.testTag(Tags.HOME_RUNWAY),
-                        // The tile's main statement: the one semibold line, in full ink.
-                        style = text.copy(fontWeight = FontWeight.SemiBold),
+                        // The tile's main statement: the one semibold line, in full ink, a size up.
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                         color = ink,
                         maxLines = 1,
                     )
@@ -239,7 +246,7 @@ fun AccountsScreen(
             val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
             val quiet = scheme.onPrimaryFixedVariant
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
-                Text(tr("Всего", "Total"), style = text, color = quiet, maxLines = 1)
+                Text(tr("Всего на счетах", "Total in accounts"), style = text, color = quiet, maxLines = 1)
                 VSpace(Gap.s)
                 HeroAmount(data.base.whole(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
                 VSpace(Gap.s)
@@ -249,7 +256,7 @@ fun AccountsScreen(
                     VSpace(Gap.m)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Text(head, style = text, color = quiet)
-                    tail?.let { Text(it, style = text.copy(fontWeight = FontWeight.SemiBold), color = scheme.onPrimaryFixed) }
+                    tail?.let { Text(it, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = scheme.onSurface) }
                 }
             }
         }
@@ -258,7 +265,7 @@ fun AccountsScreen(
                 GroupLabel(
                     tr("Сверка", "Reconciling"),
                     Modifier.padding(horizontal = Gap.m).padding(top = Gap.l),
-                    supporting = tr("Совпало с банком — «Сходится». Нет — нажми на счёт.", "Matches the bank: “Matches”. Doesn’t: tap the account."),
+                    supporting = tr("Совпало с банком: «Сходится». Если нет, нажми на счёт.", "Matches the bank: “Matches”. Doesn’t: tap the account."),
                 )
             }
         }
@@ -321,7 +328,8 @@ private fun accountSubline(data: AppData, state: AccountState): String {
     } else {
         null
     }
-    val parts = mutableListOf(forecast ?: typeLabel(account.type))
+    val spendCard = data.envelope?.account?.id == account.id
+    val parts = mutableListOf(forecast ?: if (spendCard) tr("Карта трат", "Spending card") else typeLabel(account.type))
     if (state.currency != data.base.code) parts += "≈ " + data.base.approx(state.rubMinor)
     return parts.joinToString(" · ")
 }
@@ -345,8 +353,8 @@ private fun AccountRow(
         supporting = { Text(accountSubline(data, state), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Like every amount in a list: one size, one ink, cents and all.
-                Text(amount, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                // A balance is what this list is for: a size up from the name, cents and all.
+                Text(amount, style = MaterialTheme.typography.titleLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))
                     // One tap when the bank shows the same; a check once done.
@@ -368,11 +376,7 @@ private fun AccountRow(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(state.account.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            // Free money is marked, not painted.
-            if (state.account.includeInFree) {
-                Spacer(Modifier.width(Gap.s))
-                Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.secondary, CircleShape))
-            }
+
         }
     }
 }
@@ -408,8 +412,8 @@ fun AccountScreen(
             item(key = "title") {
                 Text(
                     account.name,
-                    Modifier.padding(start = Gap.m, end = Gap.m, top = Gap.l, bottom = Gap.l),
-                    style = MaterialTheme.typography.headlineMedium,
+                    Modifier.padding(start = Gap.l, end = Gap.l, top = Gap.l, bottom = Gap.m),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -554,6 +558,17 @@ private fun interestLine(minor: Long, currency: String, today: LocalDate): Strin
 /** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
 private fun whole(minor: Long, code: String): String = Fmt.split(minor, code).first + " " + Currencies.symbol(code)
 
+/** One character of a big figure: a new one slides up into place and the old one out above it. */
+@Composable
+private fun RollingChar(ch: Char, style: TextStyle, color: Color) {
+    val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    AnimatedContent(
+        ch,
+        transitionSpec = { (slideInVertically(slide) { it } + fadeIn()) togetherWith (slideOutVertically(slide) { -it } + fadeOut()) },
+        label = "roll",
+    ) { c -> Text(c.toString(), style = style, color = color, maxLines = 1) }
+}
+
 /** The empty band under [HeroAmount]'s digits (the font's descent at 72 sp): spacing after it is that much shorter. */
 val HeroDescent = 10.dp
 
@@ -567,19 +582,18 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         // Tabular figures run about 0.6 em wide; keep a little air at the edge.
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
         val size = minOf(fit, 72f).sp
-        // The sign is the same size in the same ink, only quieter: the digits are read first.
+        // Bold and tight: the one loud thing on a tab. The sign in the muted ink, lighter, so the
+        // digits are read first. Each character rolls to its new value, so a saved purchase is seen.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
-        val shown = buildAnnotatedString {
-            if (sign == null) append(text) else {
-                append(text.dropLast(sign.length))
-                withStyle(SpanStyle(color = color.copy(alpha = 0.55f))) { append(sign) }
+        val style = MaterialTheme.typography.titleMedium.merge(Tnum)
+            .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Bold, letterSpacing = (-1.5).sp)
+        val muted = MaterialTheme.colorScheme.onSurfaceVariant
+        // Read as one figure, not as its characters.
+        Row(Modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }) {
+            text.forEachIndexed { i, ch ->
+                val isSign = sign != null && i >= text.length - sign.length
+                RollingChar(ch, style.copy(fontWeight = if (isSign) FontWeight.SemiBold else FontWeight.Bold), if (isSign) muted else color)
             }
         }
-        Text(
-            shown,
-            style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontSize = size, lineHeight = size * 1.15f),
-            color = color,
-            maxLines = 1,
-        )
     }
 }

@@ -75,7 +75,7 @@ fun Onboarding(
                     0 -> {
                         Text(tr("Валюты", "Currencies"), style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            tr("Любая сумма будет видна сразу во всех выбранных валютах. Рубль — основная.", "Every amount shows in all the chosen currencies at once. The ruble is the main one."),
+                            tr("Любая сумма будет видна сразу во всех выбранных валютах. Основная валюта рубль.", "Every amount shows in all the chosen currencies at once. The ruble is the main one."),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         CurrencyFields(data.settings, onChange)

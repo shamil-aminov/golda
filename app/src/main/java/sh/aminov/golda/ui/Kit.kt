@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
@@ -616,7 +619,8 @@ fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollB
             ),
         ) {
             LargeTopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                // The title 24 from the edge, like the rows under it.
+                title = { Text(title, Modifier.padding(start = Gap.s), maxLines = 1) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
                 expandedHeight = 200.dp,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
@@ -865,13 +869,15 @@ fun WavyBar(
     hero: Boolean = false,
     flat: Boolean = progress >= 1f,
 ) {
-    val px = with(LocalDensity.current) { (if (hero) 8.dp else 4.dp).toPx() }
+    val px = with(LocalDensity.current) { (if (hero) 10.dp else 4.dp).toPx() }
+    // Glides to a new value with a little give, so a saved purchase is seen leaving the bar.
+    val shown by animateFloatAsState(progress.coerceIn(0f, 1f), MaterialTheme.motionScheme.slowSpatialSpec(), label = "bar")
     val stroke = remember(px) { Stroke(width = px, cap = StrokeCap.Round) }
     // Slow on purpose: reaching a goal is the wave calming down.
     val wave by animateFloatAsState(if (flat) 0f else 1f, tween(900, easing = FastOutSlowInEasing), label = "wave")
     LinearWavyProgressIndicator(
-        progress = { progress.coerceIn(0f, 1f) },
-        modifier = modifier.fillMaxWidth().height(if (hero) 20.dp else WavyProgressIndicatorDefaults.LinearContainerHeight),
+        progress = { shown },
+        modifier = modifier.fillMaxWidth().height(if (hero) 24.dp else WavyProgressIndicatorDefaults.LinearContainerHeight),
         color = ink,
         trackColor = ink.copy(alpha = 0.24f),
         stroke = stroke,
@@ -981,6 +987,14 @@ fun Modifier.bleed(x: Dp): Modifier = layout { measurable, constraints ->
     val wider = if (constraints.hasBoundedWidth) constraints.copy(minWidth = constraints.minWidth + 2 * px, maxWidth = constraints.maxWidth + 2 * px) else constraints
     val placeable = measurable.measure(wider)
     layout(placeable.width - 2 * px, placeable.height) { placeable.place(-px, 0) }
+}
+
+/** Pressed, the thing gives a little (0.9) and springs back: a button that feels like one. */
+@Composable
+fun Modifier.squish(interaction: InteractionSource): Modifier {
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.9f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "squish")
+    return graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 /** Vertical space from the spacing scale. */

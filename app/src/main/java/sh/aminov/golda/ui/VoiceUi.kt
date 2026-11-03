@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -122,13 +124,14 @@ fun rememberVoice(
         if (state == VoiceState.Recording) {
             recorder.cancel()
             state = VoiceState.Idle
-            scope.launch { snackbar.showSnackbar(tr("Запись прервана — приложение свернули. Ничего не записано", "Recording stopped when the app was left. Nothing was saved")) }
+            scope.launch { snackbar.showSnackbar(tr("Запись прервана: приложение свернули. Ничего не записано", "Recording stopped when the app was left. Nothing was saved")) }
         }
     }
 
     fun startRecording() {
         runCatching { recorder.start() }
-            .onSuccess { state = VoiceState.Recording }
+            // A tick under the thumb when it starts listening, and another when it stops.
+            .onSuccess { state = VoiceState.Recording; haptics.performHapticFeedback(HapticFeedbackType.ToggleOn) }
             .onFailure { scope.launch { snackbar.showSnackbar(tr("Микрофон занят или недоступен", "The microphone is busy or unavailable")) } }
     }
 
@@ -143,6 +146,7 @@ fun rememberVoice(
                 if (granted) startRecording() else permission.launch(Manifest.permission.RECORD_AUDIO)
             }
             VoiceState.Recording -> {
+                haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
                 val file = recorder.stop()
                 if (file == null) {
                     state = VoiceState.Idle
@@ -175,8 +179,8 @@ fun rememberVoice(
                         val doubtful = outcome.recorded.any { (_, draft) -> draft.isEstimate && draft.purchaseCurrency == null && draft.type != OpType.TRANSFER }
                         val text = outcome.recorded.joinToString(" · ") { (_, draft) -> describe(draft, latest) } +
                             (outcome.comment?.let { "\n$it" } ?: "") +
-                            (if (doubtful) "\n" + tr("Сумма под вопросом (≈) — проверь", "The amount is uncertain (≈): check it") else "") +
-                            (if (outcome.misunderstood) "\n" + tr("Часть записи не разобрать — допиши через «+»", "Part of the note was unclear; add it with “+”") else "")
+                            (if (doubtful) "\n" + tr("Сумма под вопросом (≈), проверь", "The amount is uncertain (≈): check it") else "") +
+                            (if (outcome.misunderstood) "\n" + tr("Часть записи не разобрать, допиши через «+»", "Part of the note was unclear; add it with “+”") else "")
                         val prefix = if (outcome.late) tr("Из отложенного: ", "From a saved note: ") else ""
                         val result = snackbar.showSnackbar(prefix + text, actionLabel = tr("Отменить", "Undo"), duration = SnackbarDuration.Long)
                         if (result == SnackbarResult.ActionPerformed) repo.undo(outcome.undo)
@@ -236,8 +240,8 @@ fun GoldaToolbar(
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
     HorizontalFloatingToolbar(
         expanded = true,
-        // No shadow: a hairline sets it off the page, as quiet as the flat screens under it.
-        modifier = Modifier.border(1.dp, scheme.outlineVariant, CircleShape),
+        // No shadow, no outline: the card colour alone sets it off the page.
+        modifier = Modifier,
         colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
             // A card in light; in dark a step up, or it melts into the cards it floats over.
             toolbarContainerColor = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
@@ -253,17 +257,20 @@ fun GoldaToolbar(
         Box {
             Box(
                 Modifier
-                    .offset { IntOffset((position() * ToolbarItemWidth.toPx()).roundToInt(), 0) }
-                    .size(ToolbarItemWidth, ToolbarItemHeight)
+                    // The pill is narrower than its slot, centred in it: air between the tabs.
+                    .offset { IntOffset((position() * ToolbarItemWidth.toPx() + (ToolbarItemWidth - PillWidth).toPx() / 2).roundToInt(), 0) }
+                    .size(PillWidth, ToolbarItemHeight)
                     .background(picked, CircleShape),
             )
             Row {
                 tabs.forEachIndexed { index, tab ->
                     val nearness = (1f - abs(position() - index)).coerceIn(0f, 1f)
+                    val press = remember { MutableInteractionSource() }
                     IconButton(
                         onClick = { onSelect(index) },
+                        interactionSource = press,
                         // Wider and taller than the 40 dp default: the bar is used with a thumb, often on the move.
-                        modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).semantics {
+                        modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press).semantics {
                             role = Role.Tab
                             this.selected = index == selected
                         },
@@ -271,7 +278,8 @@ fun GoldaToolbar(
                         Icon(
                             painterResource(if (nearness > 0.5f) tab.selectedIcon else tab.icon),
                             tab.name,
-                            Modifier.size(26.dp),
+                            // The picked icon swells a little as the pill reaches it.
+                            Modifier.size(26.dp).graphicsLayer { scaleX = 1f + 0.12f * nearness; scaleY = 1f + 0.12f * nearness },
                             tint = lerp(idle, onPicked, nearness),
                         )
                     }
@@ -281,10 +289,12 @@ fun GoldaToolbar(
         VerticalDivider(Modifier.align(Alignment.CenterVertically).height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
         IconButton(onClick = onAdd, Modifier.size(ToolbarItemWidth, ToolbarItemHeight)) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp)) }
     }
-    // Round like the bar beside it, and as tall, so the main action is also the easiest target.
+    // As tall as the bar beside it, so the main action is also the easiest target; it gives under the thumb.
+    val micPress = remember { MutableInteractionSource() }
     FloatingActionButton(
         onClick = voice.toggle,
-        modifier = Modifier.size(ToolbarHeight).semantics { contentDescription = label },
+        interactionSource = micPress,
+        modifier = Modifier.size(ToolbarHeight).squish(micPress).semantics { contentDescription = label },
         // A rounded square, so the action reads apart from the round tabs beside it.
         shape = RoundedCornerShape(20.dp),
         containerColor = mic,
@@ -300,7 +310,8 @@ fun GoldaToolbar(
     }
 }
 
-private val ToolbarItemWidth = 58.dp
+private val ToolbarItemWidth = 72.dp
+private val PillWidth = 58.dp
 private val ToolbarItemHeight = 48.dp
 private val ToolbarHeight = 64.dp
 

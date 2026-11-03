@@ -13,8 +13,9 @@ import androidx.compose.ui.graphics.Color
  * - [Tones.soft]: tonal buttons (Сомневаюсь, Сходится), unpicked toggles.
  * - [Tones.line]: tracks, dividers, the quietest chart marks.
  * - [Tones.muted] / [Tones.text]: secondary and primary text and icons.
- * - [Tones.graphite]: what is picked (a tab, a toggle, a category).
- * - [Tones.gold]: the one action to take (the mic, Записать, Сохранить, Купить). Golda's gold.
+ * - [Tones.graphite]: what is picked (a tab, a toggle, a category): a light slate, with dark ink.
+ * - [Tones.gold]: the one action to take (the mic, Записать, Сохранить, Разбор), ice blue now: a cool
+ *   action keeps apart from the warm colours that inform (the ochre "runs out sooner", Транспорт).
  * - red: bad news only (overspending, debts, erasing).
  */
 private class Tones(
@@ -41,10 +42,10 @@ private val Light = Tones(
     line = Color(0xFFD4D4D8),
     muted = Color(0xFF71717A),
     text = Color(0xFF27272A),
-    graphite = Color(0xFF52525B),
-    onGraphite = Color(0xFFFFFFFF),
-    gold = Color(0xFFD9A93E),
-    onGold = Color(0xFF2B1D00),
+    graphite = Color(0xFFCBD5DE),
+    onGraphite = Color(0xFF18222B),
+    gold = Color(0xFFBEE0F5),
+    onGold = Color(0xFF0E3B57),
     error = Color(0xFFDC2626),
     onError = Color(0xFFFFFFFF),
     errorSoft = Color(0xFFFEE2E2),
@@ -58,10 +59,10 @@ private val Dark = Tones(
     line = Color(0xFF52525B),
     muted = Color(0xFFA1A1AA),
     text = Color(0xFFF4F4F5),
-    graphite = Color(0xFFD4D4D8),
-    onGraphite = Color(0xFF18181B),
-    gold = Color(0xFFE2B655),
-    onGold = Color(0xFF2B1D00),
+    graphite = Color(0xFF4A5561),
+    onGraphite = Color(0xFFEEF2F6),
+    gold = Color(0xFF2A5674),
+    onGold = Color(0xFFDCEFFB),
     error = Color(0xFFF87171),
     onError = Color(0xFF450A0A),
     errorSoft = Color(0xFF4C1D1D),
@@ -81,9 +82,9 @@ internal val LightColors = with(Light) {
         surfaceBright = card, surfaceDim = page,
         surfaceContainerLowest = card, surfaceContainerLow = card, surfaceContainer = card,
         surfaceContainerHigh = card, surfaceContainerHighest = soft,
-        primaryFixed = card, primaryFixedDim = graphite, onPrimaryFixed = text, onPrimaryFixedVariant = graphite,
-        secondaryFixed = card, secondaryFixedDim = graphite, onSecondaryFixed = text, onSecondaryFixedVariant = graphite,
-        tertiaryFixed = card, tertiaryFixedDim = graphite, onTertiaryFixed = text, onTertiaryFixedVariant = graphite,
+        primaryFixed = card, primaryFixedDim = graphite, onPrimaryFixed = text, onPrimaryFixedVariant = muted,
+        secondaryFixed = card, secondaryFixedDim = graphite, onSecondaryFixed = text, onSecondaryFixedVariant = muted,
+        tertiaryFixed = card, tertiaryFixedDim = graphite, onTertiaryFixed = text, onTertiaryFixedVariant = muted,
     )
 }
 
@@ -100,8 +101,8 @@ internal val DarkColors = with(Dark) {
         surfaceBright = card, surfaceDim = page,
         surfaceContainerLowest = card, surfaceContainerLow = card, surfaceContainer = card,
         surfaceContainerHigh = card, surfaceContainerHighest = soft,
-        primaryFixed = card, primaryFixedDim = graphite, onPrimaryFixed = text, onPrimaryFixedVariant = graphite,
-        secondaryFixed = card, secondaryFixedDim = graphite, onSecondaryFixed = text, onSecondaryFixedVariant = graphite,
-        tertiaryFixed = card, tertiaryFixedDim = graphite, onTertiaryFixed = text, onTertiaryFixedVariant = graphite,
+        primaryFixed = card, primaryFixedDim = graphite, onPrimaryFixed = text, onPrimaryFixedVariant = muted,
+        secondaryFixed = card, secondaryFixedDim = graphite, onSecondaryFixed = text, onSecondaryFixedVariant = muted,
+        tertiaryFixed = card, tertiaryFixedDim = graphite, onTertiaryFixed = text, onTertiaryFixedVariant = muted,
     )
 }

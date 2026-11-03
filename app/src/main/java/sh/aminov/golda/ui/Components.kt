@@ -356,7 +356,7 @@ fun CurrencyFields(settings: Settings, onChange: ((Settings) -> Settings) -> Uni
         GroupLabel(tr("Показывать суммы в", "Show amounts in"))
         DisplayCurrencyToggles(settings, onChange)
         VSpace(Gap.l)
-        GroupLabel(tr("Местная валюта — в ней суммы без валюты", "Local currency, for amounts said without one"))
+        GroupLabel(tr("Местная валюта: в ней суммы без валюты", "Local currency, for amounts said without one"))
         LocalCurrencyChoice(settings, onChange)
     }
 }

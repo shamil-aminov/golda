@@ -66,18 +66,15 @@ fun GoldaTheme(content: @Composable () -> Unit) {
     }
 }
 
-/**
- * Ice blue: the one cool colour, for the way to Gemini's reviews only. A pair to the gold that does not
- * compete with it (the mic and Записать stay the gold actions).
- */
+/** Ice blue, the action colour: the same as [actionColor], kept as a name for Разбор and the mic. */
 @Composable
 @ReadOnlyComposable
-fun iceColor(): Color = if (isSystemInDarkTheme()) Color(0xFF234A63) else Color(0xFFCFE7F7)
+fun iceColor(): Color = actionColor()
 
 /** Ink on [iceColor]. */
 @Composable
 @ReadOnlyComposable
-fun onIceColor(): Color = if (isSystemInDarkTheme()) Color(0xFFD7EEFB) else Color(0xFF0E3B57)
+fun onIceColor(): Color = onActionColor()
 
 /** How the money is doing, on the home bar only: calm green, ochre, muted red. */
 enum class Pace { LASTS, SHORT, OVER }
@@ -88,7 +85,7 @@ fun paceColor(pace: Pace): Color {
     val dark = isSystemInDarkTheme()
     return when (pace) {
         Pace.LASTS -> if (dark) Color(0xFF8FC48D) else Color(0xFF7FB77E)
-        Pace.SHORT -> if (dark) Color(0xFFD9B95C) else Color(0xFFC9A646)
+        Pace.SHORT -> if (dark) Color(0xFFE0A86C) else Color(0xFFD69A5A)
         Pace.OVER -> if (dark) Color(0xFFE59383) else Color(0xFFD9806F)
     }
 }

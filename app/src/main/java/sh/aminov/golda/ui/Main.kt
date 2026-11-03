@@ -1,5 +1,12 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -193,7 +200,7 @@ private fun MainScreen(
             val undo = repo.undoPoint(emptyList())
             val id = repo.save(draft)
             if (id == null) {
-                snackbar.showSnackbar(tr("Счёт удалён — записать некуда", "The account is gone; nothing was saved"))
+                snackbar.showSnackbar(tr("Счёт удалён, записать некуда", "The account is gone; nothing was saved"))
                 return@launch
             }
             // Saved before its category was worked out: it follows, as a voice note's does.
@@ -259,7 +266,7 @@ private fun MainScreen(
                                     tr("Восстановлено: $a ${plural(a, "счёт", "счёта", "счетов", "account", "accounts")}, $o ${plural(o, "операция", "операции", "операций", "operation", "operations")}",
                                         "Restored: $a ${plural(a, "счёт", "счёта", "счетов", "account", "accounts")}, $o ${plural(o, "операция", "операции", "операций", "operation", "operations")}")
                                 },
-                                { tr("Файл не подошёл — ничего не изменилось", "That file did not fit; nothing changed") },
+                                { tr("Файл не подошёл, ничего не изменилось", "That file did not fit; nothing changed") },
                             ),
                         )
                     }
@@ -340,6 +347,7 @@ private fun MainScreen(
                 // The Scaffold puts snackbars above the pair.
                 snackbarHost = { SnackbarHost(snackbar) },
             ) { padding ->
+                Box(Modifier.fillMaxSize()) {
                 HorizontalPager(
                 state = pager,
                 key = { it },
@@ -374,6 +382,9 @@ private fun MainScreen(
                         )
                         else -> AnalyticsScreen(data, padding) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
+                // Rows scroll under the clock: a band of the page's colour keeps them from showing through.
+                Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
+                }
                 }
             }
         }
