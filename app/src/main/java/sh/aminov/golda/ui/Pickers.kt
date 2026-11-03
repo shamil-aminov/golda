@@ -43,8 +43,8 @@ import java.time.LocalDate
 enum class DayPick { TODAY, YESTERDAY, OTHER }
 
 /**
- * The one way to pick a day everywhere: Сегодня, Вчера, and a third that is the calendar before a
- * day is picked and the day itself after. [onPick] gets null when the calendar should open.
+ * The one way to pick a day everywhere: Сегодня, Вчера, and a third that is the calendar and «Дата»
+ * before a day is picked and the day itself after. [onPick] gets null when the calendar should open.
  */
 @Composable
 fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit) {
@@ -67,7 +67,8 @@ fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit)
             DayPick.OTHER -> {
                 Icon(painterResource(R.drawable.ic_calendar), null, Modifier.size(18.dp))
                 Spacer(Modifier.width(Gap.xs))
-                ChoiceText(if (picked == DayPick.OTHER) dayLabel(date, today) else tr("Другой день", "Another day"))
+                // One short word, so the third choice never truncates on a narrow row; the picked day replaces it.
+                ChoiceText(if (picked == DayPick.OTHER) dayLabel(date, today) else tr("Дата", "Date"))
             }
         }
     }

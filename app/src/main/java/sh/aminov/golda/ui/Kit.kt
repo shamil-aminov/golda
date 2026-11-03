@@ -64,6 +64,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -409,7 +410,8 @@ fun TonalField(
         onValueChange = onValueChange,
         modifier = modifier.heightIn(min = 56.dp).let { if (focusRequester != null) it.focusRequester(focusRequester) else it },
         textStyle = textStyle,
-        label = label?.let { { Text(it) } },
+        // 14 sp floating or not: the M3 default shrinks it to 12, off the type scale.
+        label = label?.let { { Text(it, style = MaterialTheme.typography.labelLarge) } },
         placeholder = placeholder?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         suffix = suffix?.let { { Text(it) } },
         singleLine = true,
@@ -674,6 +676,10 @@ fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollB
                 scrollBehavior = scroll,
             )
         }
+        // The edge once the bar has folded and rows run under it; drawn faded out before, so nothing jumps.
+        val folded = scroll.state.collapsedFraction > 0.98f
+        val edge by animateFloatAsState(if (folded) 1f else 0f, MaterialTheme.motionScheme.fastEffectsSpec(), label = "edge")
+        HorizontalDivider(Modifier.graphicsLayer { alpha = edge }, thickness = Dp.Hairline, color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -740,6 +746,8 @@ fun FormSheet(
     actions: (@Composable RowScope.() -> Unit)? = null,
     /** 2 dp for a connected group of actions. */
     actionGap: Dp = Gap.s,
+    /** The content's scroll, for a sheet that scrolls its own end into view. */
+    scroll: ScrollState = rememberScrollState(),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val state = rememberBottomSheetState(SheetValue.Hidden, setOf(SheetValue.Hidden, SheetValue.Expanded))
@@ -756,7 +764,7 @@ fun FormSheet(
             // form scrolls under the bar.
             CompositionLocalProvider(LocalShown provides shown, LocalTextInset provides Gap.s) {
                 Column(
-                    Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
+                    Modifier.weight(1f, fill = false).verticalScroll(scroll).padding(horizontal = Gap.m)
                         .padding(top = Gap.s, bottom = Gap.l),
                     content = content,
                 )

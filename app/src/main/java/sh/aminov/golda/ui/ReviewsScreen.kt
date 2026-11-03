@@ -1,6 +1,5 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.PaddingValues
@@ -95,12 +94,14 @@ fun ReviewsScreen(
                     onClick = {
                         if (!hasKey) {
                             onAddKey()
-                        } else if (!working) {
+                        } else {
                             working = true
                             error = null
                             onReview { problem -> working = false; error = problem }
                         }
                     },
+                    // Off while Gemini writes: one review at a time.
+                    enabled = !working,
                     modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight),
                     // Without a key the one action is adding it: the action colour; otherwise Разбор's ice.
                     colors = ButtonDefaults.buttonColors(
@@ -128,11 +129,11 @@ fun ReviewsScreen(
             contentPadding = PaddingValues(start = Gap.s, end = Gap.s, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l),
             verticalArrangement = Arrangement.spacedBy(Gap.s),
         ) {
-            // The page title the account page has, from under the status bar.
+            // The page title the account page has, at the same height: the Scaffold already keeps it under the status bar.
             item(key = "title") {
                 Text(
                     tr("Разборы", "Reviews"),
-                    Modifier.statusBarsPadding().padding(start = Gap.m, end = Gap.m, top = Gap.l, bottom = Gap.s),
+                    Modifier.padding(start = Gap.m, end = Gap.m, top = Gap.l, bottom = Gap.s),
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
                 )
             }
@@ -142,8 +143,9 @@ fun ReviewsScreen(
             if (reviews.isEmpty()) {
                 item(key = "empty") {
                     Text(
-                        tr("Разборов пока нет. Gemini посмотрит траты за период и коротко напишет, куда ушли деньги и что можно урезать.",
-                            "No reviews yet. Gemini reads the period's spending and writes briefly where the money went and what could be cut."),
+                        if (hasKey) tr("Gemini посмотрит траты и коротко напишет, куда ушли деньги и что можно урезать",
+                            "Gemini reads your spending and writes briefly where the money went and what could be cut")
+                        else tr("Нужен ключ Gemini, чтобы он разобрал траты", "A Gemini key is needed for it to review your spending"),
                         Modifier.padding(Gap.m),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

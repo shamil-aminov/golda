@@ -240,10 +240,11 @@ private fun MainScreen(
                 onBack = { page = null },
                 onChange = change,
                 snackbar = snackbar,
-                onRefreshRates = {
+                onRefreshRates = { done ->
                     scope.launch {
                         val ok = repo.refreshRates()
-                        snackbar.showSnackbar(if (ok) tr("Курсы обновлены", "Rates updated") else tr("Не получилось, нет сети?", "Didn't work. No network?"))
+                        done()
+                        snackbar.showSnackbar(if (ok) tr("Курсы обновлены", "Rates updated") else tr("Курс не обновился, нет сети?", "Rates didn't update. No network?"))
                     }
                 },
                 onWipe = { page = null; scope.launch { repo.resetAll() } },
@@ -270,7 +271,7 @@ private fun MainScreen(
                                     tr("Восстановлено: $a ${plural(a, "счёт", "счёта", "счетов", "account", "accounts")}, $o ${plural(o, "операция", "операции", "операций", "operation", "operations")}",
                                         "Restored: $a ${plural(a, "счёт", "счёта", "счетов", "account", "accounts")}, $o ${plural(o, "операция", "операции", "операций", "operation", "operations")}")
                                 },
-                                { tr("Файл не подошёл, ничего не изменилось", "That file did not fit; nothing changed") },
+                                { tr("Файл не подошёл, ничего не изменилось", "Couldn't read that file; nothing changed") },
                             ),
                         )
                     }
@@ -288,7 +289,7 @@ private fun MainScreen(
                 onDiscardVoice = {
                     scope.launch {
                         repo.discardVoiceNotes()
-                        snackbar.showSnackbar(tr("Записи удалены", "Notes deleted"))
+                        snackbar.showSnackbar(tr("Голосовые удалены", "Voice notes deleted"))
                     }
                 },
                 onTheme = { page = Page.Theme },

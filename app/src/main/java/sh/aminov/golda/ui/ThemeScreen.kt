@@ -14,7 +14,9 @@ import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -100,7 +102,7 @@ fun ThemeScreen(
                         onClick = { onSave(current) },
                         modifier = Modifier.padding(end = Gap.s),
                         colors = ButtonDefaults.buttonColors(containerColor = actionColor(), contentColor = onActionColor()),
-                    ) { Text(tr("Сохранить", "Keep"), style = MaterialTheme.typography.labelLarge) }
+                    ) { Text(tr("Сохранить", "Save"), style = MaterialTheme.typography.labelLarge) }
                     current in saved -> IconButton(onClick = { onForget(current) }) {
                         Icon(painterResource(R.drawable.ic_delete), tr("Удалить тему", "Delete theme"))
                     }
@@ -109,23 +111,29 @@ fun ThemeScreen(
         },
     ) { padding ->
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l)) {
-            GroupLabel(tr("Готовые", "Ready"))
+            GroupLabel(tr("Готовые", "Presets"))
             VSpace(Gap.s)
             // The presets and the kept themes, each a swatch strip; a long press forgets a kept one.
             // Edge to edge, and the theme in use scrolled into view.
             val presets = rememberScrollState()
             val activeIndex = (Palette.entries.map { it.key } + saved).indexOf(current)
-            val step = with(androidx.compose.ui.platform.LocalDensity.current) { (88.dp + Gap.s).roundToPx() }
-            androidx.compose.runtime.LaunchedEffect(activeIndex) { if (activeIndex > 0) presets.animateScrollTo(((activeIndex - 1) * step).coerceAtLeast(0)) }
-            Row(Modifier.bleed(Gap.m).horizontalScroll(presets).padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                Palette.entries.forEach { palette ->
-                    ThemeChip(palette.label, palette.tones(systemDark), palette.key == current, onClick = { onApply(palette.key) })
-                }
-                saved.forEachIndexed { i, key ->
-                    ThemeChip(tr("Своя ", "Custom ") + (i + 1), tonesFor(key, systemDark), key == current, onClick = {
-                        ThemeSpec.parse(key)?.let { spec = it }
-                        onApply(key)
-                    }, onLongClick = { onForget(key) })
+            BoxWithConstraints(Modifier.bleed(Gap.m)) {
+                // As many whole chips as fit from the 16 dp margin, sized so the screen's edge falls on
+                // the gap after the last one: never a name cut mid-word.
+                val count = ((maxWidth - Gap.m) / (88.dp + Gap.s)).toInt().coerceAtLeast(3)
+                val chip = (maxWidth - Gap.m) / count - Gap.s
+                val step = with(androidx.compose.ui.platform.LocalDensity.current) { (chip + Gap.s).roundToPx() }
+                androidx.compose.runtime.LaunchedEffect(activeIndex) { if (activeIndex >= count) presets.animateScrollTo((activeIndex - count + 1) * step) }
+                Row(Modifier.horizontalScroll(presets).padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                    Palette.entries.forEach { palette ->
+                        ThemeChip(palette.label, palette.tones(systemDark), palette.key == current, chip, onClick = { onApply(palette.key) })
+                    }
+                    saved.forEachIndexed { i, key ->
+                        ThemeChip(tr("Своя ", "Custom ") + (i + 1), tonesFor(key, systemDark), key == current, chip, onClick = {
+                            ThemeSpec.parse(key)?.let { spec = it }
+                            onApply(key)
+                        }, onLongClick = { onForget(key) })
+                    }
                 }
             }
 
@@ -142,12 +150,15 @@ fun ThemeScreen(
                         // Round the wheel: 355° is next to 0°.
                         val distance = minOf((spec.hue - hue).mod(360), (hue - spec.hue).mod(360))
                         val on = custom && distance < 15
+                        // Picked: a check on the colour, no ring.
                         Box(
                             Modifier.size(40.dp).clip(CircleShape).background(oklch(0.72, 0.14, hue.toDouble()))
-                                .then(if (on) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
                                 .selectable(selected = on, role = Role.RadioButton, onClick = { apply(spec.copy(hue = hue)) })
                                 .semantics { contentDescription = hueName(hue) },
-                        )
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (on) Icon(painterResource(R.drawable.ic_check), null, Modifier.size(20.dp), tint = Color.Black.copy(alpha = 0.78f))
+                        }
                     }
                 }
             }
@@ -187,7 +198,8 @@ fun ThemeScreen(
             VSpace(Gap.l)
             GroupLabel(tr("Стиль", "Style"))
             VSpace(Gap.s)
-            ChoiceGroup(ThemeStyle.entries, spec.style, { apply(spec.copy(style = it)) }, Modifier.fillMaxWidth()) {
+            // Segmented rows on a page reach the cards' edge, 8 from the screen, as on Insights.
+            ChoiceGroup(ThemeStyle.entries, spec.style, { apply(spec.copy(style = it)) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
                 ChoiceText(
                     when (it) {
                         ThemeStyle.CALM -> tr("Тихая", "Calm")
@@ -200,7 +212,7 @@ fun ThemeScreen(
             VSpace(Gap.l)
             GroupLabel(tr("Светлая или тёмная", "Light or dark"))
             VSpace(Gap.s)
-            ChoiceGroup(ThemeMode.entries, spec.mode, { apply(spec.copy(mode = it)) }, Modifier.fillMaxWidth()) {
+            ChoiceGroup(ThemeMode.entries, spec.mode, { apply(spec.copy(mode = it)) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
                 ChoiceText(
                     when (it) {
                         ThemeMode.SYSTEM -> tr("Как система", "System")
@@ -212,28 +224,30 @@ fun ThemeScreen(
             VSpace(Gap.l)
             GroupLabel(tr("Контраст", "Contrast"))
             VSpace(Gap.s)
-            ChoiceGroup(listOf(0, 1, 2), spec.contrast, { apply(spec.copy(contrast = it)) }, Modifier.fillMaxWidth()) {
+            ChoiceGroup(listOf(0, 1, 2), spec.contrast, { apply(spec.copy(contrast = it)) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
                 ChoiceText(listOf(tr("Мягкий", "Soft"), tr("Обычный", "Normal"), tr("Высокий", "High"))[it])
             }
         }
     }
 }
 
-/** A theme to pick: its page with the card, picked, action and ink on it, and its name under. */
+/**
+ * A theme to pick: its page with the card, picked, action and ink on it, and its name under. Picked,
+ * the whole chip sits on the picked fill with its name semibold, like every other choice.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ThemeChip(name: String, t: Tones, on: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+private fun ThemeChip(name: String, t: Tones, on: Boolean, width: Dp, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+    val fill by animateColorAsState(if (on) pickedColor() else Color.Transparent, MaterialTheme.motionScheme.fastEffectsSpec(), label = "chip")
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         // Read as one: the theme's name and whether it is the one in use.
-        modifier = Modifier.width(88.dp).semantics(mergeDescendants = true) { selected = on },
+        modifier = Modifier.width(width).clip(RoundedCornerShape(20.dp)).background(fill)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .semantics(mergeDescendants = true) { selected = on }
+            .padding(4.dp),
     ) {
-        Box(
-            Modifier.size(88.dp, 64.dp).clip(RoundedCornerShape(16.dp)).background(t.page)
-                .then(if (on) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(16.dp)) else Modifier)
-                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-                .padding(8.dp),
-        ) {
+        Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(16.dp)).background(t.page).padding(8.dp)) {
             Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(t.card))
             Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.size(14.dp).clip(CircleShape).background(t.graphite))
@@ -242,7 +256,14 @@ private fun ThemeChip(name: String, t: Tones, on: Boolean, onClick: () -> Unit, 
             }
         }
         VSpace(Gap.xs)
-        Text(name, style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1, textAlign = TextAlign.Center)
+        Text(
+            name,
+            Modifier.padding(bottom = Gap.xs),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal),
+            color = if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

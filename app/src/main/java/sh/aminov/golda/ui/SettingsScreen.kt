@@ -103,7 +103,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onChange: ((Settings) -> Settings) -> Unit,
     snackbar: SnackbarHostState,
-    onRefreshRates: () -> Unit,
+    /** Updates the rates; calls back once done, so the row can say it is working meanwhile. */
+    onRefreshRates: (onDone: () -> Unit) -> Unit,
     onSaveKey: (String) -> Unit,
     onExport: (Uri) -> Unit,
     onImport: (Uri) -> Unit,
@@ -118,6 +119,7 @@ fun SettingsScreen(
     var edit by remember { mutableStateOf<Edit?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
+    var updatingRates by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(onExport) }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> pendingImport = uri }
@@ -148,7 +150,15 @@ fun SettingsScreen(
                     SettingItem("1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽", tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2))
                 }.toTypedArray(),
                 // Rarely needed, so a plain row at the end rather than a button in the header.
-                SettingItem(tr("Обновить курс", "Update rates"), data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) }) { onRefreshRates() },
+                SettingItem(
+                    tr("Обновить курс", "Update rates"),
+                    if (updatingRates) tr("Обновляю", "Updating") else data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) },
+                ) {
+                    if (!updatingRates) {
+                        updatingRates = true
+                        onRefreshRates { updatingRates = false }
+                    }
+                },
             )
 
             val defaultModel = Settings().geminiModel
@@ -158,7 +168,7 @@ fun SettingsScreen(
                 SettingItem(tr("Модель", "Model"), s.geminiModel + if (s.geminiModel == defaultModel) tr(", по умолчанию", ", default") else "") { edit = Edit.Model },
                 // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
                 *listOfNotNull(
-                    if (voiceBacklog > 0) SettingItem(tr("Не разобрано: $voiceBacklog", "Not worked out: $voiceBacklog"), tr("Записи ещё не превратились в операции", "Notes not booked yet")) { edit = Edit.Notes } else null,
+                    if (voiceBacklog > 0) SettingItem(tr("Не разобрано: $voiceBacklog", "Not processed: $voiceBacklog"), tr("Голосовые ждут разбора", "Voice notes waiting to be processed")) { edit = Edit.Notes } else null,
                 ).toTypedArray(),
             )
 
@@ -208,7 +218,7 @@ fun SettingsScreen(
             caption = tr("Наценка к курсу ЦБ", "Markup over the CBR rate"),
             initial = s.markup * 100,
             symbol = "%",
-            under = tr("Обновляется сама после обмена рублей", "Updates itself after each ruble exchange"),
+            under = tr("Сама подстроится после обмена", "Adjusts itself after an exchange"),
             onDismiss = { edit = null },
         ) { v -> onChange { it.copy(markup = v / 100) } }
         Edit.Key -> KeySheet(s.hasGeminiKey, onDismiss = { edit = null }) { key -> onSaveKey(key); edit = null }
@@ -217,15 +227,15 @@ fun SettingsScreen(
         Edit.Notes -> FormSheet(
             onDismiss = { edit = null },
             actions = {
-                RoundAction(R.drawable.ic_delete, tr("Удалить записи", "Delete the notes")) { onDiscardVoice(); edit = null }
+                RoundAction(R.drawable.ic_delete, tr("Удалить голосовые", "Delete the voice notes")) { onDiscardVoice(); edit = null }
                 PrimaryAction(tr("Повторить", "Try again"), { onRetryVoice(); edit = null })
             },
         ) {
             val n = voiceBacklog.toLong()
             Caption(
                 tr(
-                    "$n ${plural(n, "запись", "записи", "записей", "note", "notes")} не ${plural(n, "разобрана", "разобраны", "разобрано", "", "")}: не было сети или Gemini не справился. Повторить сейчас или удалить, если уже записал вручную?",
-                    "$n ${plural(n, "запись", "записи", "записей", "note", "notes")} not worked out yet: there was no network, or Gemini failed. Try again now, or delete if you already added them by hand?",
+                    "$n ${plural(n, "голосовое", "голосовых", "голосовых", "voice note", "voice notes")} не разобрано: не было сети или Gemini не справился. Повторить сейчас или удалить, если уже записал вручную?",
+                    "$n ${plural(n, "голосовое", "голосовых", "голосовых", "voice note", "voice notes")} not processed yet: there was no network, or Gemini failed. Try again now, or delete them if you already added them by hand?",
                 ),
             )
         }

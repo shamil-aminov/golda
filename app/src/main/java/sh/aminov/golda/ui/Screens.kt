@@ -16,6 +16,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.slideInVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import sh.aminov.golda.domain.Regulars
 import sh.aminov.golda.data.Obligation
 import sh.aminov.golda.R
@@ -274,7 +276,7 @@ fun AccountsScreen(
                 GroupLabel(
                     tr("Сверка", "Reconciling"),
                     Modifier.padding(horizontal = Gap.m).padding(top = Gap.l),
-                    supporting = tr("Совпало с банком: «Сходится». Если нет, нажми на счёт.", "Matches the bank: “Matches”. Doesn’t: tap the account."),
+                    supporting = tr("Нажми «Сходится», если совпало с банком, или на счёт, если нет", "Tap “Matches” if it agrees with the bank, or the account if it doesn’t"),
                 )
             }
         }
@@ -409,11 +411,13 @@ fun AccountScreen(
             // On the page's own colour, so the list ends above it, as the form's does.
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-                TonalAction(tr("Изменить счёт", "Edit account"), onEditAccount)
+                // The page's one lead; Сверить and Погасить досрочно are the small tonal buttons in the tiles.
+                PrimaryAction(tr("Изменить счёт", "Edit account"), onEditAccount)
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
+        Box(Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l)) {
             item(key = "title") {
                 Text(
@@ -483,6 +487,11 @@ fun AccountScreen(
             }
             operationItems(data, operations, accountId, onEditOperation)
         }
+        // Rows scroll under the clock: a band of the page's colour keeps them from showing through, as on the tabs.
+        val density = LocalDensity.current
+        val clock = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
+        Spacer(Modifier.fillMaxWidth().height(clock).background(MaterialTheme.colorScheme.background))
+        }
     }
     if (reconciling) ReconcileSheet(state, onDismiss = { reconciling = false }) { actual, asSpending -> reconciling = false; onReconcile(actual, asSpending) }
 }
@@ -518,8 +527,8 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
         },
     ) {
         Caption(
-            if (debt) tr("${state.account.name} · сколько должен на самом деле?", "${state.account.name} · how much is really owed?")
-            else tr("${state.account.name} · сколько на самом деле?", "${state.account.name} · how much is really there?"),
+            if (debt) tr("Сколько ты должен по «${state.account.name}»?", "How much do you owe on “${state.account.name}”?")
+            else tr("Сколько на «${state.account.name}» на самом деле?", "How much is really on “${state.account.name}”?"),
             Modifier.fillMaxWidth(),
         )
         VSpace(Gap.l)
@@ -536,8 +545,8 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
         Text(
             when {
                 diff == null || diff == 0L -> " "
-                shortfall && asSpending -> tr("Разница ", "Difference ") + Fmt.amount(diff, state.currency, signed = true) + tr(" запишется тратой «Не записано»", " goes in as spending “Not recorded”")
-                else -> tr("Разница ", "Difference ") + Fmt.amount(diff, state.currency, signed = true) + tr(" запишется корректировкой", " goes in as an adjustment")
+                shortfall && asSpending -> Fmt.amount(diff, state.currency, signed = true).let { tr("Разницу $it запишу тратой «Не записано»", "I'll record the $it difference as spending “Not recorded”") }
+                else -> Fmt.amount(diff, state.currency, signed = true).let { tr("Разницу $it запишу как поправку", "I'll record the $it difference as an adjustment") }
             },
             modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.titleMedium.merge(Tnum),
@@ -551,7 +560,7 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(asSpending, role = Role.Switch) { asSpending = it },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(tr("Это ежедневные траты", "This was everyday spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                Text(tr("Это ежедневные траты", "Count as everyday spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                 CheckSwitch(asSpending) { asSpending = it }
             }
         }

@@ -1,6 +1,12 @@
 package sh.aminov.golda.ui
 
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,9 +63,14 @@ fun DebtDetails(data: AppData, state: AccountState) {
                 Text(tr("Платёж не покрывает даже проценты, долг растёт", "The payment does not even cover the interest; the debt grows"), color = MaterialTheme.colorScheme.error)
             } else {
                 Term(tr("Осталось", "To go"), "≈ " + months(ceil(n).toLong()))
-                Term(tr("Переплата", "Interest"), "≈ " + Fmt.approx(interest / Currencies.factor(code), code))
+                Term(tr("Переплата", "Total interest"), "≈ " + Fmt.approx(interest / Currencies.factor(code), code))
                 VSpace(Gap.m)
-                Row { TonalAction(tr("Погасить досрочно", "Pay off early"), { prepaying = true }) }
+                // Small and tonal, like Сверить over it: the page's lead is the wide button at the bottom.
+                FilledTonalButton(
+                    onClick = { prepaying = true },
+                    modifier = Modifier.heightIn(min = ButtonDefaults.MinHeight),
+                    contentPadding = PaddingValues(horizontal = Gap.l),
+                ) { Text(tr("Погасить досрочно", "Pay off early"), style = MaterialTheme.typography.labelLarge) }
             }
         }
         graceWarning(data, state, today)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = body) }
@@ -106,7 +117,11 @@ private fun PrepaySheet(data: AppData, owedMinor: Long, rate: Double, paymentMin
     val result = extra?.let { Debts.prepay(owedMinor, rate, paymentMinor, it, savings?.interestRate) }
     fun money(minor: Long) = Fmt.approx(minor / Currencies.factor(code), code)
     val focus = remember { FocusRequester() }
-    FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Готово", "Done"), onDismiss) }) {
+    // The results grow under the field as the sum is typed: scrolled to their end, so the last row
+    // stands clear above "Готово" with the sheet's air under it, not cut by the button.
+    val scroll = rememberScrollState()
+    LaunchedEffect(extra) { if (extra != null) scroll.animateScrollTo(scroll.maxValue) }
+    FormSheet(onDismiss = onDismiss, scroll = scroll, actions = { PrimaryAction(tr("Готово", "Done"), onDismiss) }) {
         FocusWhenShown(focus)
         Caption(tr("Сколько внести досрочно", "How much to pay early"))
         VSpace(Gap.l)
@@ -129,7 +144,7 @@ private fun PrepaySheet(data: AppData, owedMinor: Long, rate: Double, paymentMin
                 )
             }
             VSpace(Gap.m)
-            Caption(tr("Расчёт по аннуитетной схеме, точные цифры в графике банка", "An annuity estimate; the bank's schedule has the exact figures"))
+            Caption(tr("Примерный расчёт, точные цифры в графике банка", "A rough estimate; the bank's schedule has the exact figures"))
         }
     }
 }

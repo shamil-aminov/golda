@@ -423,7 +423,7 @@ fun EntrySheet(
                     VSpace(Gap.l)
                     TonalField(
                         note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                        placeholder = if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Что купил", "What it was"),
+                        placeholder = if (type == OpType.INCOME) tr("Откуда", "From") else tr("Что купил", "What for"),
                         onDone = { if (valid) save() },
                     )
                     VSpace(Gap.l)
@@ -489,7 +489,7 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
             Spacer(Modifier.weight(1f))
         },
     ) {
-        Caption(if (full.op.type == OpType.ADJUSTMENT) tr("Корректировка после сверки", "Reconciliation adjustment") else tr("Начальный баланс", "Opening balance"))
+        Caption(if (full.op.type == OpType.ADJUSTMENT) tr("Поправка после сверки", "Adjustment after reconciling") else tr("Начальный баланс", "Opening balance"))
         VSpace(Gap.xs)
         val text = Fmt.amount(posting.amountMinor, code, signed = true)
         BigNumber(text, posting.amountMinor, MaterialTheme.colorScheme.onSurface, maxSp = ENTRY_FIGURE_SP)
