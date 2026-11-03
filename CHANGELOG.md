@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.19.1] — 2026-11-04
+
+### Fixed
+
+- **A price said in two numbers is read as one with its tetri.** "Доставка еды
+  двадцать семь шестьдесят один" was booked as 2 761 ₾. Gemini is told that two
+  numbers in a row, the second from 10 to 99 and no "тысяч" between, are a price
+  with its hundredths (27.61), and to write the transcript as said ("27 61");
+  the app's own check reads "27 61" as 27.61 too and takes it over the model's
+  2 761, marked ≈ to check. Three new eval phrases cover it.
+
 ## [0.19.0] — 2026-11-03
 
 ### Added
@@ -483,7 +494,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.19.1...HEAD
+[0.19.1]: https://github.com/shamil-aminov/golda/releases/tag/v0.19.1
 [0.19.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.19.0
 [0.18.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.18.0
 [0.17.9]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.9

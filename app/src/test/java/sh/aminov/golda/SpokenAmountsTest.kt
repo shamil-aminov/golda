@@ -21,6 +21,17 @@ class SpokenAmountsTest {
     }
 
     @Test
+    fun aPriceInTwoNumbers() {
+        // "двадцать семь шестьдесят один" written as said: 27.61, not 2 761.
+        assertEquals(listOf(2_761L), hundredths("доставка еды 27 61"))
+        assertEquals(Checked(2_761, true), SpokenAmounts.check(276_100, "GEL", SpokenAmounts.parse("доставка еды 27 61"), single = true))
+        // Not a pair: a bare number, a thousand, or a second number under ten.
+        assertEquals(listOf(276_100L), hundredths("ноутбук 2761"))
+        assertEquals(listOf(800L, 600L), hundredths("кофе 8 и круассан 6"))
+        assertEquals(listOf(2_000L, 500L), hundredths("кофе 20 5 штук"))
+    }
+
+    @Test
     fun lariAndTetri() {
         assertEquals(listOf(1_120L), hundredths("такси 11 лари 20 тетри"))
         assertEquals(listOf(70L), hundredths("проезд в автобусе 70 тетри"))
