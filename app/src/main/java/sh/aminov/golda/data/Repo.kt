@@ -26,6 +26,7 @@ import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.ReviewPrompt
 import sh.aminov.golda.domain.Ledger
+import sh.aminov.golda.domain.OpTags
 import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.tr
 
@@ -104,6 +105,34 @@ class Repo(
         val kind = if (full.op.type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE
         val id = suggestCategory(full.op.note, kind) ?: return
         write { dao.operation(operationId)?.takeIf { it.op.categoryId == null }?.let { dao.updateOperation(it.op.copy(categoryId = id)) } }
+    }
+
+    /** Notes Gemini was already asked about in this run, so a failing one is not asked again and again. */
+    private val tagAsked = mutableSetOf<String>()
+
+    /**
+     * Puts Gemini's precise tag on purchases and income that have none: the tag of an earlier one
+     * with the same note first, then the rest in one request. Quietly does nothing without a key or
+     * network.
+     */
+    suspend fun tagMissing() {
+        val all = dao.operationsSince(0)
+        val untagged = all.filter { OpTags.wanted(it.op) }
+        if (untagged.isEmpty()) return
+        val known = OpTags.known(all)
+        val fromHistory = untagged.mapNotNull { full -> known[OpTags.key(full.op.note)]?.let { full.op.id to it } }
+        if (fromHistory.isNotEmpty()) write { fromHistory.forEach { (id, tag) -> setTag(id, tag) } }
+        val key = settings.geminiKey() ?: return
+        val notes = untagged.map { OpTags.key(it.op.note) }.filter { it !in known && it !in tagAsked }.distinct().take(OpTags.BATCH)
+        if (notes.isEmpty()) return
+        tagAsked += notes
+        val tags = runCatching { Gemini.tag(notes, key, settings.flow.first().geminiModel) }.getOrNull() ?: return
+        write { untagged.forEach { full -> tags[OpTags.key(full.op.note)]?.let { setTag(full.op.id, it) } } }
+    }
+
+    /** Sets [tag] on an operation that still has none and still has the same note. */
+    private suspend fun setTag(id: Long, tag: String) {
+        dao.operation(id)?.op?.takeIf { it.tag == null }?.let { dao.updateOperation(it.copy(tag = tag)) }
     }
 
     val reviews = dao.reviews()
@@ -258,6 +287,8 @@ class Repo(
             purchaseCurrency = draft.purchaseCurrency,
             isEstimate = draft.isEstimate,
             bucket = draft.bucket.takeIf { draft.type == OpType.EXPENSE },
+            // The tag stays while the note does; a new note is tagged again.
+            tag = old?.op?.tag?.takeIf { OpTags.key(old.op.note) == OpTags.key(draft.note) },
             cbrFrom = cbr?.first,
             cbrTo = cbr?.second,
         )

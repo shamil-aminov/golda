@@ -147,6 +147,11 @@ private fun MainScreen(
     // tap or a request scrolls the pager directly, never through [tab]: an effect keyed on [tab]
     // would fire mid-swipe and pull the page back against the finger.
     val pager = rememberPagerState(initialPage = tab) { 3 }
+    // New purchases (typed, said or imported) get Gemini's precise tag a moment after they appear.
+    LaunchedEffect(data.operations.size) {
+        kotlinx.coroutines.delay(2_000)
+        repo.tagMissing()
+    }
     LaunchedEffect(pager) {
         snapshotFlow { pager.settledPage }.collect { settled ->
             tab = settled

@@ -70,7 +70,8 @@ object ReviewPrompt {
                 val said = full.op.purchaseAmountMinor?.let { minor -> full.op.purchaseCurrency?.let { " (${Fmt.amount(minor, it)})" } }.orEmpty()
                 val account = full.postings.firstOrNull()?.let { accounts[it.accountId]?.name }.orEmpty()
                 val note = full.op.note.ifBlank { "—" }
-                appendLine("${Ledger.localDate(full.op.timestamp, zone)} | ${name(full.op.categoryId)} | ${bucketWord(Buckets.of(full.op, categories))} | $note | ${rub(cost)}$said | $account")
+                val tag = full.op.tag?.let { " ($it)" }.orEmpty()
+                appendLine("${Ledger.localDate(full.op.timestamp, zone)} | ${name(full.op.categoryId)}$tag | ${bucketWord(Buckets.of(full.op, categories))} | $note | ${rub(cost)}$said | $account")
             }
         }.trim()
     }

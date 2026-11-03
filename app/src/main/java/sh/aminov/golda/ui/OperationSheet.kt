@@ -95,6 +95,7 @@ import sh.aminov.golda.domain.VoiceAction
 import sh.aminov.golda.domain.VoiceMapper
 import sh.aminov.golda.domain.label
 import sh.aminov.golda.domain.plural
+import sh.aminov.golda.domain.OpTags
 import sh.aminov.golda.domain.tr
 import java.time.Instant
 import java.time.LocalDate
@@ -422,6 +423,11 @@ fun EntrySheet(
                         placeholder = if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Что купил", "What it was"),
                         onDone = { if (valid) save() },
                     )
+                    // Gemini's precise tag, while the note it was given for is unchanged.
+                    op?.tag?.takeIf { OpTags.key(op.note) == OpTags.key(note) }?.let { tag ->
+                        VSpace(Gap.s)
+                        UnderLine(tr("Метка Gemini: ", "Gemini tag: ") + tag)
+                    }
                     VSpace(Gap.l)
                     // The bucket over its four categories: picking it changes them.
                     if (type == OpType.EXPENSE) {

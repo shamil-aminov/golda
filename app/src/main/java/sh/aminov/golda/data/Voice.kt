@@ -23,6 +23,7 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import sh.aminov.golda.domain.OpTags
 import sh.aminov.golda.domain.tr
 
 /**
@@ -237,6 +238,30 @@ object Gemini {
             .put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("responseSchema", schema))
         val text = replyText(call(body, key, model))
         runCatching { JSONObject(text).optString("category") }.getOrNull()?.takeIf { it in keys }
+    }
+
+    /**
+     * A precise tag for each of [notes] ("шаурма" → "фастфуд"), in one request; notes the reply
+     * leaves out are missing from the map. Throws only [GeminiException].
+     */
+    suspend fun tag(notes: List<String>, key: String, model: String): Map<String, String> = withContext(Dispatchers.IO) {
+        val item = JSONObject()
+            .put("type", "object")
+            .put("properties", JSONObject().put("note", JSONObject().put("type", "string")).put("tag", JSONObject().put("type", "string")))
+            .put("required", JSONArray().put("note").put("tag"))
+        val schema = JSONObject().put("type", "array").put("items", item)
+        val prompt = notes.joinToString("\n")
+        val body = JSONObject()
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", OpTags.SYSTEM))))
+            .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
+            .put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("responseSchema", schema))
+        val text = replyText(call(body, key, model))
+        val list = runCatching { JSONArray(text) }.getOrNull() ?: JSONArray()
+        (0 until list.length()).mapNotNull { i ->
+            val o = list.optJSONObject(i) ?: return@mapNotNull null
+            val tag = OpTags.clean(o.optString("tag")) ?: return@mapNotNull null
+            OpTags.key(o.optString("note")) to tag
+        }.toMap()
     }
 
     /** Free text for [prompt] under [system] (a review in Markdown). Throws only [GeminiException]. */

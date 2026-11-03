@@ -81,6 +81,11 @@ data class Operation(
     val cbrTo: Double? = null,
     /** An expense's own bucket, when it differs from its category's ("this one is not everyday"). */
     val bucket: Bucket? = null,
+    /**
+     * A precise word Gemini puts on it ("кафе", "такси", "подписка"), finer than the category. Not
+     * shown in lists; seen in the operation's card, in the export and in reviews.
+     */
+    val tag: String? = null,
 )
 
 /** A payment that comes every month (loan, rent, subscription) and is set aside before "можно сегодня". */

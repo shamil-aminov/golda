@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Gemini tags.** Purchases and income get a precise word from Gemini
+  ("кафе", "такси", "подписка"), finer than the category. It shows in the
+  operation's card, goes into the export and into reviews. Old records are
+  tagged too, in one request; a note seen before reuses its tag.
 - **Regular payments**, under the accounts. Two days before a subscription is
   charged a notification asks whether it is still needed; no amount means a
   free trial. What looks regular in the last two months of spending is
