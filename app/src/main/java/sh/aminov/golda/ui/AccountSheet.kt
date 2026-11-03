@@ -166,14 +166,12 @@ fun AccountSheet(
                         keyboardType = KeyboardType.Number,
                     )
                     if (type == AccountType.CREDIT) {
-                        Box(Modifier.weight(1f)) {
-                            MetaPill(
-                                graceUntil?.let { tr("Льгота до ", "Free until ") + it.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale)) }
-                                    ?: tr("Льготный период", "Grace period"),
-                                onClick = { pickingGrace = true },
-                                painter = painterResource(R.drawable.ic_calendar),
-                            )
-                        }
+                        TonalPick(
+                            if (graceUntil == null) tr("Льготный период", "Grace period") else tr("Льгота до", "Free until"),
+                            graceUntil?.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale)),
+                            { pickingGrace = true },
+                            Modifier.weight(1f),
+                        )
                     } else {
                         Spacer(Modifier.weight(1f))
                     }
@@ -234,22 +232,7 @@ private fun shortTypeLabel(type: AccountType) = when (type) {
 private fun TypeTiles(selected: AccountType, onPick: (AccountType) -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
         AccountType.entries.forEach { type ->
-            val on = type == selected
-            val corner by animateDpAsState(if (on) 32.dp else 20.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "corner")
-            val container by animateColorAsState(if (on) pickedColor() else unpickedColor(), MaterialTheme.motionScheme.fastEffectsSpec(), label = "tile")
-            Surface(
-                onClick = { onPick(type) },
-                modifier = Modifier.weight(1f).heightIn(min = 64.dp),
-                shape = RoundedCornerShape(corner),
-                color = container,
-                contentColor = if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface,
-            ) {
-                Column(Modifier.padding(horizontal = 2.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Icon(painterResource(typeIcon(type)), null, Modifier.size(22.dp))
-                    // Shrinks a step rather than cut a long name ("Наличные") in a narrow tile.
-                    Text(shortTypeLabel(type), style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp))
-                }
-            }
+            ChoiceTile(typeIcon(type), shortTypeLabel(type), type == selected, Modifier.weight(1f)) { onPick(type) }
         }
     }
 }

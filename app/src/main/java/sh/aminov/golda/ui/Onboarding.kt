@@ -1,25 +1,21 @@
 package sh.aminov.golda.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,7 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import sh.aminov.golda.R
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
@@ -52,28 +49,30 @@ fun Onboarding(
 
     Box(Modifier.fillMaxSize()) {
         Scaffold(
+            // Like every page: back as the circle, the step's action as the wide button.
             bottomBar = {
                 Row(
-                    Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m),
+                    horizontalArrangement = Arrangement.spacedBy(Gap.s),
                 ) {
-                    if (step > 0) TextButton(onClick = { step-- }) { Text(tr("Назад", "Back")) }
-                    Spacer(Modifier.weight(1f))
-                    Button(onClick = { if (step < steps - 1) step++ else onChange { it.copy(onboarded = true) } }) {
-                        Text(if (step < steps - 1) tr("Дальше", "Next") else tr("Готово", "Done"))
-                    }
+                    if (step > 0) RoundAction(R.drawable.ic_back, tr("Назад", "Back")) { step-- }
+                    PrimaryAction(if (step < steps - 1) tr("Дальше", "Next") else tr("Готово", "Done"), {
+                        if (step < steps - 1) step++ else onChange { it.copy(onboarded = true) }
+                    })
                 }
             },
         ) { padding ->
-            Column(
-                Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("Golda", style = MaterialTheme.typography.displaySmall, modifier = Modifier.padding(top = 16.dp))
-                LinearWavyProgressIndicator(progress = { (step + 1f) / steps }, modifier = Modifier.fillMaxWidth())
+            Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(bottom = Gap.l)) {
+                // The page title the account page has, and the steps as a plain count under it.
+                Text(
+                    if (step == 0) tr("Валюты", "Currencies") else tr("Счета", "Accounts"),
+                    Modifier.padding(start = Gap.l, end = Gap.l, top = Gap.l),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
+                )
+                Caption(tr("Шаг ${step + 1} из $steps", "Step ${step + 1} of $steps"), Modifier.padding(horizontal = Gap.l))
+                VSpace(Gap.m)
                 when (step) {
-                    0 -> {
-                        Text(tr("Валюты", "Currencies"), style = MaterialTheme.typography.headlineSmall)
+                    0 -> Column(Modifier.padding(horizontal = Gap.l), verticalArrangement = Arrangement.spacedBy(Gap.m)) {
                         Text(
                             tr("Любая сумма будет видна сразу во всех выбранных валютах. Основная валюта рубль.", "Every amount shows in all the chosen currencies at once. The ruble is the main one."),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -81,23 +80,24 @@ fun Onboarding(
                         CurrencyFields(data.settings, onChange)
                     }
                     else -> {
-                        Text(tr("Счета", "Accounts"), style = MaterialTheme.typography.headlineSmall)
                         Text(
-                            tr("Карты, наличные, накопительные счета и долги с текущими балансами. Неточные цифры потом легко поправить сверкой. «Можно сегодня» само подстроится под твои траты; лимит на день можно задать в настройках.", "Cards, cash, savings and debts with their balances now. Rough numbers are easy to fix later by reconciling. “Safe today” adapts to your spending by itself; a daily limit can be set in settings."),
+                            tr("Карты, наличные, накопительные счета и долги с текущими балансами. Неточные цифры потом легко поправить сверкой.", "Cards, cash, savings and debts with their balances now. Rough numbers are easy to fix later by reconciling."),
+                            Modifier.padding(horizontal = Gap.l),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        val count = data.accounts.size + 1
-                        Column {
+                        // Adding is the group's action, in its header, as on Accounts.
+                        GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
+                            HeaderAction(tr("Добавить", "Add")) { adding = true }
+                        }
+                        val count = data.accounts.size
                         data.accounts.forEachIndexed { i, account ->
                             val state = data.states.getValue(account.id)
                             GroupRow(
-                                i, count,
+                                i, count, Modifier.padding(horizontal = Gap.m),
                                 onClick = { editing = account },
-                                supporting = { Text(typeLabel(account.type)) },
+                                supporting = typeLabel(account.type).takeUnless { account.name.contains(it, ignoreCase = true) }?.let { { Text(it) } },
                                 trailing = { AmountColumn(Fmt.amount(state.balanceMinor, account.currency)) },
                             ) { Text(account.name, style = MaterialTheme.typography.titleMedium) }
-                        }
-                        AddRow(count - 1, count, tr("Добавить счёт", "Add an account"), { adding = true }, Modifier)
                         }
                     }
                 }

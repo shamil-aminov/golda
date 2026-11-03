@@ -25,6 +25,8 @@ import androidx.compose.ui.res.painterResource
 import sh.aminov.golda.R
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.domain.Envelopes
+import sh.aminov.golda.domain.Currencies
+import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.domain.tr
 import java.time.Instant
@@ -68,9 +70,8 @@ fun PeriodSheet(data: AppData, onDismiss: () -> Unit, onChange: ((Settings) -> S
     ) {
         Caption(tr("Карта трат", "The card you spend from"))
         VSpace(Gap.s)
-        ChoiceGroup(cards.map { it.id }, accountId, ::pickAccount, Modifier.fillMaxWidth()) { id ->
-            ChoiceText(data.accountById[id]?.name.orEmpty())
-        }
+        // The same cards as in the entry form.
+        AccountCards(cards, accountId, ::pickAccount) { a -> data.states[a.id]?.let { Fmt.amount(it.balanceMinor, a.currency) } ?: Currencies.symbol(a.currency) }
         VSpace(Gap.l)
         Caption(tr("На какой срок", "For how long"))
         VSpace(Gap.s)

@@ -2,6 +2,11 @@ package sh.aminov.golda.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import sh.aminov.golda.data.AccountType
@@ -38,15 +44,21 @@ fun DebtDetails(data: AppData, state: AccountState) {
     var prepaying by remember { mutableStateOf(false) }
     val body = MaterialTheme.typography.bodyMedium.merge(Tnum)
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        account.interestRate?.let { Text(tr("Ставка ${Fmt.number(it, 1)} % годовых", "Rate ${Fmt.number(it, 1)} % a year"), style = body) }
+    // Label and value per line, like a bank's terms: read down the left, the numbers on the right.
+    @Composable
+    fun Term(label: String, value: String) {
+        Row(Modifier.fillMaxWidth().padding(vertical = Gap.xs)) {
+            Text(label, Modifier.weight(1f), style = body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.width(Gap.m))
+            Text(value, style = MaterialTheme.typography.titleMedium.merge(Tnum), maxLines = 1)
+        }
+    }
+    Column {
+        account.interestRate?.let { Term(tr("Ставка", "Rate"), tr("${Fmt.number(it, 1)} % годовых", "${Fmt.number(it, 1)} % a year")) }
         if (account.paymentDay != null && account.paymentMinor != null) {
             val due = Budget.nextDue(account.paymentDay, today)
-            Text(
-                tr("Платёж ${Fmt.amount(account.paymentMinor, code)}, следующий ${dayLabel(due, today).lowercase()}",
-                    "Payment ${Fmt.amount(account.paymentMinor, code)}, next due " + if (due == today || due == today.plusDays(1)) dayLabel(due, today).lowercase() else dayLabel(due, today)),
-                style = body,
-            )
+            Term(tr("Платёж", "Payment"), Fmt.amount(account.paymentMinor, code))
+            Term(tr("Следующий", "Next due"), dayLabel(due, today))
         }
         val rate = account.interestRate
         val payment = account.paymentMinor
@@ -56,12 +68,10 @@ fun DebtDetails(data: AppData, state: AccountState) {
             if (n == null || interest == null) {
                 Text(tr("Платёж не покрывает даже проценты, долг растёт", "The payment does not even cover the interest; the debt grows"), color = MaterialTheme.colorScheme.error)
             } else {
-                Text(
-                    tr("Осталось ≈ ${months(ceil(n).toLong())}, переплата ≈ ${Fmt.approx(interest / Currencies.factor(code), code)}",
-                        "≈ ${months(ceil(n).toLong())} to go, ≈ ${Fmt.approx(interest / Currencies.factor(code), code)} in interest"),
-                    style = body,
-                )
-                FilledTonalButton(onClick = { prepaying = true }) { Text(tr("Погасить досрочно", "Pay off early")) }
+                Term(tr("Осталось", "To go"), "≈ " + months(ceil(n).toLong()))
+                Term(tr("Переплата", "Interest"), "≈ " + Fmt.approx(interest / Currencies.factor(code), code))
+                VSpace(Gap.m)
+                Row { TonalAction(tr("Погасить досрочно", "Pay off early"), { prepaying = true }) }
             }
         }
         graceWarning(data, state, today)?.let { Text(it, color = MaterialTheme.colorScheme.error, style = body) }

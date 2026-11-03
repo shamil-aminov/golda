@@ -298,7 +298,7 @@ fun GoldaToolbar(
     FloatingActionButton(
         onClick = voice.toggle,
         interactionSource = micPress,
-        modifier = Modifier.size(ToolbarHeight).squish(micPress).softShadow(RoundedCornerShape(20.dp)).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
+        modifier = Modifier.size(ToolbarHeight).squish(micPress).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
         // A rounded square, so the action reads apart from the round tabs beside it.
         shape = RoundedCornerShape(20.dp),
         containerColor = mic,

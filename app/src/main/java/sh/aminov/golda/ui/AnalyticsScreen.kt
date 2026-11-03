@@ -174,7 +174,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                         onClick = { onReviews(period) },
                         colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
                         contentPadding = PaddingValues(horizontal = Gap.m),
-                        modifier = Modifier.height(40.dp),
+                        // Hangs over the caption's line, so the caption sits as close to the figure as on every hero.
+                        modifier = Modifier.overhang(0.dp).height(40.dp),
                     ) { Text(tr("Разбор", "Review"), style = MaterialTheme.typography.labelLarge) }
                 }
                 VSpace(Gap.m)

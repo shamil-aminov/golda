@@ -209,7 +209,7 @@ fun SettingsScreen(
         Edit.Notes -> FormSheet(
             onDismiss = { edit = null },
             actions = {
-                TonalAction(tr("Удалить", "Delete"), { onDiscardVoice(); edit = null })
+                RoundAction(R.drawable.ic_delete, tr("Удалить записи", "Delete the notes")) { onDiscardVoice(); edit = null }
                 PrimaryAction(tr("Повторить", "Try again"), { onRetryVoice(); edit = null })
             },
         ) {
@@ -296,7 +296,8 @@ private fun SettingRow(
         Column(Modifier.weight(1f)) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleLarge,
+                // A row's title at the size every list row has.
+                style = MaterialTheme.typography.titleMedium,
                 color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = quiet) }
@@ -376,8 +377,8 @@ private fun KeySheet(hasKey: Boolean, onDismiss: () -> Unit, onSave: (String) ->
         onDismiss = onDismiss,
         actionGap = ButtonGroupDefaults.ConnectedSpaceBetween,
         actions = {
-            if (hasKey) TonalAction(tr("Удалить", "Remove"), { onSave("") }, shapes = connectedStart())
-            PrimaryAction(tr("Сохранить", "Save"), { onSave(key.trim()) }, key.isNotBlank(), weight = if (hasKey) 2f else 1f, shapes = if (hasKey) connectedEnd() else ButtonDefaults.shapes())
+            if (hasKey) RoundAction(R.drawable.ic_delete, tr("Удалить ключ", "Remove the key")) { onSave("") }
+            PrimaryAction(tr("Сохранить", "Save"), { onSave(key.trim()) }, key.isNotBlank())
         },
     ) {
         Caption(if (hasKey) tr("Ключ Gemini · заменить", "Gemini key · replace") else tr("Ключ Gemini", "Gemini key"))
@@ -401,13 +402,15 @@ private fun KeySheet(hasKey: Boolean, onDismiss: () -> Unit, onSave: (String) ->
 @Composable
 private fun ModelSheet(current: String, default: String, onDismiss: () -> Unit, onSave: (String) -> Unit) {
     var model by remember { mutableStateOf(current) }
-    FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Сохранить", "Save"), { onSave(model.trim()) }, model.isNotBlank()) }) {
+    FormSheet(onDismiss = onDismiss, actions = {
+        if (model.trim() != default) TonalAction(tr("По умолчанию", "Default"), { model = default })
+        PrimaryAction(tr("Сохранить", "Save"), { onSave(model.trim()) }, model.isNotBlank())
+    }) {
         Caption(tr("Модель Gemini", "Gemini model"))
         VSpace(Gap.m)
         TonalField(model, { model = it }, Modifier.fillMaxWidth(), placeholder = default, onDone = { if (model.isNotBlank()) onSave(model.trim()) })
         if (model.trim() != default) {
             VSpace(Gap.s)
-            TextButton(onClick = { model = default }, contentPadding = PaddingValues(horizontal = Gap.s)) { Text(tr("Вернуть $default", "Back to $default")) }
         }
     }
 }
@@ -430,7 +433,7 @@ private fun LanguageSheet(onDismiss: () -> Unit) {
         ChoiceGroup(listOf("ru", "en", ""), current, { tag ->
             onDismiss()
             activity?.let { AppLanguage.set(it, tag) }
-        }, Modifier.fillMaxWidth()) { ChoiceText(if (it.isEmpty()) tr("Системный", "System") else languageName(it)) }
+        }, Modifier.fillMaxWidth()) { ChoiceText(if (it.isEmpty()) tr("Как в системе", "System") else languageName(it)) }
     }
 }
 

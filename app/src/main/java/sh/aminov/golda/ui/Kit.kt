@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -275,8 +276,8 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
 }
 
 /**
- * The label over a group, the way Android's settings head a section: small and semibold, then a
- * hairline to the end; lined up with the rows' text.
+ * The label over a group, the way Android's settings head a section: small and semibold, lined up
+ * with the rows' text; the group's action, if any, at its end.
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
@@ -291,7 +292,8 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
                 it()
             }
         }
-        supporting?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        // Pulled up to the label and kept off the card below, as far as a label sits from its card.
+        supporting?.let { Text(it, Modifier.offset(y = (-4).dp).padding(bottom = Gap.xs), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -385,7 +387,8 @@ fun TonalField(
     focusRequester: FocusRequester? = null,
 ) {
     val clear = Color.Transparent
-    val container = MaterialTheme.colorScheme.surfaceContainerHigh
+    // The unpicked fill, as the choice tiles: it stands off a white sheet in every theme.
+    val container = unpickedColor()
     TextField(
         value = value,
         onValueChange = onValueChange,
@@ -409,6 +412,21 @@ fun TonalField(
             errorIndicatorColor = clear,
         ),
     )
+}
+
+/** A field that is picked rather than typed (a date): looks like [TonalField], opens a picker. */
+@Composable
+fun TonalPick(label: String, value: String?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 56.dp), shape = MaterialTheme.shapes.large, color = unpickedColor()) {
+        Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.s), verticalArrangement = Arrangement.Center) {
+            if (value == null) {
+                Text(label, Modifier.padding(vertical = Gap.s), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
+            }
+        }
+    }
 }
 
 /**
@@ -631,14 +649,14 @@ fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollB
             LargeTopAppBar(
                 // The title 24 from the edge, like the rows under it.
                 title = { Text(title, Modifier.padding(start = Gap.s), maxLines = 1) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
+                // The arrow's glyph on the content line, 24 dp in.
+                navigationIcon = { IconButton(onClick = onBack, Modifier.offset(x = Gap.s)) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
                 actions = actions,
-                expandedHeight = 200.dp,
+                expandedHeight = 152.dp,
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
                 scrollBehavior = scroll,
             )
         }
-        if (scroll.state.collapsedFraction > 0.99f) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -823,7 +841,7 @@ fun BareField(
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
-    style: TextStyle = MaterialTheme.typography.headlineMedium,
+    style: TextStyle = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
     suffix: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
     focusRequester: FocusRequester? = null,

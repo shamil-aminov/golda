@@ -318,27 +318,6 @@ fun AccountsScreen(
 }
 
 /**
- * The last row of a list that adds one more: "Добавить счёт", "Добавить платёж". Words, no glyph,
- * set off from the rows above by a hairline.
- */
-@Composable
-fun AddRow(index: Int, count: Int, text: String, onClick: () -> Unit, modifier: Modifier = Modifier.padding(horizontal = Gap.m)) {
-    val line = MaterialTheme.colorScheme.outlineVariant
-    GroupRow(
-        index, count,
-        modifier.drawWithContent {
-            drawContent()
-            // The hairline sits inside the card, 24 dp in from each edge, like the text.
-            if (index > 0) {
-                val inset = 16.dp.toPx()
-                drawLine(line, androidx.compose.ui.geometry.Offset(inset, 0f), androidx.compose.ui.geometry.Offset(size.width - inset, 0f), strokeWidth = 1.dp.toPx())
-            }
-        },
-        onClick = onClick,
-    ) { Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-}
-
-/**
  * "Карта · ≈ 16 001 ₽" (the equivalent in the main currency, unless the account is in it), or for
  * savings with a rate just "+1 605 ₽ за октябрь" in the account's own currency: that says what it is.
  */
@@ -353,7 +332,9 @@ private fun accountSubline(data: AppData, state: AccountState): String {
         null
     }
     val spendCard = data.envelope?.account?.id == account.id
-    val parts = mutableListOf(forecast ?: if (spendCard) tr("Карта трат", "Spending card") else typeLabel(account.type))
+    // The type only when the name does not already say it: no "Кредитка / Кредитка".
+    val kind = forecast ?: if (spendCard) tr("Карта трат", "Spending card") else typeLabel(account.type).takeUnless { account.name.contains(it, ignoreCase = true) }
+    val parts = listOfNotNull(kind).toMutableList()
     if (state.currency != data.base.code) parts += "≈ " + data.base.approx(state.rubMinor)
     return parts.joinToString(" · ")
 }
@@ -374,7 +355,7 @@ private fun AccountRow(
     GroupRow(
         index, count, Modifier.padding(horizontal = Gap.m),
         onClick = onClick,
-        supporting = { Text(accountSubline(data, state), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supporting = accountSubline(data, state).takeIf { it.isNotEmpty() }?.let { line -> { Text(line, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Like every amount in a list (payments, operations): one size, one ink, cents and all.
@@ -453,7 +434,8 @@ fun AccountScreen(
                     container = tileColor(),
                     content = ink,
                 ) {
-                    Caption(typeLabel(account.type), color = quiet)
+                    // The type over the figure, unless the title above already says it.
+                    Caption(typeLabel(account.type).takeUnless { account.name.contains(it, ignoreCase = true) } ?: tr("Баланс", "Balance"), color = quiet)
                     VSpace(Gap.xs)
                     val amount = Fmt.amount(state.balanceMinor, state.currency)
                     // The kopecks are the same ink, only quieter.
@@ -493,7 +475,9 @@ fun AccountScreen(
             }
             if (account.type == AccountType.CREDIT || account.type == AccountType.LOAN) {
                 item(key = "debt") {
-                    Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(top = Gap.s)) { DebtDetails(data, state) }
+                    // Its own group, set apart like every block on the page, padded like the hero.
+                    GroupLabel(typeLabel(account.type), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l))
+                    HeroTile(Modifier.padding(horizontal = Gap.s)) { DebtDetails(data, state) }
                 }
             }
             operationItems(data, operations, accountId, onEditOperation)
@@ -617,8 +601,8 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         val muted = MaterialTheme.colorScheme.onSurfaceVariant
         val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
         // Optically flush left: big digits carry their own side bearing, which at 94 sp reads as an
-        // indent of a few pixels against the caption above; pulled back by 3 % of the size.
-        val nudge = with(LocalDensity.current) { (size.toPx() * 0.03f).toDp() }
+        // indent against the caption above; pulled back by the first glyph's measured ink.
+        val nudge = with(LocalDensity.current) { firstInk(digits, style, size.toPx()).toDp() }
         Text(
             buildAnnotatedString {
                 append(digits)
@@ -629,6 +613,25 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
             color = color,
             maxLines = 1,
         )
+    }
+}
+
+/** How far right of its origin the first character's ink starts, in px; about 6.5 % of the size if the face cannot be measured. */
+@Composable
+private fun firstInk(text: String, style: androidx.compose.ui.text.TextStyle, px: Float): Float {
+    val resolver = androidx.compose.ui.platform.LocalFontFamilyResolver.current
+    val face = resolver.resolve(style.fontFamily, style.fontWeight ?: FontWeight.Normal).value as? android.graphics.Typeface
+    return remember(text.firstOrNull(), face, px) {
+        val first = text.firstOrNull() ?: return@remember 0f
+        if (face == null) return@remember px * 0.065f
+        val paint = android.graphics.Paint().apply {
+            typeface = face
+            textSize = px
+            fontFeatureSettings = "tnum"
+        }
+        val box = android.graphics.Rect()
+        paint.getTextBounds(first.toString(), 0, 1, box)
+        box.left.toFloat().coerceIn(0f, px * 0.15f)
     }
 }
 

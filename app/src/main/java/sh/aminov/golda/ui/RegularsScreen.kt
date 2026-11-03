@@ -61,22 +61,21 @@ fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, 
     if (suggestions.isNotEmpty()) {
         item(key = "regulars-suggested") {
             VSpace(Gap.l)
-            GroupLabel(tr("Похоже на регулярные", "Looks regular"), Modifier.padding(horizontal = Gap.m))
+            GroupLabel(tr("Похоже на регулярные", "Looks regular"), Modifier.padding(horizontal = Gap.m), supporting = tr("Нажми, чтобы добавить", "Tap one to add it"))
         }
         suggestions.forEachIndexed { i, payment ->
-            item(key = "suggested-${payment.name}") { PaymentRow(payment, i, suggestions.size, Modifier.padding(horizontal = Gap.m), add = true) { onEdit(payment) } }
+            item(key = "suggested-${payment.name}") { PaymentRow(payment, i, suggestions.size, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
         }
     }
 }
 
-/** A payment: its name, the day it is charged, the amount (or "пробный"); a suggestion has a "+". */
+/** A payment: its name, the day it is charged, the amount (or "пробный"). */
 @Composable
-private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Modifier, add: Boolean = false, onClick: () -> Unit) {
+private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Modifier, onClick: () -> Unit) {
     GroupRow(
         index, count, modifier,
         onClick = onClick,
-        // A suggestion says how to take it; its amount stays in the column with the others.
-        supporting = { Text(dayOfMonth(payment.dayOfMonth) + if (add) tr(" · нажми, чтобы добавить", " · tap to add") else "") },
+        supporting = { Text(dayOfMonth(payment.dayOfMonth)) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 Text(
@@ -85,7 +84,6 @@ private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Mo
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-
             }
         },
     ) { Text(payment.name, style = MaterialTheme.typography.titleMedium) }

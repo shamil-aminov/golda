@@ -96,6 +96,7 @@ import sh.aminov.golda.domain.VoiceMapper
 import sh.aminov.golda.domain.label
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.OpTags
+import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.tr
 import java.time.Instant
 import java.time.LocalDate
@@ -329,7 +330,6 @@ fun EntrySheet(
             selected = type,
             onSelect = ::pickType,
             modifier = Modifier.fillMaxWidth(),
-            height = 40.dp,
         ) {
             ChoiceText(
                 when (it) {
@@ -379,8 +379,11 @@ fun EntrySheet(
             amount == null && type == OpType.INCOME -> UnderLine(" ")
             amount == null && type == OpType.TRANSFER -> Unit
             amount == null -> {
-                // Whole units, as on Home.
-                data.envelope?.let { UnderLine(tr("Можно сегодня ", "Safe today ") + Fmt.whole(it.leftTodayMinor, it.currency) + " " + Currencies.symbol(it.currency)) }
+                // The card and the day it goes on, said up here because their buttons sit under the
+                // keyboard; then what is safe today, in whole units as on Home.
+                val where = listOfNotNull(data.accountById[accountId]?.name, dayLabel(date, data.today).takeIf { date != data.today }?.lowercase())
+                val safe = data.envelope?.let { tr("можно сегодня ", "safe today ") + Fmt.whole(it.leftTodayMinor, it.currency) + " " + Currencies.symbol(it.currency) }
+                UnderLine((where + listOfNotNull(safe)).joinToString(" · ").replaceFirstChar { it.titlecase(I18n.locale) })
             }
             secondCode != null && type == OpType.TRANSFER -> ReceivedLine(secondCode, secondShown, secondEdited, editingSecond, { editingSecond = it }) {
                 secondText = it
@@ -431,7 +434,7 @@ fun EntrySheet(
                             bucket = picked
                             // A category of another bucket does not belong any more.
                             if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != picked) { categoryId = null }
-                        }, Modifier.fillMaxWidth(), height = 36.dp) { ChoiceText(bucketLabel(it)) }
+                        }, Modifier.fillMaxWidth()) { ChoiceText(bucketLabel(it)) }
                         VSpace(Gap.m)
                     }
                     // The four of the bucket (or of income). While the app picks, the tile is outlined.
@@ -444,7 +447,7 @@ fun EntrySheet(
                         onPick = { categoryId = if (categoryId == it && !categoryAuto) null else it; categoryAuto = false },
                     )
                     VSpace(Gap.m)
-                    AccountCards(accounts.filter { it.type != AccountType.LOAN }, accountId, ::pickAccount)
+                    AccountCards(accounts.filter { it.type != AccountType.LOAN }, accountId, ::pickAccount) { a -> data.states[a.id]?.let { Fmt.amount(it.balanceMinor, a.currency) } ?: Currencies.symbol(a.currency) }
                     VSpace(Gap.m)
                     DateChoices(date, data.today) { picked -> if (picked == null) pickingDate = true else date = picked }
                     // Gemini's precise tag, under all that was chosen, while its note is unchanged.
@@ -479,15 +482,11 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
     val code = data.accountById[posting.accountId]?.currency ?: "RUB"
     FormSheet(
         onDismiss = onDismiss,
+        // Like every form: back, then delete as the round button; nothing else to do here.
         actions = {
-            FilledTonalButton(
-                onClick = { onDelete(full) },
-                modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight),
-                colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                ),
-            ) { Text(tr("Удалить", "Delete"), style = MaterialTheme.typography.titleMedium) }
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
+            RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete")) { onDelete(full) }
+            Spacer(Modifier.weight(1f))
         },
     ) {
         Caption(if (full.op.type == OpType.ADJUSTMENT) tr("Корректировка после сверки", "Reconciliation adjustment") else tr("Начальный баланс", "Opening balance"))
@@ -583,10 +582,7 @@ private fun RouteBento(data: AppData, from: Account?, to: Account?, onFrom: (Lon
             FilledTonalIconButton(
                 onClick = onSwap,
                 modifier = Modifier.size(40.dp),
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                ),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
             ) { Icon(painterResource(R.drawable.ic_swap), tr("Поменять местами", "Swap"), Modifier.size(20.dp)) }
         }
     }
@@ -634,7 +630,7 @@ private fun CategoryGrid(data: AppData, kind: CategoryKind, bucket: Bucket?, sel
         ordered.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 row.forEach { category ->
-                    CategoryTile(categoryIcon(category.key), category.label(), category.id == selected, auto, Modifier.weight(1f)) { onPick(category.id) }
+                    ChoiceTile(categoryIcon(category.key), category.label(), category.id == selected, Modifier.weight(1f), outlined = auto) { onPick(category.id) }
                 }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -642,91 +638,4 @@ private fun CategoryGrid(data: AppData, kind: CategoryKind, bucket: Bucket?, sel
     }
 }
 
-@Composable
-private fun CategoryTile(icon: Int, label: String, on: Boolean, auto: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    // Picked by the app, not by you: the tile is outlined, not filled.
-    val filled = on && !auto
-    val corner by animateDpAsState(if (on) 24.dp else 16.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "corner")
-    val container by animateColorAsState(if (filled) pickedColor() else unpickedColor(), MaterialTheme.motionScheme.fastEffectsSpec(), label = "tile")
-    val ink = if (filled) onPickedColor() else MaterialTheme.colorScheme.onSurface
-    Surface(
-        onClick = onClick,
-        modifier = modifier.height(68.dp),
-        shape = RoundedCornerShape(corner),
-        color = container,
-        contentColor = ink,
-        // The auto pick's outline in the muted ink: visible on the tile, unlike the pale picked tone.
-        border = if (on && auto) BorderStroke(2.dp, MaterialTheme.colorScheme.onSurfaceVariant) else null,
-    ) {
-        Column(Modifier.padding(horizontal = Gap.xs), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (filled) ink else MaterialTheme.colorScheme.onSurfaceVariant)
-            VSpace(Gap.xs)
-            Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, textAlign = TextAlign.Center)
-        }
-    }
-}
 
-/** The date as three short buttons across: today, yesterday, or another (the calendar; null asks for it). */
-@Composable
-private fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit) {
-    val yesterday = today.minusDays(1)
-    // The third holds any other day: the day itself once picked, the calendar before.
-    val other = date.takeIf { it != today && it != yesterday }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-        listOf<LocalDate?>(today, yesterday, other).forEach { day ->
-            val on = day == date
-            val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
-            val container by animateColorAsState(if (on) pickedColor() else unpickedColor(), spec, label = "day")
-            val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "day-ink")
-            Surface(
-                onClick = { onPick(if (day == null || day == other) null else day) },
-                modifier = Modifier.weight(1f).height(36.dp),
-                shape = CircleShape,
-                color = container,
-                contentColor = ink,
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(day?.let { dayLabel(it, today) } ?: tr("Другой день", "Another day"), style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                }
-            }
-        }
-    }
-}
-
-/**
- * The accounts as cards in one row that scrolls sideways: the name, and the currency under it. They
- * are what the money leaves from, so they look like the cards in a wallet, not like the other buttons.
- */
-@Composable
-private fun AccountCards(accounts: List<Account>, selected: Long?, onPick: (Long) -> Unit) {
-    // Edge to edge: a card scrolls off the screen's edge, not the form's margin.
-    Row(
-        Modifier.bleed(Gap.m).horizontalScroll(rememberScrollState()).padding(horizontal = Gap.m),
-        horizontalArrangement = Arrangement.spacedBy(Gap.s),
-    ) {
-        accounts.forEach { account ->
-            val on = account.id == selected
-            // The same easing as every other choice on the form: no hard switch between cards.
-            val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
-            val container by animateColorAsState(if (on) pickedColor() else MaterialTheme.colorScheme.surfaceContainerLowest, spec, label = "card")
-            val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "card-ink")
-            val quiet by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurfaceVariant, spec, label = "card-quiet")
-            Surface(
-                onClick = { onPick(account.id) },
-                modifier = Modifier.width(116.dp).height(72.dp),
-                shape = RoundedCornerShape(12.dp),
-                color = container,
-                contentColor = ink,
-            ) {
-                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Text(account.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        Currencies.symbol(account.currency),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = quiet,
-                    )
-                }
-            }
-        }
-    }
-}
