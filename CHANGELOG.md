@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Settings keeps its place while Theme is open over it, and forgets it once
+  closed. Pages slide in from the right going deeper and back out going back,
+  as in Android's own settings.
 - The entry form no longer cuts the first account card in half: the row moves
   only when the picked card would sit past the edge, and just enough to show it.
 

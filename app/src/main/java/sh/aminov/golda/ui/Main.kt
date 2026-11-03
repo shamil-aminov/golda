@@ -13,6 +13,14 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.animation.core.Spring
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.activity.compose.BackHandler
@@ -71,18 +79,26 @@ private sealed interface Page {
     data object Theme : Page
 }
 
+/** A page as a short string: what survives the activity being recreated, and its saved state's key. */
+private fun keyOf(page: Page?): String = when (page) {
+    Page.Settings -> "s"
+    Page.Theme -> "th"
+    is Page.AccountPage -> "a:${page.id}"
+    is Page.Reviews -> "rs:${page.from}:${page.to}"
+    is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
+    null -> ""
+}
+
+/** How deep a page sits: the tabs, a page opened from them, a page opened from that one. */
+private fun depth(page: Page?): Int = when (page) {
+    null -> 0
+    Page.Settings, is Page.AccountPage, is Page.Reviews -> 1
+    Page.Theme, is Page.ReviewPage -> 2
+}
+
 /** A page survives the activity being recreated (a language switch), written as a short string. */
 private val PageSaver = Saver<Page?, String>(
-    save = { page ->
-        when (page) {
-            Page.Settings -> "s"
-            Page.Theme -> "th"
-            is Page.AccountPage -> "a:${page.id}"
-            is Page.Reviews -> "rs:${page.from}:${page.to}"
-            is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
-            null -> ""
-        }
-    },
+    save = { page -> keyOf(page) },
     restore = { value ->
         val parts = value.split(':')
         when (parts.first()) {
@@ -233,8 +249,32 @@ private fun MainScreen(
 
     // One window: the tabs or a page, and over them the form pages, so the keyboard and the insets
     // behave the same everywhere.
+    // Each page keeps its scroll while a deeper one is open over it (Settings under Theme), and forgets
+    // it once closed, so it opens at the top next time, as Android's own settings do.
+    val pages = rememberSaveableStateHolder()
+    // The page shown last, kept outside the snapshot: noting it must not recompose anything.
+    val last = remember { arrayOf(page) }
+    if (last[0] != page) {
+        if (depth(page) < depth(last[0])) pages.removeState(keyOf(last[0]))
+        last[0] = page
+    }
+    val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+    val fade = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     Box(Modifier.fillMaxSize()) {
-        when (val current = page) {
+        // Deeper comes in from the right, back goes out to the right: the way Android moves between pages.
+        AnimatedContent(
+            targetState = page,
+            transitionSpec = {
+                val forward = depth(targetState) >= depth(initialState)
+                val sign = if (forward) 1 else -1
+                (slideInHorizontally(slide) { sign * it / 4 } + fadeIn(fade)) togetherWith
+                    (slideOutHorizontally(slide) { -sign * it / 4 } + fadeOut(fade))
+            },
+            contentKey = { keyOf(it) },
+            label = "page",
+        ) { current ->
+        pages.SaveableStateProvider(keyOf(current)) {
+        when (current) {
             Page.Settings -> SettingsScreen(
                 data = data,
                 onBack = { page = null },
@@ -406,6 +446,8 @@ private fun MainScreen(
                 Spacer(Modifier.fillMaxWidth().height(clock).background(MaterialTheme.colorScheme.background))
                 }
             }
+        }
+        }
         }
 
         if (periodOpen) PeriodSheet(data, onDismiss = { periodOpen = false }, onChange = change)
