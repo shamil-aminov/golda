@@ -62,6 +62,22 @@ class VoiceMapperEdgesTest {
     }
 
     @Test
+    fun oneSumOfATransferIsWhatWasSentWhereverTheModelPutIt() {
+        val rub2 = Account(5, "Кредитка", "RUB", AccountType.CREDIT, includeInFree = false)
+        fun map(i: VoiceItem) = VoiceMapper.actions(VoiceResult("…", listOf(i)), accounts + rub2, listOf(food), settings, rates, now, zone).single()
+        // "погасил кредитку 15 тысяч рублей с карты": the model gave only what arrived.
+        val paid = (map(item("transfer", null, null, account = rub.id, to = rub2.id, toAmount = "15000")) as VoiceAction.Record).draft
+        assertEquals(1_500_000L, paid.amountMinor)
+        assertEquals(1_500_000L, paid.toAmountMinor)
+        assertFalse(paid.isEstimate)
+        // Across currencies one sum can't say the other: not guessed.
+        notUnderstood(one(item("transfer", null, null, account = usd.id, to = gel.id, toAmount = "300")))
+        // No sum at all: nothing to book.
+        notUnderstood(map(item("transfer", null, null, account = rub.id, to = rub2.id)))
+        notUnderstood(map(item("transfer", null, null, account = rub.id, to = rub2.id, toAmount = "0")))
+    }
+
+    @Test
     fun aTransferNeedsSomewhereElseToGo() {
         notUnderstood(one(item("transfer", "10", "GEL", account = gel.id)))
         notUnderstood(one(item("transfer", "10", "GEL", account = gel.id, to = gel.id)))

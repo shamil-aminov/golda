@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- A spoken transfer with one sum ("погасил кредитку 15 тысяч с карты") is
+  booked: the prompt now says one sum is what was sent, and when the model
+  still gives it as what arrived, between accounts in one currency the app
+  takes it as both. Found by the Gemini evals (29 of 31 phrases right).
 - Settings keeps its place while Theme is open over it, and forgets it once
   closed. Pages slide in from the right going deeper and back out going back,
   as in Android's own settings.

@@ -68,7 +68,8 @@ object VoicePrompt {
             Правила:
             - Каждая трата, доход или перевод — отдельный элемент items. «Кофе 8 и круассан 6» — два расхода.
             - Если человек оговорился и поправился («15 бат, ой, лари»), бери исправленное.
-            - Перевод между своими счетами или снятие наличных — transfer: account_id откуда, to_account_id куда, to_amount — сколько пришло, если сказано.
+            - Перевод между своими счетами или снятие наличных — transfer: account_id откуда, to_account_id куда, amount — сколько ушло (у перевода всегда есть amount), to_amount — сколько пришло, только если это вторая сумма, сказанная отдельно. Одна названная сумма — это amount.
+            - «40 тысяч», «полторы тысячи», «15 тыс» — это "40000", "1500", "15000".
             - amount и to_amount — число строкой с точкой: "15", "1500.5". Дробные суммы: «10.50», «10,50», «10 запятая 50», «10 лари 50 тетри» — это "10.5", а не "1050". «70 тетри» — "0.7". Валюта — код ISO: лари GEL, бат THB, доллар/бакс USD, рубль RUB, евро EUR. Не названа — null.
             - account_id только из списка выше и только если счёт явно назван или однозначно следует из сказанного («наличкой», «с кредитки»), иначе null.
             - category — ключ из списка или null, у каждого элемента свой, даже когда в одной фразе несколько покупок. note — коротко, что купил, с маленькой буквы.
@@ -170,9 +171,17 @@ object VoiceMapper {
             }
 
             "transfer" -> {
-                if (amount == null) return VoiceAction.NotUnderstood(transcript)
                 val from = named(item.accountId) ?: pick(accounts, currency, settings, spentFrom) ?: return VoiceAction.NotUnderstood(transcript)
                 val to = named(item.toAccountId)?.takeIf { it.id != from.id } ?: return VoiceAction.NotUnderstood(transcript)
+                if (amount == null) {
+                    // One sum said and the model put it as what arrived ("погасил кредитку 15 тысяч"):
+                    // between accounts in one currency what arrived is what was sent.
+                    val only = item.toAmount?.let { Fmt.parseMinor(it, to.currency) }?.takeIf { it > 0 && to.currency == from.currency }
+                        ?: return VoiceAction.NotUnderstood(transcript)
+                    return VoiceAction.Record(
+                        Draft(OpType.TRANSFER, timestamp, from.id, only, toAccountId = to.id, toAmountMinor = only, note = note, voiceText = transcript),
+                    )
+                }
                 val sent = if (from.currency == currency) amount else rates.convert(amount, currency, from.currency)
                     ?: return VoiceAction.NotUnderstood(transcript)
                 val received = item.toAmount?.let { Fmt.parseMinor(it, to.currency) }?.takeIf { it > 0 }
