@@ -359,9 +359,25 @@ private fun MainScreen(
                     onAddKey = { page = Page.Settings },
                     onReview = { done ->
                         scope.launch {
-                            repo.review(period).fold(
-                                { id -> done(null); page = Page.ReviewPage(id, current.from, current.to) },
-                                { done(it.message) },
+                            val result = repo.review(period)
+                            // Still waiting on this screen: open it. Gone elsewhere meanwhile: don't pull
+                            // them away, say it's ready and let them open it.
+                            val waiting = page == current
+                            result.fold(
+                                { id ->
+                                    done(null)
+                                    val open = Page.ReviewPage(id, current.from, current.to)
+                                    if (waiting) {
+                                        page = open
+                                    } else {
+                                        val tapped = snackbar.showSnackbar(tr("Разбор готов", "The review is ready"), actionLabel = tr("Открыть", "Open"), duration = SnackbarDuration.Long)
+                                        if (tapped == SnackbarResult.ActionPerformed) page = open
+                                    }
+                                },
+                                { error ->
+                                    done(error.message)
+                                    if (!waiting) snackbar.showSnackbar(tr("Разбор не получился", "The review didn't work out"))
+                                },
                             )
                         }
                     },

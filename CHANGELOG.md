@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   mic inside it, a separate send button that appears once something is typed,
   and a stop button while the answer is coming. A tap anywhere on the field
   starts typing.
+- **A review that finishes while you're elsewhere no longer pulls you to it.**
+  A note says it's ready, with "Открыть" to go there. If you're still waiting on
+  the reviews screen, it opens as before.
 
 ## [0.17.3] — 2026-11-03
 
