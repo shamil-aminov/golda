@@ -321,6 +321,10 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
         val roomy = remember(tiles, density) {
             tiles.associate { t -> t.index to with(density) { t.width.toDp() >= wordsW && t.height.toDp() >= wordsH } }
         }
+        // Room for the share alone ("8 %"), grown with the font scale: a small tile still says how big it is.
+        val shareRoom = remember(tiles, density) {
+            tiles.associate { t -> t.index to with(density) { t.width.toDp() >= 56.dp * density.fontScale && t.height.toDp() >= 44.dp * density.fontScale } }
+        }
         Column {
             Box(Modifier.fillMaxWidth().height(260.dp)) {
                 tiles.forEachIndexed { order, tile ->
@@ -352,6 +356,8 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
                                 Text(item.amount, style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontWeight = FontWeight.Bold), color = ink, maxLines = 1)
                                 Text(wholePercent(item.rub.toDouble() / total), style = MaterialTheme.typography.labelLarge, color = ink.copy(alpha = 0.9f), maxLines = 1)
                             }
+                        } else if (shareRoom[tile.index] == true) {
+                            Text(wholePercent(item.rub.toDouble() / total), style = MaterialTheme.typography.labelLarge.merge(Tnum), color = ink, maxLines = 1)
                         }
                     }
                 }

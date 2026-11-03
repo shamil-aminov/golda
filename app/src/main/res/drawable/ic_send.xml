@@ -1,0 +1,12 @@
+<!-- Iconoteka (MIT, Oleg Turbaba): arrow_left r-s, turned to point up: send a question. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group android:rotation="90" android:pivotX="12" android:pivotY="12">
+        <path
+            android:fillColor="#FF000000"
+            android:pathData="M11.5755 4.1748L4.50049 11.0248H23.3255V12.9748H4.50049L11.5755 19.8248L10.2005 21.1998L1.00049 11.9998L10.2005 2.7998L11.5755 4.1748Z" />
+    </group>
+</vector>

@@ -367,7 +367,13 @@ private fun MainScreen(
                 val reviews by repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList())
                 val back = { page = Page.Reviews(current.from, current.to) }
                 reviews.firstOrNull { it.id == current.id }?.let { review ->
-                    ReviewScreen(review, onBack = back, onDelete = { back(); scope.launch { repo.deleteReview(review.id) } })
+                    val messages by remember(review.id) { repo.messages(review.id) }.collectAsStateWithLifecycle(initialValue = emptyList())
+                    ReviewScreen(
+                        review, messages,
+                        onBack = back,
+                        onDelete = { back(); scope.launch { repo.deleteReview(review.id) } },
+                        onAsk = { question, done -> scope.launch { done(repo.ask(review.id, question).exceptionOrNull()?.message) } },
+                    )
                 }
             }
             is Page.AccountPage -> AccountScreen(

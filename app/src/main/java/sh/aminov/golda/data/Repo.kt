@@ -2,6 +2,7 @@ package sh.aminov.golda.data
 
 import android.content.Context
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -137,7 +138,36 @@ class Repo(
 
     val reviews = dao.reviews()
 
-    suspend fun deleteReview(id: Long) = write { dao.deleteReview(id) }
+    suspend fun deleteReview(id: Long) = write { dao.deleteMessages(id); dao.deleteReview(id) }
+
+    /** The talk under a review, oldest first. */
+    fun messages(reviewId: Long): Flow<List<ReviewMessage>> = dao.messages(reviewId)
+
+    /**
+     * Asks Gemini about a review's period: the question is kept at once, the answer once it comes.
+     * The period's data are worked out again, so the answer knows what the review knew and anything
+     * recorded since. A failure says what went wrong in words; the question stays to ask again.
+     */
+    suspend fun ask(reviewId: Long, question: String): Result<Unit> {
+        val key = settings.geminiKey() ?: return Result.failure(IllegalStateException(tr("Нужен ключ Gemini в настройках", "Add a Gemini key in settings")))
+        val review = dao.review(reviewId) ?: return Result.failure(IllegalStateException(tr("Разбор удалён", "The review is gone")))
+        val earlier = dao.messagesNow(reviewId).map { it.fromUser to it.text }
+        write { dao.insertMessage(ReviewMessage(reviewId = reviewId, fromUser = true, text = question.trim(), createdAt = System.currentTimeMillis())) }
+        val s = settings.flow.first()
+        val zone = ZoneId.systemDefault()
+        val period = Period(LocalDate.ofEpochDay(review.fromDay), LocalDate.ofEpochDay(review.toDay))
+        val data = ReviewPrompt.data(
+            period, dao.operationsSince(0), dao.accountsNow().associateBy { it.id }, dao.categoriesNow().associateBy { it.id },
+            ratesNow(), LocalDate.now(zone), zone, dao.obligationsNow(),
+        )
+        val answer = try {
+            Gemini.chat(ReviewPrompt.chatSystem, ReviewPrompt.turns(data, review.text, earlier, question), key, s.reviewModel)
+        } catch (e: GeminiException) {
+            return Result.failure(IllegalStateException(e.message ?: tr("Gemini не ответил", "Gemini did not answer")))
+        }
+        write { dao.insertMessage(ReviewMessage(reviewId = reviewId, fromUser = false, text = answer, createdAt = System.currentTimeMillis())) }
+        return Result.success(Unit)
+    }
 
     /**
      * Asks Gemini for a review of [period] and keeps it. The figures are worked out here

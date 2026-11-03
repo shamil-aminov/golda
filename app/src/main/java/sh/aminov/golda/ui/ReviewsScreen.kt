@@ -55,6 +55,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import sh.aminov.golda.R
+import sh.aminov.golda.data.ReviewMessage
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.imePadding
 import sh.aminov.golda.data.Review
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.ReviewPrompt
@@ -173,13 +176,37 @@ private fun preview(text: String): String = text.lines()
     .drop(1)
     .joinToString(" ")
 
-/** One review, as a document: its Markdown with headings, points and bold figures. */
+/**
+ * One review, as a document: its Markdown with headings, points and bold figures, and under it a talk
+ * about the same period: ask "сколько я сэкономил бы без такси" and Gemini answers from the data.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReviewScreen(review: Review, onBack: () -> Unit, onDelete: () -> Unit) {
+fun ReviewScreen(
+    review: Review,
+    messages: List<ReviewMessage>,
+    onBack: () -> Unit,
+    onDelete: () -> Unit,
+    /** Asks; [onDone] gets null, or what went wrong in words. */
+    onAsk: (question: String, onDone: (String?) -> Unit) -> Unit,
+) {
     BackHandler(onBack = onBack)
     val page = MaterialTheme.colorScheme.background
-    // Like the list it opens from: a plain bar with back, and delete at its end.
+    var question by remember { mutableStateOf("") }
+    var working by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scroll = rememberScrollState()
+    // A new question or answer scrolls into view.
+    LaunchedEffect(messages.size, working) { if (messages.isNotEmpty() || working) scroll.animateScrollTo(scroll.maxValue) }
+    fun send() {
+        val q = question.trim()
+        if (q.isEmpty() || working) return
+        working = true
+        error = null
+        question = ""
+        onAsk(q) { problem -> working = false; error = problem }
+    }
+    // Like the list it opens from: a plain bar with back, and delete at its end; the question at the bottom.
     Scaffold(
         topBar = {
             TopAppBar(
@@ -189,11 +216,46 @@ fun ReviewScreen(review: Review, onBack: () -> Unit, onDelete: () -> Unit) {
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
             )
         },
+        bottomBar = {
+            Row(
+                Modifier.fillMaxWidth().background(page).imePadding().navigationBarsPadding().padding(Gap.m),
+                horizontalArrangement = Arrangement.spacedBy(Gap.s),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TonalField(
+                    question, { question = it }, Modifier.weight(1f),
+                    placeholder = tr("Спросить про эти траты", "Ask about this spending"),
+                    onDone = ::send,
+                )
+                RoundAction(R.drawable.ic_send, tr("Спросить", "Ask"), ::send)
+            }
+        },
     ) { padding ->
-        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.l).padding(bottom = Gap.l)) {
+        Column(Modifier.padding(padding).verticalScroll(scroll).padding(horizontal = Gap.l).padding(bottom = Gap.l)) {
             Markdown(review.text)
             VSpace(Gap.l)
             Text(tr("Gemini, ", "Gemini, ") + written(review), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            messages.forEach { message ->
+                VSpace(Gap.l)
+                if (message.fromUser) {
+                    // The question on the right, in a card, as in any chat.
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+                        Surface(shape = RoundedCornerShape(20.dp), color = tileColor(), modifier = Modifier.padding(start = Gap.xl)) {
+                            Text(message.text, Modifier.padding(horizontal = Gap.m, vertical = Gap.s + 4.dp), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                } else {
+                    Markdown(message.text)
+                }
+            }
+            if (working) {
+                VSpace(Gap.l)
+                Caption(tr("Gemini думает", "Gemini is thinking"))
+            }
+            error?.let {
+                VSpace(Gap.m)
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }

@@ -33,6 +33,23 @@ object ReviewPrompt {
         Числа бери только из данных, сам ничего не досчитывай, кроме простых долей и разниц. Суммы в рублях с пробелами между тысячами, «₽» после числа. До 350 слов. Без вступления и без заключения. Без длинных тире, многоточий и сокращений с точкой: пиши словами.
     """.trimIndent()
 
+    /** How Gemini answers questions under a review: about these data, briefly, showing its sums. */
+    val chatSystem = """
+        Ты финансовый аналитик одного человека и уже написал разбор его трат за период. Теперь он задаёт вопросы по этим тратам.
+        Отвечай по-русски, на «ты», коротко: 2–6 предложений или короткий список, без вступлений. Markdown можно.
+        Опирайся только на данные периода из первого сообщения. Если считаешь, показывай расчёт одной строкой: «кофе 23 раза, в среднем 450 ₽, всего 10 350 ₽». Если для ответа данных нет, так и скажи.
+        Про «сколько сэкономил бы» считай по фактическим тратам периода и, если просят, в пересчёте на месяц или год, с пометкой, что это оценка.
+        Суммы в рублях с пробелами между тысячами, «₽» после числа. Без длинных тире и многоточий.
+    """.trimIndent()
+
+    /**
+     * The talk as Gemini reads it, oldest first: the period's data with the request for a review,
+     * the review written then, every question and answer since, and the new [question].
+     * True is a turn of the person's, false one of the model's.
+     */
+    fun turns(data: String, review: String, earlier: List<Pair<Boolean, String>>, question: String): List<Pair<Boolean, String>> =
+        listOf(true to "Данные периода:\n\n$data\n\nНапиши разбор.", false to review) + earlier + (true to question.trim())
+
     private val day = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))
     private val weekdays = listOf("пн", "вт", "ср", "чт", "пт", "сб", "вс")
 

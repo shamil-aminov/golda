@@ -289,6 +289,21 @@ object Gemini {
         replyText(call(body, key, model)).trim()
     }
 
+    /**
+     * A reply in a talk: [turns] oldest first, true for the person, false for the model. Throws only
+     * [GeminiException], like [parse].
+     */
+    suspend fun chat(system: String, turns: List<Pair<Boolean, String>>, key: String, model: String): String = withContext(Dispatchers.IO) {
+        val contents = JSONArray()
+        turns.forEach { (fromUser, text) ->
+            contents.put(JSONObject().put("role", if (fromUser) "user" else "model").put("parts", JSONArray().put(JSONObject().put("text", text))))
+        }
+        val body = JSONObject()
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+            .put("contents", contents)
+        replyText(call(body, key, model)).trim()
+    }
+
     /** One generateContent request; the raw reply body, or [GeminiException]. */
     private fun call(body: JSONObject, key: String, model: String): String {
         val url = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").toURL()

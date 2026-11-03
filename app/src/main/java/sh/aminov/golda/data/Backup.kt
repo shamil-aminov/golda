@@ -37,6 +37,8 @@ data class Backup(
     val wishes: List<Wish>,
     /** Gemini's reviews; a file from before them has none. */
     val reviews: List<Review> = emptyList(),
+    /** The talks under the reviews; a file from before them has none. */
+    val reviewMessages: List<ReviewMessage> = emptyList(),
 )
 
 /** The file format: unknown keys are skipped and missing ones take their defaults, so older files still load. */
@@ -68,6 +70,7 @@ class Backups(private val db: GoldaDb, private val settings: SettingsStore) {
             goals = dao.goalsNow(),
             wishes = dao.wishesAll(),
             reviews = dao.reviewsAll(),
+            reviewMessages = dao.messagesAll(),
         )
         return BackupFormat.encode(backup)
     }
@@ -89,6 +92,7 @@ class Backups(private val db: GoldaDb, private val settings: SettingsStore) {
             dao.clearCategories()
             dao.clearRates()
             dao.clearReviews()
+            dao.clearMessages()
             dao.insertCategories(backup.categories)
             dao.insertAccounts(backup.accounts)
             dao.insertOperations(backup.operations)
@@ -98,6 +102,7 @@ class Backups(private val db: GoldaDb, private val settings: SettingsStore) {
             dao.insertGoals(backup.goals)
             dao.insertWishes(backup.wishes)
             dao.insertReviews(backup.reviews)
+            dao.insertMessages(backup.reviewMessages)
         }
         settings.update { current -> backup.settings.copy(hasGeminiKey = current.hasGeminiKey, onboarded = true) }
         return backup

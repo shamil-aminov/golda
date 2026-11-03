@@ -77,8 +77,10 @@ loud is the moment you notice you are spending.
 - **Insights.** Spending by category as a mosaic sized by share, by day as
   bars stacked by category, the average per day, income, and how much currency
   exchange cost you against the CBR rate.
-- **Reviews.** Gemini reads a period's spending and writes a short note on
-  where the money went and what could be cut. Reviews are kept and backed up.
+- **Reviews.** Gemini reads a period's spending and points out habits you
+  don't see yourself, with the numbers behind them, and you can ask it
+  follow-up questions ("how much would I save without taxis?"). Reviews and
+  the talks under them are kept and backed up.
 - **Reconcile** any account against the bank, with a Sunday reminder.
 - **Backup** everything to one JSON file and restore from it.
 - **Themes.** Eleven ready palettes, two of them made for colour-vision

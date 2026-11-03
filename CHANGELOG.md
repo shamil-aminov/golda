@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Ask about a review.** Under a review, a question field: "сколько я
+  сэкономил бы без такси?" Gemini answers from the period's data, briefly,
+  showing its sums. The talk is kept with the review and goes into backups.
+
+### Changed
+
+- Small mosaic tiles say their share ("8 %") when it fits.
+
 ## [0.17.1] — 2026-11-03
 
 ### Added

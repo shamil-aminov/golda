@@ -127,6 +127,17 @@ data class Review(
     val text: String,
 )
 
+/** One turn of the talk under a [Review]: a question asked, or Gemini's answer to it. */
+@Entity(indices = [Index("reviewId")])
+@Serializable
+data class ReviewMessage(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val reviewId: Long,
+    val fromUser: Boolean,
+    val text: String,
+    val createdAt: Long,
+)
+
 /** A purchase put on hold to think about. */
 @Entity
 @Serializable

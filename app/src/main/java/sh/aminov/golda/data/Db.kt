@@ -132,6 +132,19 @@ interface GoldaDao {
     @Insert suspend fun insertReview(review: Review): Long
     @Insert suspend fun insertReviews(items: List<Review>)
     @Query("DELETE FROM Review WHERE id = :id") suspend fun deleteReview(id: Long)
+
+    @Query("SELECT * FROM ReviewMessage WHERE reviewId = :reviewId ORDER BY createdAt, id")
+    fun messages(reviewId: Long): Flow<List<ReviewMessage>>
+
+    @Query("SELECT * FROM ReviewMessage WHERE reviewId = :reviewId ORDER BY createdAt, id")
+    suspend fun messagesNow(reviewId: Long): List<ReviewMessage>
+
+    @Query("SELECT * FROM ReviewMessage") suspend fun messagesAll(): List<ReviewMessage>
+    @Insert suspend fun insertMessage(message: ReviewMessage): Long
+    @Insert suspend fun insertMessages(items: List<ReviewMessage>)
+    @Query("DELETE FROM ReviewMessage WHERE reviewId = :reviewId") suspend fun deleteMessages(reviewId: Long)
+    @Query("DELETE FROM ReviewMessage") suspend fun clearMessages()
+    @Query("SELECT * FROM Review WHERE id = :id") suspend fun review(id: Long): Review?
     @Query("DELETE FROM Review") suspend fun clearReviews()
 
     @Upsert
@@ -183,9 +196,9 @@ interface GoldaDao {
 }
 
 @Database(
-    entities = [Account::class, Category::class, Operation::class, Posting::class, Rate::class, Obligation::class, Goal::class, Wish::class, Review::class],
-    version = 7,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7)],
+    entities = [Account::class, Category::class, Operation::class, Posting::class, Rate::class, Obligation::class, Goal::class, Wish::class, Review::class, ReviewMessage::class],
+    version = 8,
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6), AutoMigration(from = 6, to = 7), AutoMigration(from = 7, to = 8)],
 )
 abstract class GoldaDb : RoomDatabase() {
     abstract fun dao(): GoldaDao
