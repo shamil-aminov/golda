@@ -6,6 +6,7 @@ import sh.aminov.golda.data.Obligation
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.math.roundToLong
 
 /** What paying [extraMinor] early does to an annuity loan, both ways banks offer it. */
 data class Prepay(
@@ -82,26 +83,23 @@ object Debts {
      * Which debt to pay off first: the most expensive one, and whether paying
      * it beats keeping the money on the best savings account.
      */
+    /**
+     * One line under the total: what the dearest debt's interest eats this month, on what is owed now.
+     * It is the interest part of the payment, so it shrinks with every early repayment. Rounded to
+     * hundreds: it is a feel, not a statement.
+     */
     fun advice(accounts: List<Account>, states: Map<Long, AccountState>): String? {
-        val debts = accounts.filter { it.isDebt && it.interestRate != null && (states[it.id]?.balanceMinor ?: 0) < 0 }
-            .sortedByDescending { it.interestRate }
-        val top = debts.firstOrNull() ?: return null
-        val rate = top.interestRate!!
-        val savings = accounts.filter { it.type == AccountType.SAVINGS && it.interestRate != null }.maxByOrNull { it.interestRate!! }
-        return when {
-            savings != null && rate > savings.interestRate!! -> tr(
-                "«${top.name}» стоит ${Fmt.number(rate, 1)} % — дороже, чем приносит «${savings.name}» (${Fmt.number(savings.interestRate, 1)} %). Лишние деньги выгоднее пустить на него.",
-                "“${top.name}” costs ${Fmt.number(rate, 1)} %, more than “${savings.name}” earns (${Fmt.number(savings.interestRate, 1)} %). Spare money does more paying it off.",
-            )
-            savings != null -> tr(
-                "«${savings.name}» приносит ${Fmt.number(savings.interestRate!!, 1)} %, больше ставки по долгам. Досрочно гасить невыгодно.",
-                "“${savings.name}” earns ${Fmt.number(savings.interestRate!!, 1)} %, more than your debts cost. Paying early does not pay.",
-            )
-            debts.size > 1 -> tr(
-                "Сначала гаси «${top.name}»: у него самая высокая ставка, ${Fmt.number(rate, 1)} %.",
-                "Pay off “${top.name}” first: it has the highest rate, ${Fmt.number(rate, 1)} %.",
-            )
-            else -> null
+        val top = accounts.filter { it.isDebt && it.interestRate != null && (states[it.id]?.balanceMinor ?: 0) < 0 }
+            .maxByOrNull { it.interestRate!! } ?: return null
+        val owed = -states.getValue(top.id).balanceMinor
+        val interest = monthlyInterest(owed, top.interestRate!!).let { if (it >= 100_000) (it + 5_000) / 10_000 * 10_000 else it }
+        val what = when (top.type) {
+            AccountType.CREDIT -> tr("по кредитке", "on the credit card")
+            else -> tr("по кредиту", "on the loan")
         }
+        return tr("Проценты $what ≈ ${Fmt.amount(interest, top.currency)} в месяц", "Interest $what ≈ ${Fmt.amount(interest, top.currency)} a month")
     }
+
+    /** A month's interest on [owedMinor] at a yearly [ratePercent]. */
+    fun monthlyInterest(owedMinor: Long, ratePercent: Double): Long = (owedMinor * ratePercent / 100 / 12).roundToLong()
 }

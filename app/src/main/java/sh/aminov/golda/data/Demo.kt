@@ -73,32 +73,32 @@ object Demo {
         repo.save(Draft(OpType.TRANSFER, now - 12 * day + 2 * hour, rub, 7_360_000, toAccountId = usd, toAmountMinor = 80_000, note = "Перевод за границу"))
         repo.save(Draft(OpType.TRANSFER, now - 11 * day, usd, 60_000, toAccountId = gel, toAmountMinor = 160_800, note = "Обмен в приложении банка"))
         repo.save(Draft(OpType.TRANSFER, now - 10 * day, usd, 10_000, toAccountId = cash, toAmountMinor = 26_500, note = "Банкомат"))
-        repo.save(Draft(OpType.EXPENSE, now - 10 * day, usd, 300, categoryId = category["fees"], note = "Комиссия банкомата"))
+        repo.save(Draft(OpType.EXPENSE, now - 10 * day, usd, 300, categoryId = category["other"], note = "Комиссия банкомата"))
 
         val days = listOf(
             expense(now - 9 * day, gel, 90_000, "housing", "Аренда"),
             expense(now - 9 * day, rub, 69_900, "subscriptions", "Музыка и облако"),
-            expense(now - 8 * day, gel, 6_420, "groceries", "Продукты"),
-            expense(now - 8 * day, cash, 1_500, "eating_out", "Хачапури"),
+            expense(now - 8 * day, gel, 6_420, "food", "Продукты"),
+            expense(now - 8 * day, cash, 1_500, "food", "Хачапури"),
             expense(now - 7 * day, gel, 3_500, "telecom", "Мобильный интернет"),
             expense(now - 7 * day, cash, 800, "transport", "Метро"),
-            expense(now - 6 * day, gel, 4_800, "eating_out", "Ужин"),
-            expense(now - 5 * day, gel, 8_960, "groceries", "Продукты"),
-            expense(now - 5 * day, cash, 2_000, "fun", "Музей"),
+            expense(now - 6 * day, gel, 4_800, "food", "Ужин"),
+            expense(now - 5 * day, gel, 8_960, "food", "Продукты"),
+            expense(now - 5 * day, cash, 2_000, "treats", "Музей"),
             expense(now - 4 * day, gel, 1_200, "transport", "Такси"),
-            expense(now - 3 * day, gel, 12_500, "clothes", "Куртка"),
-            expense(now - 3 * day, cash, 900, "eating_out", "Кофе"),
-            expense(now - 2 * day, gel, 5_230, "groceries", "Продукты"),
+            expense(now - 3 * day, gel, 12_500, "shopping", "Куртка"),
+            expense(now - 3 * day, cash, 900, "food", "Кофе"),
+            expense(now - 2 * day, gel, 5_230, "food", "Продукты"),
             expense(now - 1 * day, gel, 4_500, "health", "Аптека"),
-            expense(now - 1 * day, cash, 1_800, "eating_out", "Обед"),
-            expense(now - 3 * hour, cash, 1_500, "eating_out", "Шаурма"),
-            expense(now - 1 * hour, cash, 800, "eating_out", "Кофе"),
+            expense(now - 1 * day, cash, 1_800, "food", "Обед"),
+            expense(now - 3 * hour, cash, 1_500, "food", "Шаурма"),
+            expense(now - 1 * hour, cash, 800, "food", "Кофе"),
         )
         days.forEach { repo.save(it) }
         // A purchase in lari charged to the dollar card: the charge is the app's estimate.
         repo.save(
             Draft(
-                OpType.EXPENSE, now - day - 4 * hour, usd, 1_899, categoryId = category["groceries"], note = "Рынок",
+                OpType.EXPENSE, now - day - 4 * hour, usd, 1_899, categoryId = category["food"], note = "Рынок",
                 purchaseAmountMinor = 4_850, purchaseCurrency = "GEL", isEstimate = true,
             ),
         )

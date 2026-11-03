@@ -89,11 +89,13 @@ object VoiceMapper {
         zone: ZoneId,
         /** Categories of earlier entries by their note, for an item the model left without one ([history]). */
         history: Map<String, Long> = emptyMap(),
+        /** Expenses per account, for the account a purchase in a currency comes from ([pick]). */
+        spentFrom: Map<Long, Int> = emptyMap(),
     ): List<VoiceAction> {
         if (result.items.isEmpty()) return listOf(VoiceAction.NotUnderstood(result.transcript))
         val said = SpokenAmounts.parse(result.transcript)
         val single = result.items.size == 1
-        return result.items.map { item -> action(item, result.transcript, said, single, accounts, categories, settings, rates, recordedAt, zone, history) }
+        return result.items.map { item -> action(item, result.transcript, said, single, accounts, categories, settings, rates, recordedAt, zone, history, spentFrom) }
     }
 
     /**
@@ -117,6 +119,7 @@ object VoiceMapper {
         recordedAt: Long,
         zone: ZoneId,
         history: Map<String, Long>,
+        spentFrom: Map<Long, Int>,
     ): VoiceAction {
         val byId = accounts.associateBy { it.id }
         fun named(id: String?) = id?.toLongOrNull()?.let { byId[it] }
@@ -135,7 +138,7 @@ object VoiceMapper {
         return when (item.intent) {
             "expense" -> {
                 if (amount == null) return VoiceAction.NotUnderstood(transcript)
-                val account = named(item.accountId) ?: pick(accounts, currency, settings) ?: return VoiceAction.NotUnderstood(transcript)
+                val account = named(item.accountId) ?: pick(accounts, currency, settings, spentFrom) ?: return VoiceAction.NotUnderstood(transcript)
                 if (account.currency == currency) {
                     VoiceAction.Record(Draft(OpType.EXPENSE, timestamp, account.id, amount, categoryId = categoryId, note = note, isEstimate = doubtful, voiceText = transcript))
                 } else {
@@ -151,7 +154,7 @@ object VoiceMapper {
 
             "income" -> {
                 if (amount == null) return VoiceAction.NotUnderstood(transcript)
-                val account = named(item.accountId) ?: pick(accounts, currency, settings) ?: return VoiceAction.NotUnderstood(transcript)
+                val account = named(item.accountId) ?: pick(accounts, currency, settings, spentFrom) ?: return VoiceAction.NotUnderstood(transcript)
                 if (account.currency == currency) {
                     VoiceAction.Record(Draft(OpType.INCOME, timestamp, account.id, amount, categoryId = categoryId, note = note, isEstimate = doubtful, voiceText = transcript))
                 } else {
@@ -168,7 +171,7 @@ object VoiceMapper {
 
             "transfer" -> {
                 if (amount == null) return VoiceAction.NotUnderstood(transcript)
-                val from = named(item.accountId) ?: pick(accounts, currency, settings) ?: return VoiceAction.NotUnderstood(transcript)
+                val from = named(item.accountId) ?: pick(accounts, currency, settings, spentFrom) ?: return VoiceAction.NotUnderstood(transcript)
                 val to = named(item.toAccountId)?.takeIf { it.id != from.id } ?: return VoiceAction.NotUnderstood(transcript)
                 val sent = if (from.currency == currency) amount else rates.convert(amount, currency, from.currency)
                     ?: return VoiceAction.NotUnderstood(transcript)
@@ -190,19 +193,31 @@ object VoiceMapper {
     }
 
     /**
-     * The account a phrase most likely means when it names none: the last one
-     * used if it is in the right currency, else a free-money account in that
-     * currency, else the last one used anyway (the purchase is then converted).
+     * The account a purchase in [currency] most likely comes from when none is named: the last one
+     * used if it is in that currency; else, in that currency, the one most expenses came from, then
+     * one counted for spending, then any that is not a debt, then a credit card; else the last one
+     * used anyway (the purchase is then converted), else the first spendable one.
      */
-    fun pick(accounts: List<Account>, currency: String, settings: Settings): Account? {
+    fun pick(accounts: List<Account>, currency: String, settings: Settings, spentFrom: Map<Long, Int> = emptyMap()): Account? {
         val last = settings.lastAccountId?.let { id -> accounts.firstOrNull { it.id == id } }
+        val inCurrency = accounts.filter { it.currency == currency && it.type != AccountType.LOAN }
         val spendable = accounts.filter { it.includeInFree || it.type == AccountType.CREDIT }
         return last?.takeIf { it.currency == currency }
-            ?: spendable.firstOrNull { it.currency == currency }
+            ?: inCurrency.filter { (spentFrom[it.id] ?: 0) > 0 }.maxByOrNull { spentFrom.getValue(it.id) }
+            ?: inCurrency.firstOrNull { it.includeInFree }
+            ?: inCurrency.firstOrNull { it.type != AccountType.CREDIT }
+            ?: inCurrency.firstOrNull()
             ?: last
             ?: spendable.firstOrNull()
             ?: accounts.firstOrNull()
     }
+
+    /** How many expenses came from each account: what [pick] goes by. */
+    fun spentFrom(operations: List<OperationFull>): Map<Long, Int> = operations
+        .filter { it.op.type == OpType.EXPENSE }
+        .flatMap { it.postings }
+        .groupingBy { it.accountId }
+        .eachCount()
 
     private fun timestamp(date: String?, recordedAt: Long, zone: ZoneId): Long {
         val day = date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: return recordedAt

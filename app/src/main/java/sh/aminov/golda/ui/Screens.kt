@@ -22,6 +22,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -48,6 +58,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.OperationFull
@@ -65,70 +76,87 @@ fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + G
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun HomeScreen(data: AppData, padding: PaddingValues, listState: LazyListState, onSettings: () -> Unit, onEdit: (OperationFull) -> Unit) {
+fun HomeScreen(
+    data: AppData,
+    padding: PaddingValues,
+    listState: LazyListState,
+    onSettings: () -> Unit,
+    onPeriod: () -> Unit,
+    onEdit: (OperationFull) -> Unit,
+) {
     val today = data.today
-    val budget = data.budget
+    val envelope = data.envelope
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = padding.aboveActions()) {
         item(key = "hero") {
-            // One vivid tile holds the day: the number, how much of it is left, and how long it has to last.
-            // Spent past the budget, the whole tile turns to the error container.
-            val over = budget.leftTodayRub < 0
+            // One vivid tile holds the day: what may go today, what is on the card until when, and
+            // whether it lasts at the pace it actually goes. Spent past today's share, the whole tile
+            // turns to the error container.
+            // Spent past today's share, or nothing left on the card at all.
+            val over = envelope != null && (envelope.leftTodayMinor < 0 || envelope.balanceMinor <= 0)
             val scheme = MaterialTheme.colorScheme
             val ink = if (over) scheme.onErrorContainer else scheme.onPrimaryFixed
             val quiet = if (over) scheme.onErrorContainer else scheme.onPrimaryFixedVariant
+            // Two kinds of type on the tile and no more: the big number, and one style in one colour for
+            // every word around it.
+            val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
             HeroTile(
                 Modifier.padding(horizontal = Gap.m),
                 container = if (over) scheme.errorContainer else scheme.primaryFixed,
                 content = ink,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Caption(tr("Можно сегодня", "Safe to spend today"), Modifier.weight(1f), color = quiet)
+                    Text(tr("Можно сегодня", "Safe to spend today"), Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
                     IconButton(onClick = onSettings, modifier = Modifier.overhang()) {
                         Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = quiet)
                     }
                 }
-                VSpace(Gap.xs)
-                // Whole units of the main currency only, as big as the tile allows; the rest of the
-                // shown currencies under it.
-                val base = data.base
-                BigNumber(base.whole(budget.leftTodayRub), base.minor(budget.leftTodayRub), ink, Modifier.testTag(Tags.HOME_BIG))
-                Text(data.others(budget.leftTodayRub, base.code), Modifier.testTag(Tags.HOME_OTHERS), style = MaterialTheme.typography.bodyLarge.merge(Tnum), color = quiet)
+                // No account to spend from (or the data is still loading): the tile stays quiet.
+                if (envelope == null) return@HeroTile
+                // The card's currency. Spacing: 8 between a caption and what it names, 16 between blocks,
+                // 4 between the two lines that say one thing.
+                val code = envelope.currency
+                val left = envelope.leftTodayMinor
+                VSpace(Gap.s)
+                HeroAmount(whole(left, code), ink, Modifier.testTag(Tags.HOME_BIG))
                 VSpace(Gap.m)
-                // What is still left of today's budget, like the number above; flat and full once it is spent.
-                val left = when {
+                // What is still left of today's share; flat and full once it is spent.
+                val share = when {
                     over -> 1f
-                    budget.limitRub > 0 -> (budget.leftTodayRub.toFloat() / budget.limitRub).coerceIn(0f, 1f)
+                    envelope.perDayMinor > 0 -> (left.toFloat() / envelope.perDayMinor).coerceIn(0f, 1f)
                     else -> 0f
                 }
                 // The tile's quiet ink, not black: a black line with no visible track reads as a divider.
-                WavyBar(left, ink = quiet, hero = true, flat = over || left >= 1f)
-                VSpace(Gap.s)
-                val body = MaterialTheme.typography.bodyMedium.merge(Tnum)
-                // What the bar is measured against: the limit set, or the usual pace while none is.
-                Text(
-                    when {
-                        budget.limitRub <= 0 -> tr("Лимит появится после первого дня трат", "The limit appears after the first day of spending")
-                        budget.autoLimit -> tr("${base.approx(budget.limitRub)} в день · как обычно", "${base.approx(budget.limitRub)} a day · as usual")
-                        else -> tr("${base.approx(budget.limitRub)} в день", "${base.approx(budget.limitRub)} a day")
-                    },
-                    style = body,
-                    color = quiet,
-                    maxLines = 1,
-                )
-                // How long the money lasts at this burn: the reserve over the pace plus the regular payments.
-                val runway = budget.runwayDays
-                if (runway != null && budget.reserveRub > 0) {
-                    val days = plural(runway, "день", "дня", "дней", "day", "days")
-                    val until = dayLabel(budget.runwayUntil(today)!!, today)
+                WavyBar(share, ink = quiet, hero = true, flat = over || share >= 1f)
+                VSpace(Gap.m)
+                // Looking ahead from today: the days still to get through, and the days the money lasts
+                // at the pace it really goes. Worked out again every day. A tap changes the period.
+                Column(Modifier.fillMaxWidth().clickable(onClick = onPeriod).testTag(Tags.HOME_PERIOD)) {
+                    val ahead = envelope.daysLeft
+                    fun days(n: Long) = plural(n, "день", "дня", "дней", "day", "days")
+                    // "из 13 дней", "из 21 дня": the genitive after "из".
+                    val ofDays = plural(ahead, "дня", "дней", "дней", "day", "days")
+                    val lasts = envelope.runwayDays
                     Text(
-                        tr("Запас ${base.approx(budget.reserveRub)} · хватит на $runway $days, до $until",
-                            "Reserve ${base.approx(budget.reserveRub)} · lasts $runway $days, until $until"),
-                        modifier = Modifier.testTag(Tags.HOME_RUNWAY),
-                        style = body,
+                        when {
+                            envelope.balanceMinor <= 0 -> tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go")
+                            ahead <= 1L -> tr("Последний день", "The last day")
+                            lasts == null -> tr("Впереди $ahead ${days(ahead)}", "$ahead ${days(ahead)} to go")
+                            envelope.lasts(today) -> (lasts - ahead).let { spare ->
+                                // A week or more to spare is worth saying; a day or two is noise.
+                                tr("Хватит на все $ahead ${days(ahead)}", "Lasts all $ahead ${days(ahead)}") + if (spare >= 7) ", +$spare" else ""
+                            }
+                            else -> tr("Хватит на $lasts из $ahead $ofDays", "Lasts $lasts of $ahead $ofDays")
+                        },
+                        Modifier.testTag(Tags.HOME_RUNWAY),
+                        style = text,
                         color = quiet,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
                     )
+                    VSpace(Gap.xs)
+                    // What a day was meant to be and what it actually is, in the same words and ink.
+                    val plan = tr("План ${whole(envelope.perDayMinor, code)} в день", "Plan ${whole(envelope.perDayMinor, code)} a day")
+                    val fact = envelope.burnMinor?.let { tr("факт ${whole(it, code)}", "actual ${whole(it, code)}") }
+                    Text(listOfNotNull(plan, fact).joinToString(" · "), style = text, color = quiet, maxLines = 1)
                 }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
@@ -176,14 +204,18 @@ fun AccountsScreen(
         item(key = "total") {
             // The total is the hero here, as big as Home's number.
             val scheme = MaterialTheme.colorScheme
+            // Like Home's tile: the big number, and one style in one colour for every word around it.
+            val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
+            val quiet = scheme.onPrimaryFixedVariant
             HeroTile(Modifier.padding(horizontal = Gap.m)) {
-                Caption(tr("Всего", "Total"), color = scheme.onPrimaryFixedVariant)
-                VSpace(Gap.xs)
-                BigNumber(data.base.whole(total), data.base.minor(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
-                Text(data.others(total, data.base.code), style = MaterialTheme.typography.bodyLarge.merge(Tnum), color = scheme.onPrimaryFixedVariant)
+                Text(tr("Всего", "Total"), style = text, color = quiet, maxLines = 1)
+                VSpace(Gap.s)
+                HeroAmount(data.base.whole(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
+                VSpace(Gap.s)
+                Text(data.others(total, data.base.code), style = text, color = quiet)
                 Debts.advice(data.accounts, data.states)?.let {
                     VSpace(Gap.m)
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = scheme.onPrimaryFixedVariant)
+                    Text(it, style = text, color = quiet)
                 }
             }
         }
@@ -305,11 +337,8 @@ private fun AccountRow(
         supporting = { Text(accountSubline(data, state), maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                RollingNumber(
-                    amount, state.balanceMinor,
-                    MaterialTheme.typography.headlineSmall,
-                    quiet = centsOf(amount),
-                )
+                // Like every amount in a list: one size, one ink, cents and all.
+                Text(amount, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))
                     // One tap when the bank shows the same; a check once done.
@@ -501,4 +530,26 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
 private fun interestLine(minor: Long, currency: String, today: LocalDate): String {
     val amount = Fmt.approx(Currencies.toMajor(minor, currency), currency)
     return tr("+$amount за ${monthName(today)}", "+$amount for ${monthName(today)}")
+}
+
+/** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
+private fun whole(minor: Long, code: String): String = Fmt.split(minor, code).first + " " + Currencies.symbol(code)
+
+/**
+ * A tile's big amount: written the way every amount in the lists is (the same face, "2 000 ₽"), only
+ * bigger, as big as the width allows up to 72 sp. No smaller sign, no trimmed line box.
+ */
+@Composable
+fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        // Tabular figures run about 0.6 em wide; keep a little air at the edge.
+        val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
+        val size = minOf(fit, 72f).sp
+        Text(
+            text,
+            style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontSize = size, lineHeight = size * 1.15f),
+            color = color,
+            maxLines = 1,
+        )
+    }
 }

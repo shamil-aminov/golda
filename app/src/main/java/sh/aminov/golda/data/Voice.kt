@@ -216,6 +216,31 @@ object Gemini {
                     .put("responseSchema", JSONObject(VoicePrompt.schema)),
             )
 
+        readReply(call(body, key, model))
+    }
+
+    /**
+     * The category key for a purchase typed by hand ("наушники" → shopping), or null when the reply
+     * names none of [categories]. Throws only [GeminiException], like [parse].
+     */
+    suspend fun categorize(note: String, categories: List<Category>, key: String, model: String): String? = withContext(Dispatchers.IO) {
+        val keys = categories.map { it.key }
+        val system = "Отнеси покупку к одной категории. Категории: " +
+            categories.joinToString { "${it.key} (${it.name})" } + ". Ответь ключом категории."
+        val schema = JSONObject()
+            .put("type", "object")
+            .put("properties", JSONObject().put("category", JSONObject().put("type", "string").put("enum", JSONArray(keys))))
+            .put("required", JSONArray().put("category"))
+        val body = JSONObject()
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+            .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", note)))))
+            .put("generationConfig", JSONObject().put("responseMimeType", "application/json").put("responseSchema", schema))
+        val text = replyText(call(body, key, model))
+        runCatching { JSONObject(text).optString("category") }.getOrNull()?.takeIf { it in keys }
+    }
+
+    /** One generateContent request; the raw reply body, or [GeminiException]. */
+    private fun call(body: JSONObject, key: String, model: String): String {
         val url = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").toURL()
         val connection = url.openConnection() as HttpURLConnection
         try {
@@ -233,7 +258,7 @@ object Gemini {
                 val busy = code == 429 || code >= 500
                 throw GeminiException(message, if (busy) GeminiException.Kind.BUSY else GeminiException.Kind.REJECTED)
             }
-            readReply(connection.inputStream.bufferedReader().use { it.readText() })
+            return connection.inputStream.bufferedReader().use { it.readText() }
         } catch (e: GeminiException) {
             throw e
         } catch (e: IOException) {
@@ -255,6 +280,17 @@ object Gemini {
      */
     fun readReply(body: String): VoiceResult {
         val unreadable = tr("ответ не разобрать", "the reply could not be read")
+        val text = replyText(body)
+        return try {
+            read(JSONObject(text))
+        } catch (e: Exception) {
+            throw GeminiException(unreadable, GeminiException.Kind.REJECTED)
+        }
+    }
+
+    /** The text of a generateContent reply's first candidate; [GeminiException] when there is none. */
+    private fun replyText(body: String): String {
+        val unreadable = tr("ответ не разобрать", "the reply could not be read")
         try {
             val reply = JSONObject(body)
             val candidate = reply.optJSONArray("candidates")?.optJSONObject(0)
@@ -268,7 +304,7 @@ object Gemini {
                 val reason = candidate.optString("finishReason").takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
                 throw GeminiException(unreadable + reason, GeminiException.Kind.REJECTED)
             }
-            return read(JSONObject(text))
+            return text
         } catch (e: GeminiException) {
             throw e
         } catch (e: Exception) {

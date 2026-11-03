@@ -14,170 +14,163 @@ import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.Operation
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Posting
-import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Buckets
-import sh.aminov.golda.domain.Ledger
+import sh.aminov.golda.domain.Envelopes
 import sh.aminov.golda.domain.Settings
-import sh.aminov.golda.domain.Today
 import java.time.LocalDate
 import java.time.ZoneOffset
 
-/** "Можно сегодня" as a daily limit, the pace it falls back to, the buckets, and the reserve's runway (SPEC §5). */
+/** "Можно сегодня" as the spending card's money over the period, and the burn measured by its balance (SPEC §5). */
 class BudgetTest {
     private val zone = ZoneOffset.UTC
     private val today = LocalDate.of(2026, 11, 2)
-    private val card = Account(1, "Карта ₽", "RUB", AccountType.CARD, includeInFree = true)
-    private val savings = Account(2, "Накопительный", "RUB", AccountType.SAVINGS, includeInFree = false)
-    private val loan = Account(3, "Кредит", "RUB", AccountType.LOAN, includeInFree = true, paymentDay = 30, paymentMinor = 1_096_000)
-    private val accounts = listOf(card, savings, loan)
-
+    private val tbc = Account(1, "TBC", "GEL", AccountType.CARD, includeInFree = true)
+    private val alfa = Account(2, "Альфа", "RUB", AccountType.SAVINGS, includeInFree = false)
+    private val credit = Account(3, "Кредитка", "RUB", AccountType.CREDIT, includeInFree = false)
+    private val accounts = listOf(tbc, alfa, credit)
     private val groceries = Category(1, "groceries", "Продукты", "", CategoryKind.EXPENSE)
-    private val housing = Category(2, "housing", "Жильё", "", CategoryKind.EXPENSE)
-    private val clothes = Category(3, "clothes", "Одежда", "", CategoryKind.EXPENSE)
-    private val categories = listOf(groceries, housing, clothes).associateBy { it.id }
 
     private val ops = mutableListOf<OperationFull>()
 
     private fun at(day: LocalDate) = day.atTime(12, 0).toInstant(zone).toEpochMilli()
 
-    private fun opening(account: Account, rub: Long) {
+    private fun op(type: OpType, day: LocalDate, vararg postings: Pair<Account, Long>) {
         val id = ops.size + 1L
-        ops += OperationFull(Operation(id, OpType.OPENING, 0), listOf(Posting(id, id, account.id, rub, rub)))
+        ops += OperationFull(Operation(id, type, at(day)), postings.map { (account, minor) -> Posting(0, id, account.id, minor, minor) })
     }
 
-    /** [rub] kopecks spent from [account] on [day]. */
-    private fun spend(day: LocalDate, rub: Long, category: Category? = groceries, bucket: Bucket? = null, account: Account = card) {
-        val id = ops.size + 1L
-        ops += OperationFull(
-            Operation(id, OpType.EXPENSE, at(day), categoryId = category?.id, bucket = bucket),
-            listOf(Posting(id, id, account.id, -rub, -rub)),
-        )
-    }
+    /** 60 000 ₽ from the savings to 1 800 ₾ on the card. */
+    private fun topUp(day: LocalDate, lari: Long = 180_000) = op(OpType.TRANSFER, day, alfa to -6_000_000, tbc to lari)
+    private fun spend(day: LocalDate, lari: Long, account: Account = tbc) = op(OpType.EXPENSE, day, account to -lari)
 
-    private fun budget(settings: Settings = Settings()): Today =
-        Budget.today(Ledger.states(accounts, ops.flatMap { it.postings }), ops, categories, settings, today, zone)
+    private fun envelope(settings: Settings = Settings()) = Envelopes.current(accounts, ops, settings, today, zone)!!
 
     @Test
-    fun aLimitSetIsWhatTheDayIsMeasuredAgainst() {
-        opening(card, 10_000_000)
-        spend(today.minusDays(3), 900_000)
-        spend(today, 40_000)
-        val t = budget(Settings(dailyLimitRub = 150_000))
-        assertEquals(150_000, t.limitRub)
-        assertFalse(t.autoLimit)
-        assertEquals(40_000, t.spentTodayRub)
-        assertEquals(110_000, t.leftTodayRub)
+    fun thePeriodStartsAtTheLastTopUpAndLastsAMonth() {
+        op(OpType.OPENING, today.minusDays(60), alfa to 30_000_000)
+        topUp(today.minusDays(40))
+        topUp(today.minusDays(8))
+        spend(today.minusDays(5), 100)
+        val e = envelope()
+        assertEquals(tbc, e.account)
+        assertEquals(today.minusDays(8), e.start)
+        assertEquals(today.minusDays(8).plusMonths(1), e.end)
     }
 
     @Test
-    fun withoutALimitTheDayFollowsThePace() {
-        opening(card, 10_000_000)
-        // 1 000 + 2 000 ₽ over the three days since the first purchase: 1 000 ₽ a day.
-        spend(today.minusDays(3), 100_000)
-        spend(today.minusDays(1), 200_000)
-        spend(today, 30_000)
-        val t = budget()
-        assertTrue(t.autoLimit)
-        assertEquals(100_000L, t.paceRub)
-        assertEquals(100_000, t.limitRub)
-        assertEquals(70_000, t.leftTodayRub)
+    fun todaysShareIsTheMoneyOverTheDaysLeft() {
+        topUp(today.minusDays(8))
+        spend(today.minusDays(3), 56_300) // 563 ₾ gone, never itemised
+        spend(today, 2_000)
+        val e = envelope(Settings(periodStart = today.minusDays(8).toEpochDay(), periodEnd = today.plusDays(21).toEpochDay()))
+        assertEquals(121_700, e.balanceMinor) // 1 217 ₾ left
+        assertEquals(22, e.daysLeft) // today to the end, both counted
+        // This morning's 1 237 ₾ over 22 days: 56,22 ₾, of which 20 ₾ is gone.
+        assertEquals(123_700L / 22, e.perDayMinor)
+        assertEquals(123_700L / 22 - 2_000, e.leftTodayMinor)
     }
 
     @Test
-    fun thePaceLeavesTodayOutAndLooksBackThirtyDays() {
-        opening(card, 10_000_000)
-        spend(today.minusDays(45), 9_000_000) // long before the window
-        spend(today.minusDays(30), 300_000)
-        spend(today, 5_000_000) // today never moves the pace
-        assertEquals(10_000L, budget().paceRub) // 3 000 ₽ over 30 days
+    fun theBurnIsWhatLeftTheCardReconciliationsIncluded() {
+        topUp(today.minusDays(8))
+        spend(today.minusDays(6), 10_000)
+        op(OpType.ADJUSTMENT, today.minusDays(1), tbc to -53_000) // reconciled: 530 ₾ not written down
+        op(OpType.TRANSFER, today.minusDays(2), tbc to -20_000, alfa to 700_000) // moved away, not spent
+        op(OpType.ADJUSTMENT, today.minusDays(2), tbc to 500) // found 5 ₾: not negative spending
+        val e = envelope()
+        assertEquals(63_000, e.spentMinor)
+        // 630 ₾ over the 9 days since the top-up, today included.
+        assertEquals(7_000L, e.burnMinor)
+        assertEquals((180_000L - 63_000 - 20_000 + 500) / 7_000, e.runwayDays)
     }
 
     @Test
-    fun nothingToMeasureOnTheFirstDay() {
-        opening(card, 10_000_000)
-        spend(today, 50_000)
-        val t = budget()
-        assertNull(t.paceRub)
-        assertEquals(0, t.limitRub)
-        assertEquals(-50_000, t.leftTodayRub)
+    fun aFastBurnRunsOutBeforeTheEnd() {
+        topUp(today.minusDays(9))
+        spend(today.minusDays(5), 100_000) // 1 000 ₾ in ten days: 100 ₾ a day
+        val e = envelope()
+        assertEquals(10_000L, e.burnMinor)
+        assertEquals(8L, e.runwayDays) // 800 ₾ at 100 ₾ a day
+        assertEquals(today.plusDays(8), e.runsOut(today))
+        assertFalse(e.lasts(today))
+        // Looking ahead: 8 days of money for the days still to come.
+        assertEquals(today.minusDays(9).plusMonths(1).toEpochDay() - today.toEpochDay() + 1, e.daysLeft)
+        // Meant for a month, it lasts the 9 days gone plus 8 more.
+        assertEquals(Envelopes.Length.MONTH, e.length)
+        assertEquals(today.minusDays(9).let { it.until(it.plusMonths(1), java.time.temporal.ChronoUnit.DAYS) }, e.plannedDays)
+        assertEquals(17L, e.lastsDays(today))
+        // A slow one lasts.
+        val slow = Envelopes.of(tbc, today.minusDays(9), today.plusDays(5), ops, today, zone)
+        assertTrue(slow.lasts(today)) // 8 days of money for the 6 to come
+        assertFalse(Envelopes.of(tbc, today.minusDays(9), today.plusDays(8), ops, today, zone).lasts(today)) // 8 for 9
     }
 
     @Test
-    fun rentDoesNotSinkTheDay() {
-        opening(card, 20_000_000)
-        spend(today.minusDays(1), 100_000)
-        spend(today, 6_144_280, category = housing) // two months of rent
-        val t = budget(Settings(dailyLimitRub = 150_000))
-        assertEquals(0, t.spentTodayRub)
-        assertEquals(150_000, t.leftTodayRub)
-        // Spread over at least 30 days, not over the two days of history.
-        assertEquals(6_144_280L / 30, t.regularPerDayRub)
+    fun noBurnBeforeAnythingIsSpent() {
+        topUp(today)
+        val e = envelope()
+        assertNull(e.burnMinor)
+        assertNull(e.runwayDays)
+        assertNull(e.lastsDays(today))
+        assertTrue(e.lasts(today))
+        assertEquals(today.plusMonths(1), e.end)
     }
 
     @Test
-    fun regularPaymentsAreSpreadOverTheHistoryUpToNinetyDays() {
-        opening(card, 20_000_000)
-        // Two months of history: the rent of 59 days ago is spread over those 60 days.
-        spend(today.minusDays(59), 6_000_000, category = housing)
-        assertEquals(6_000_000L / 60, budget().regularPerDayRub)
-        // Rent from before the 90-day window no longer counts.
-        spend(today.minusDays(90), 6_000_000, category = housing)
-        assertEquals(6_000_000L / 90, budget().regularPerDayRub)
+    fun aPeriodSetIsKeptOnlyWhileItLasts() {
+        topUp(today.minusDays(3))
+        val set = Settings(periodStart = today.minusDays(3).toEpochDay(), periodEnd = today.plusDays(4).toEpochDay())
+        assertEquals(today.plusDays(4), envelope(set).end)
+        // Over: back to a month from the last top-up.
+        val over = Settings(periodStart = today.minusDays(20).toEpochDay(), periodEnd = today.minusDays(1).toEpochDay())
+        assertEquals(today.minusDays(3).plusMonths(1), envelope(over).end)
     }
 
     @Test
-    fun anExpenseCanLeaveItsCategorysBucket() {
-        opening(card, 10_000_000)
-        spend(today, 500_000, category = groceries, bucket = Bucket.BIG) // a party's worth, not everyday
-        spend(today, 20_000, category = clothes, bucket = Bucket.DAILY) // socks
-        assertEquals(20_000, budget().spentTodayRub)
+    fun theSpendingCardIsTheOneSetOrTheOneMostSpentFrom() {
+        spend(today, 100, alfa)
+        spend(today, 100)
+        spend(today, 100)
+        spend(today, 100, credit)
+        spend(today, 100, credit)
+        spend(today, 100, credit)
+        assertEquals(tbc, envelope().account) // a credit card is never it
+        assertEquals(alfa, envelope(Settings(spendAccountId = alfa.id)).account)
     }
 
     @Test
-    fun bigPurchasesStayOutOfThePace() {
-        opening(card, 10_000_000)
-        spend(today.minusDays(2), 100_000)
-        spend(today.minusDays(1), 3_000_000, category = clothes)
-        val t = budget()
-        assertEquals(50_000L, t.paceRub)
-        assertEquals(0, t.regularPerDayRub)
+    fun noTopUpStartsTheMonthToday() {
+        op(OpType.OPENING, today.minusDays(10), tbc to 50_000)
+        assertEquals(today, envelope().start)
+        assertEquals(50_000L / (today.plusMonths(1).toEpochDay() - today.toEpochDay() + 1), envelope().perDayMinor)
     }
 
     @Test
-    fun spendingFromAnyAccountCountsToday() {
-        opening(savings, 10_000_000)
-        spend(today, 30_000, account = savings)
-        assertEquals(30_000, budget().spentTodayRub)
+    fun theEdgesOfThePeriodCount() {
+        topUp(today.minusDays(4))
+        spend(today.minusDays(4), 1_000) // on the top-up day itself
+        topUp(today.plusDays(1)) // dated tomorrow: not a top-up yet
+        // The last day of a period set is still in it, and is the one day left.
+        val lastDay = Settings(periodStart = today.minusDays(4).toEpochDay(), periodEnd = today.toEpochDay())
+        val e = envelope(lastDay)
+        assertEquals(today, e.end)
+        assertEquals(1L, e.daysLeft)
+        assertEquals(e.balanceMinor, e.perDayMinor)
+        assertEquals(1_000L, e.spentMinor)
+        assertEquals(1_000L / 5, e.burnMinor)
+        // A period that starts today is in force too.
+        val fresh = Settings(periodStart = today.toEpochDay(), periodEnd = today.plusDays(6).toEpochDay())
+        assertEquals(today, envelope(fresh).start)
+        // Without one, the month runs from the top-up four days ago, not from tomorrow's.
+        assertEquals(today.minusDays(4), envelope().start)
     }
 
     @Test
-    fun theReserveLastsAtThePacePlusRegularPayments() {
-        opening(card, 9_300_000) // 93 000 ₽
-        opening(savings, 50_000_000) // not in the reserve
-        spend(today.minusDays(10), 1_000_000) // 1 000 ₽ a day
-        val t = budget()
-        assertEquals(9_300_000 - 1_000_000, t.reserveRub)
-        // 83 000 ₽ / 1 000 ₽ a day.
-        assertEquals(83L, t.runwayDays)
-        assertEquals(today.plusDays(83), t.runwayUntil(today))
-    }
-
-    @Test
-    fun aDebtsMonthlyPaymentIsARegularCostAndNotReserve() {
-        opening(card, 3_650_000)
-        opening(loan, -20_000_000)
-        val t = budget(Settings(dailyLimitRub = 100_000))
-        // 10 960 ₽ a month is 360 ₽ a day.
-        assertEquals(1_096_000L * 12 / 365, t.regularPerDayRub)
-        assertEquals(3_650_000, t.reserveRub)
-        // No pace yet: the limit stands in. 36 500 ₽ / (1 000 + 360) ₽ a day.
-        assertEquals(3_650_000L / (100_000 + 36_000), t.runwayDays)
-    }
-
-    @Test
-    fun noRunwayWhileNothingIsSpent() {
-        opening(card, 1_000_000)
-        assertNull(budget().runwayDays)
+    fun periodLengths() {
+        val start = LocalDate.of(2026, 1, 31)
+        assertEquals(LocalDate.of(2026, 2, 7), Envelopes.end(start, Envelopes.Length.WEEK))
+        assertEquals(LocalDate.of(2026, 2, 14), Envelopes.end(start, Envelopes.Length.TWO_WEEKS))
+        assertEquals(LocalDate.of(2026, 2, 28), Envelopes.end(start, Envelopes.Length.MONTH))
     }
 
     @Test
@@ -190,7 +183,16 @@ class BudgetTest {
         assertEquals(Bucket.REGULAR, Buckets.default("subscriptions"))
         assertEquals(Bucket.BIG, Buckets.default("clothes"))
         assertEquals(Bucket.BIG, Buckets.default("travel"))
+        assertEquals(Bucket.BIG, Buckets.default("health"))
+        // The twelve since 0.17: four in each bucket.
+        assertEquals(Bucket.DAILY, Buckets.default("food"))
+        assertEquals(Bucket.DAILY, Buckets.default("treats"))
+        assertEquals(Bucket.REGULAR, Buckets.default("loans"))
+        assertEquals(Bucket.BIG, Buckets.default("shopping"))
+        assertEquals(Bucket.BIG, Buckets.default("other"))
         assertEquals(Bucket.REGULAR, Buckets.of(groceries.copy(bucket = Bucket.REGULAR)))
         assertEquals(Bucket.DAILY, Buckets.of(null))
+        val own = Operation(1, OpType.EXPENSE, 0, categoryId = groceries.id, bucket = Bucket.BIG)
+        assertEquals(Bucket.BIG, Buckets.of(own, mapOf(groceries.id to groceries)))
     }
 }

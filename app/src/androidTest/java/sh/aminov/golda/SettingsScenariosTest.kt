@@ -82,19 +82,6 @@ class SettingsScenariosTest : GoldaUiTest() {
         textOf(Tags.HOME_OTHERS).split(" · ").map { it.trim().substringAfterLast(' ') }.toSet()
 
     @Test
-    fun theDailyLimitIsWhatTheDayIsMeasuredAgainst() {
-        openSettings()
-        openRow(tr("Лимит в день", "Daily limit"))
-        typeIntoFirstField("1500")
-        tap(tr("Сохранить", "Save"))
-        assertEquals(150_000L, runBlocking { repo.settings.flow.first() }.dailyLimitRub)
-        back()
-        // Nothing spent today in the seed: the whole limit is left, and the line under the bar says it.
-        val line = Fmt.approx(1_500.0, "RUB")
-        waitForText(tr("$line в день", "$line a day"))
-    }
-
-    @Test
     fun markupMovesTheRates() {
         openSettings()
         openRow(tr("Наценка к ЦБ", "Markup over the CBR"))

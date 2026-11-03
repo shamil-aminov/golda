@@ -109,6 +109,7 @@ private fun MainScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var page by rememberSaveable(stateSaver = PageSaver) { mutableStateOf<Page?>(null) }
     var sheet by remember { mutableStateOf<Sheet?>(null) }
+    var periodOpen by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -168,6 +169,8 @@ private fun MainScreen(
                 snackbar.showSnackbar(tr("Счёт удалён — записать некуда", "The account is gone; nothing was saved"))
                 return@launch
             }
+            // Saved before its category was worked out: it follows, as a voice note's does.
+            if (draft.categoryId == null && draft.type != OpType.TRANSFER && draft.note.isNotBlank()) launch { repo.categorizeLater(id) }
             if (draft.id == 0L) {
                 if (draft.type == OpType.EXPENSE) haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 announce(draft, repo.impact(id), undo.copy(ids = listOf(id)))
@@ -302,7 +305,7 @@ private fun MainScreen(
                 ),
             ) { index ->
                     when (index) {
-                        0 -> HomeScreen(data, padding, homeList, onSettings = { page = Page.Settings }) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
+                        0 -> HomeScreen(data, padding, homeList, onSettings = { page = Page.Settings }, onPeriod = { periodOpen = true }) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
                         1 -> AccountsScreen(
                             data, padding,
                             onOpen = { page = Page.AccountPage(it) },
@@ -321,6 +324,8 @@ private fun MainScreen(
             }
         }
 
+        if (periodOpen) PeriodSheet(data, onDismiss = { periodOpen = false }, onChange = change)
+
         FormPageHost(sheet) { current ->
             when (current) {
                 is Sheet.Entry -> EntrySheet(
@@ -329,6 +334,7 @@ private fun MainScreen(
                     onDismiss = { sheet = null },
                     onSave = ::save,
                     onDelete = ::deleteOperation,
+                    suggest = { note, kind -> repo.suggestCategory(note, kind) },
                 )
                 is Sheet.Acc -> AccountSheet(
                     data = data,

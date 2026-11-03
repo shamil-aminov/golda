@@ -8,6 +8,7 @@ import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.Posting
 import sh.aminov.golda.domain.Debts
+import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Ledger
 
 class DebtsTest {
@@ -65,11 +66,15 @@ class DebtsTest {
     }
 
     @Test
-    fun adviceComparesWithSavings() {
+    fun adviceSaysWhatInterestEatsAMonth() {
         val loan = Account(1, "Кредит", "RUB", AccountType.LOAN, includeInFree = false, interestRate = 24.9)
         val savings = Account(2, "Накопительный", "RUB", AccountType.SAVINGS, includeInFree = false, interestRate = 12.0)
         val states = Ledger.states(listOf(loan, savings), listOf(Posting(accountId = 1, amountMinor = -balance, rubMinor = -balance)))
-        assertTrue(Debts.advice(listOf(loan, savings), states)!!.contains("дороже"))
+        // The interest part of this month's payment on what is owed, to the hundred.
+        val interest = Debts.monthlyInterest(balance, 24.9)
+        assertEquals("Проценты по кредиту ≈ " + Fmt.amount((interest + 5_000) / 10_000 * 10_000, "RUB") + " в месяц", Debts.advice(listOf(loan, savings), states))
+        // The real loan: 151 651,14 ₽ at 39,9 % is 5 042,40 ₽ of interest a month.
+        assertEquals(504_240L, Debts.monthlyInterest(15_165_114, 39.9))
         // Nothing owed, nothing to advise.
         assertNull(Debts.advice(listOf(loan, savings), Ledger.states(listOf(loan, savings), emptyList())))
     }

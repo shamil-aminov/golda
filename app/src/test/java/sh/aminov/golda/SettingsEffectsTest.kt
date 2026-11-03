@@ -5,14 +5,12 @@ import org.junit.Test
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.Rate
-import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.domain.VoiceMapper
 import sh.aminov.golda.ui.AppData
 import sh.aminov.golda.ui.toggleDisplayCurrency
 import java.time.LocalDate
-import java.time.ZoneOffset
 
 /** Where each setting reaches the logic: a change in Settings has to change what these return. */
 class SettingsEffectsTest {
@@ -58,17 +56,5 @@ class SettingsEffectsTest {
         assertEquals("RUB", hidden.localCurrency)
         // Rubles can't be hidden: they are the base.
         assertEquals(s, toggleDisplayCurrency(s, "RUB"))
-    }
-
-    @Test
-    fun theDailyLimitSetsWhatIsLeftToday() {
-        val today = LocalDate.of(2026, 10, 2)
-        val states = Ledger.states(accounts, emptyList())
-        fun left(limit: Long) = Budget.today(states, emptyList(), emptyMap(), Settings(dailyLimitRub = limit), today, ZoneOffset.UTC)
-        assertEquals(150_000L, left(150_000).leftTodayRub)
-        assertEquals(false, left(150_000).autoLimit)
-        // Zero means no limit: the pace, here none yet.
-        assertEquals(0L, left(0).limitRub)
-        assertEquals(true, left(0).autoLimit)
     }
 }

@@ -5,11 +5,14 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class Settings(
     val onboarded: Boolean = false,
+    /** The card spent from day to day; null: the one most expenses come from (see Envelopes). */
+    val spendAccountId: Long? = null,
     /**
-     * What may be spent on everyday things a day, in kopecks. Zero: no limit set, the day's budget
-     * follows the pace of the last 30 days.
+     * The spending period as epoch days, both included: the money on the card is meant to last from
+     * [periodStart] to [periodEnd]. Zero: a month from the card's last top-up.
      */
-    val dailyLimitRub: Long = 0,
+    val periodStart: Long = 0,
+    val periodEnd: Long = 0,
     val displayCurrencies: List<String> = listOf("RUB", "USD"),
     /** Currency of the country you are in; voice input falls back to it. */
     val localCurrency: String = "RUB",

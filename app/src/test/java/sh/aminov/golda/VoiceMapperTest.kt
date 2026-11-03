@@ -50,6 +50,22 @@ class VoiceMapperTest {
     }
 
     @Test
+    fun rublesComeFromTheRubleAccountMostSpentFromNotACreditCard() {
+        val credit = Account(4, "Кредитка", "RUB", AccountType.CREDIT, includeInFree = false, sort = 0)
+        val savings = Account(5, "Альфа", "RUB", AccountType.SAVINGS, includeInFree = false, sort = 1)
+        val loan = Account(6, "Кредит", "RUB", AccountType.LOAN, includeInFree = false, sort = 2)
+        val list = listOf(credit, savings, loan, cash)
+        val s = Settings(lastAccountId = cash.id)
+        // Nothing spent in rubles yet: an account that is not a debt before a credit card.
+        assertEquals(savings, VoiceMapper.pick(list, "RUB", s))
+        // The one rubles were spent from most.
+        assertEquals(credit, VoiceMapper.pick(list, "RUB", s, mapOf(credit.id to 3, savings.id to 1)))
+        assertEquals(savings, VoiceMapper.pick(list, "RUB", s, mapOf(credit.id to 1, savings.id to 2)))
+        // A loan is never where a purchase comes from.
+        assertEquals(savings, VoiceMapper.pick(list, "RUB", s, mapOf(loan.id to 9)))
+    }
+
+    @Test
     fun noCurrencyMeansLocalCurrency() {
         val draft = (map(item("expense", "8", null, "кофе")).single() as VoiceAction.Record).draft
         assertEquals(cash.id, draft.accountId)

@@ -19,9 +19,9 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import sh.aminov.golda.domain.AccountState
-import sh.aminov.golda.domain.Base
-import sh.aminov.golda.domain.Budget
-import sh.aminov.golda.domain.Buckets
+import sh.aminov.golda.domain.Envelopes
+import sh.aminov.golda.domain.Fmt
+import sh.aminov.golda.domain.CategoryMerge
 import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Rates
@@ -74,6 +74,33 @@ class Repo(
 
     suspend fun deleteObligation(id: Long) = write { dao.deleteObligation(id) }
 
+    /**
+     * The category for a purchase typed by hand: the one the same note had last time, else what
+     * Gemini says, else null (no key, no network, or no answer that names one). Never throws.
+     */
+    suspend fun suggestCategory(note: String, kind: CategoryKind): Long? {
+        val text = note.trim()
+        if (text.isEmpty()) return null
+        val categories = dao.categoriesNow().filter { it.kind == kind }
+        VoiceMapper.history(dao.operationsSince(0))[text.lowercase()]?.takeIf { id -> categories.any { it.id == id } }?.let { return it }
+        val key = settings.geminiKey() ?: return null
+        val model = settings.flow.first().geminiModel
+        val found = runCatching { Gemini.categorize(text, categories, key, model) }.getOrNull() ?: return null
+        return categories.firstOrNull { it.key == found }?.id
+    }
+
+    /**
+     * A purchase saved before its category was worked out gets it now, if it still has none: the
+     * form closes at once and the category follows, the way a voice note's does.
+     */
+    suspend fun categorizeLater(operationId: Long) {
+        val full = dao.operation(operationId) ?: return
+        if (full.op.categoryId != null || full.op.note.isBlank()) return
+        val kind = if (full.op.type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE
+        val id = suggestCategory(full.op.note, kind) ?: return
+        write { dao.operation(operationId)?.takeIf { it.op.categoryId == null }?.let { dao.updateOperation(it.op.copy(categoryId = id)) } }
+    }
+
     /** A category with its bucket changed in settings. */
     suspend fun saveCategory(category: Category) = write { dao.updateCategory(category) }
 
@@ -85,8 +112,41 @@ class Repo(
 
     suspend fun ensureSeed() = write {
         if (dao.categoryCount() == 0) dao.insertCategories(DefaultCategories.all)
+        mergeCategories()
         if (dao.ratesNow().isEmpty()) dao.upsertRates(Cbr.fallback)
         repairValuations()
+    }
+
+    /**
+     * Brings the expense categories to the twelve of [DefaultCategories]: one of an earlier version
+     * ([CategoryMerge]) takes over the row of the new one it goes into, or moves its operations there
+     * and is removed; a default missing is added; a default keeps its own name and order. Categories
+     * of your own stay as they are.
+     */
+    private suspend fun mergeCategories() {
+        val defaults = DefaultCategories.all.filter { it.kind == CategoryKind.EXPENSE }
+        var all = dao.categoriesNow()
+        for (wanted in defaults) {
+            if (all.any { it.key == wanted.key }) continue
+            val old = all.firstOrNull { CategoryMerge.into[it.key] == wanted.key }
+            if (old != null) dao.updateCategory(old.copy(key = wanted.key, name = wanted.name, emoji = wanted.emoji, sort = wanted.sort, bucket = null))
+            else dao.insertCategory(wanted)
+            all = dao.categoriesNow()
+        }
+        val byKey = all.associateBy { it.key }
+        for (old in all) {
+            val into = CategoryMerge.into[old.key] ?: continue
+            val to = byKey.getValue(into).id
+            dao.moveOperations(old.id, to)
+            dao.deleteCategory(old.id)
+        }
+        // The defaults in their order and under their current name: a migrated row keeps its id but
+        // not its old place, and a name the default once had gives way to the new one.
+        for (wanted in defaults) {
+            val row = byKey[wanted.key] ?: continue
+            val name = if (row.name in CategoryMerge.formerNames[wanted.key].orEmpty()) wanted.name else row.name
+            if (row.sort != wanted.sort || row.name != name) dao.updateCategory(row.copy(sort = wanted.sort, name = name))
+        }
     }
 
     /** True when fresh rates arrived. */
@@ -303,7 +363,7 @@ class Repo(
                         }
                     }
                 }
-                val actions = VoiceMapper.actions(result, accounts, categories, s, ratesNow(), recordedAt, zone, VoiceMapper.history(dao.operationsSince(0)))
+                val actions = dao.operationsSince(0).let { all -> VoiceMapper.actions(result, accounts, categories, s, ratesNow(), recordedAt, zone, VoiceMapper.history(all), VoiceMapper.spentFrom(all)) }
                 val recorded = actions.filterIsInstance<VoiceAction.Record>().mapNotNull { action -> save(action.draft)?.let { it to action.draft } }
                 file.delete()
                 val comment = recorded.lastOrNull { it.second.type == OpType.EXPENSE }?.let { impact(it.first) }
@@ -348,21 +408,15 @@ class Repo(
         settings.update { it.copy(reconciledAt = it.reconciledAt + (accountId to now)) }
     }
 
-    /** What is left for today after an expense just recorded: "на сегодня осталось 503 ₽", or that it is not everyday spending. */
+    /** What is left for today on the spending card after an expense just recorded from it: "на сегодня осталось 56 ₾". */
     suspend fun impact(operationId: Long): String? {
         val full = dao.operation(operationId)?.takeIf { it.op.type == OpType.EXPENSE } ?: return null
-        val s = settings.flow.first()
         val zone = ZoneId.systemDefault()
-        val day = LocalDate.now(zone)
-        val rates = ratesNow()
-        val categories = dao.categoriesNow().associateBy { it.id }
-        if (Buckets.of(full.op, categories) != Bucket.DAILY) return tr("не в дневной бюджет", "not in the daily budget")
-        val states = Ledger.states(dao.accountsNow(), dao.postingsNow())
-        val recent = dao.operationsSince(day.minusDays(Budget.REGULAR_DAYS).atStartOfDay(zone).toInstant().toEpochMilli())
-        val left = Budget.today(states, recent, categories, s, day, zone, rates).leftTodayRub
-        val base = Base.of(s, rates)
-        return if (left >= 0) tr("на сегодня осталось ", "left for today ") + base.approx(left)
-        else tr("перерасход ", "over budget by ") + base.approx(-left)
+        val envelope = Envelopes.current(dao.accountsNow(), dao.operationsSince(0), settings.flow.first(), LocalDate.now(zone), zone) ?: return null
+        if (full.postings.none { it.accountId == envelope.account.id }) return null
+        val left = envelope.leftTodayMinor
+        return if (left >= 0) tr("на сегодня осталось ", "left for today ") + Fmt.amount(left, envelope.currency)
+        else tr("перерасход ", "over by ") + Fmt.amount(-left, envelope.currency)
     }
 
     /**
@@ -371,7 +425,7 @@ class Repo(
      */
     suspend fun importBackup(text: String): Backup = write {
         try {
-            backups.import(text)
+            backups.import(text).also { mergeCategories() }
         } finally {
             ReconcileSchedule.apply(context, settings.flow.first().reconcileReminder)
         }
@@ -390,17 +444,17 @@ class Repo(
 
 object DefaultCategories {
     val all = listOf(
-        Category(key = "eating_out", name = "Кафе", emoji = "🍔", kind = CategoryKind.EXPENSE, sort = 0),
-        Category(key = "groceries", name = "Продукты", emoji = "🛒", kind = CategoryKind.EXPENSE, sort = 1),
-        Category(key = "transport", name = "Транспорт", emoji = "🚕", kind = CategoryKind.EXPENSE, sort = 2),
-        Category(key = "housing", name = "Жильё", emoji = "🏠", kind = CategoryKind.EXPENSE, sort = 3),
-        Category(key = "telecom", name = "Связь", emoji = "📱", kind = CategoryKind.EXPENSE, sort = 4),
-        Category(key = "fun", name = "Развлечения", emoji = "🎉", kind = CategoryKind.EXPENSE, sort = 5),
-        Category(key = "health", name = "Здоровье", emoji = "💊", kind = CategoryKind.EXPENSE, sort = 6),
-        Category(key = "clothes", name = "Одежда", emoji = "👕", kind = CategoryKind.EXPENSE, sort = 7),
-        Category(key = "subscriptions", name = "Подписки", emoji = "🔁", kind = CategoryKind.EXPENSE, sort = 8),
-        Category(key = "travel", name = "Путешествия", emoji = "✈️", kind = CategoryKind.EXPENSE, sort = 9),
-        Category(key = "fees", name = "Комиссии", emoji = "💸", kind = CategoryKind.EXPENSE, sort = 10),
+        Category(key = "food", name = "Еда", emoji = "🍔", kind = CategoryKind.EXPENSE, sort = 0),
+        Category(key = "transport", name = "Транспорт", emoji = "🚕", kind = CategoryKind.EXPENSE, sort = 1),
+        Category(key = "household", name = "Бытовое", emoji = "🧻", kind = CategoryKind.EXPENSE, sort = 2),
+        Category(key = "treats", name = "Радости", emoji = "🍺", kind = CategoryKind.EXPENSE, sort = 3),
+        Category(key = "housing", name = "Жильё", emoji = "🏠", kind = CategoryKind.EXPENSE, sort = 4),
+        Category(key = "telecom", name = "Связь", emoji = "📱", kind = CategoryKind.EXPENSE, sort = 5),
+        Category(key = "subscriptions", name = "Подписки", emoji = "🔁", kind = CategoryKind.EXPENSE, sort = 6),
+        Category(key = "loans", name = "Кредиты", emoji = "🏦", kind = CategoryKind.EXPENSE, sort = 7),
+        Category(key = "shopping", name = "Покупки", emoji = "🛍️", kind = CategoryKind.EXPENSE, sort = 8),
+        Category(key = "travel", name = "Поездки", emoji = "✈️", kind = CategoryKind.EXPENSE, sort = 9),
+        Category(key = "health", name = "Здоровье", emoji = "💊", kind = CategoryKind.EXPENSE, sort = 10),
         Category(key = "other", name = "Прочее", emoji = "📦", kind = CategoryKind.EXPENSE, sort = 11),
         Category(key = "salary", name = "Зарплата", emoji = "💼", kind = CategoryKind.INCOME, sort = 0),
         Category(key = "interest", name = "Проценты", emoji = "🏦", kind = CategoryKind.INCOME, sort = 1),

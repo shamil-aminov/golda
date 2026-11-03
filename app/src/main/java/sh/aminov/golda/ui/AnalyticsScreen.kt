@@ -237,7 +237,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
             }
             item(key = "chart") {
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    DayBars(report.days, today, kind, data.budget.limitRub.takeIf { it > 0 }, data.base)
+                    DayBars(report.days, today, kind, data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 }, data.base)
                 }
             }
         }

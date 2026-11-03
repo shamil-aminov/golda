@@ -10,7 +10,6 @@ import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.Operation
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Posting
-import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Rates
@@ -50,20 +49,6 @@ class BugHuntTest {
         val item = VoiceItem("expense", "1e25", "RUB", "кофе", null, null, null, null, null)
         val action = VoiceMapper.actions(VoiceResult("…", listOf(item)), listOf(card), emptyList(), Settings(), rates, at(LocalDate.of(2026, 10, 5)), zone).single()
         assertTrue(action is VoiceAction.NotUnderstood)
-    }
-
-    // #10: a paid-off card costs nothing a day; a small debt only what is owed.
-    @Test
-    fun debtPaymentsFollowWhatIsOwed() {
-        val card = Account(5, "Кредитка", "RUB", AccountType.CREDIT, includeInFree = false, paymentDay = 20, paymentMinor = 300_000)
-        val cash = Account(6, "Карта", "RUB", AccountType.CARD, includeInFree = true)
-        val today = LocalDate.of(2026, 10, 5)
-        val opening = OperationFull(Operation(1, OpType.OPENING, at(today.minusDays(10))), listOf(Posting(1, 1, cash.id, 2_000_000, 2_000_000)))
-        val paidOff = Ledger.states(listOf(card, cash), opening.postings)
-        assertEquals(0L, Budget.today(paidOff, listOf(opening), emptyMap(), Settings(), today, zone).regularPerDayRub)
-        val owing = OperationFull(Operation(2, OpType.EXPENSE, at(today.minusDays(3))), listOf(Posting(2, 2, card.id, -100_000, -100_000)))
-        val states = Ledger.states(listOf(card, cash), opening.postings + owing.postings)
-        assertEquals(100_000L * 12 / 365, Budget.today(states, listOf(opening, owing), emptyMap(), Settings(), today, zone).regularPerDayRub)
     }
 
     // #13: income said in another currency is an estimate, and keeps what was said.

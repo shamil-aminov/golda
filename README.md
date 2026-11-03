@@ -54,16 +54,17 @@ loud is the moment you notice you are spending.
 - **Card purchases in another currency.** For "48.5 lari" paid from a dollar
   card, the charge is estimated at the CBR cross rate + 2 % and marked **≈**
   until you correct it.
-- **Safe to spend today.** A daily limit for everyday spending: the one you
-  set, or your own pace over the last 30 days. Income does not come into it.
+- **Safe to spend today.** Put money on the card you spend from for a week,
+  two or a month: Golda splits what is left over the days left. Income does
+  not come into it.
+- **Burn from the balance.** How much a day actually leaves the card since
+  the top-up, and the day it runs out at that pace: "Spending 70 ₾ a day:
+  runs out November 20, 6 days early". Reconcile the card and it holds even
+  for days you wrote nothing down.
 - **Three buckets.** Everyday, regular (rent, phone, subscriptions) and big
-  (clothes, travel). Only everyday spending counts against the day, so two
-  months of rent paid at once no longer sinks it. Each category has its
-  bucket, and any expense can have its own.
-- **Reserve.** How many days your money lasts at the same pace plus the
-  regular payments and debts: "lasts 94 days, until 4 February".
+  (clothes, travel) spending, apart in insights.
 - **Honest reconciling.** Less money on an account than recorded is booked as
-  everyday spending "Not recorded", so the pace is not flattered.
+  everyday spending "Not recorded".
 - **Debts.** Credit cards and loans have a rate, a payment day and a grace
   period. You get reminders, a payoff estimate, an early-repayment calculator
   and a hint on which debt to pay first.
@@ -158,7 +159,7 @@ signed with the debug key.
 ```
 
 The unit tests need no device. They cover the ledger and cost basis, rates
-and card-charge estimates, the daily limit, pace, buckets and reserve, savings
+and card-charge estimates, the spending period and its burn, buckets, savings
 interest, debts and the prepayment calculator, analytics, how voice answers
 turn into operations, and the amounts read back from the transcript.
 `./gradlew pitest` mutation-tests the domain against them: it breaks the code

@@ -185,7 +185,7 @@ fun AccountSheet(
             Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(free, role = Role.Switch) { includeInFree = it },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(tr("В запас", "Count in the reserve"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text(tr("Тратить с него", "Spend from it"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
             CheckSwitch(free) { includeInFree = it }
         }
     }

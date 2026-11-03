@@ -13,7 +13,8 @@ import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Rate
 import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.domain.Base
-import sh.aminov.golda.domain.Budget
+import sh.aminov.golda.domain.Envelope
+import sh.aminov.golda.domain.Envelopes
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.I18n
@@ -51,8 +52,12 @@ class AppData(
     /** Monthly payments typed in settings plus the ones debts carry. */
     val allObligations: List<Obligation> = obligations + Debts.obligations(states.values)
 
-    /** The day's limit, the pace and the reserve, as of [today]. */
-    val budget by lazy { Budget.today(states, operations, categoryById, settings, today, zone, rates) }
+    /** The spending card's money for the period, as of [today]; null with no account to spend from. */
+    val envelope: Envelope? by lazy { Envelopes.current(accounts, operations, settings, today, zone) }
+
+    /** [minor] of [code] in every shown currency but [code], at the display rate: "≈ 410 ₽ · 4,6 $". */
+    fun othersOf(minor: Long, code: String): String =
+        (if (code == "RUB") minor else rates.rubMinor(minor, code))?.let { others(it, code) }.orEmpty()
 
     /** Operations worth listing: opening balances are bookkeeping, not events. */
     val visibleOperations = operations.filter { it.op.type != OpType.OPENING }
@@ -60,10 +65,10 @@ class AppData(
     /** The account things are usually paid from; lists name an account only when it is a different one. */
     val usualAccountId: Long? = settings.lastAccountId ?: accounts.firstOrNull { it.includeInFree }?.id
 
-    /** "≈ 45,8 $ · 124 ₾ · 1 498 ฿": [rubMinor] in every display currency but [exclude]. */
-    fun others(rubMinor: Long, exclude: String): String =
+    /** "≈ 45,8 $ · 124 ₾ · 1 498 ฿": [rubMinor] in every display currency but those in [exclude]. */
+    fun others(rubMinor: Long, vararg exclude: String): String =
         // The currency of where you are comes first: that is the one you pay in today.
-        (listOf(settings.localCurrency) + settings.displayCurrencies).distinct().filter { it != exclude }.mapNotNull { code ->
+        (listOf(settings.localCurrency) + settings.displayCurrencies).distinct().filter { it !in exclude }.mapNotNull { code ->
             val value = if (code == "RUB") rubMinor / 100.0 else rates.fromRub(rubMinor, code)
             value?.let { Fmt.approx(it, code) }
         }.joinToString(" · ")
@@ -116,17 +121,17 @@ fun typeIcon(type: AccountType): Int = when (type) {
 /** A category's icon by its stable key; one of your own gets the box. */
 @DrawableRes
 fun categoryIcon(key: String?): Int = when (key) {
-    "eating_out" -> R.drawable.ic_cat_dining
-    "groceries" -> R.drawable.ic_cat_groceries
+    "food" -> R.drawable.ic_cat_dining
     "transport" -> R.drawable.ic_cat_transport
+    "household" -> R.drawable.ic_cat_groceries
+    "treats" -> R.drawable.ic_cat_fun
     "housing" -> R.drawable.ic_cat_housing
     "telecom" -> R.drawable.ic_cat_telecom
-    "fun" -> R.drawable.ic_cat_fun
-    "health" -> R.drawable.ic_cat_health
-    "clothes" -> R.drawable.ic_cat_clothes
     "subscriptions" -> R.drawable.ic_cat_subscriptions
+    "loans" -> R.drawable.ic_loan
+    "shopping" -> R.drawable.ic_cat_clothes
     "travel" -> R.drawable.ic_cat_travel
-    "fees" -> R.drawable.ic_cat_fees
+    "health" -> R.drawable.ic_cat_health
     "salary" -> R.drawable.ic_cat_salary
     "interest" -> R.drawable.ic_cat_interest
     "gift" -> R.drawable.ic_cat_gift

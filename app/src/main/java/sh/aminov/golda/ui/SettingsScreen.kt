@@ -71,7 +71,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /** Which small sheet is open over the settings. */
-private enum class Edit { Local, Base, Shown, Markup, Limit, Buckets, Key, Model, Language, Notes }
+private enum class Edit { Local, Base, Shown, Markup, Period, Buckets, Key, Model, Language, Notes }
 
 /**
  * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
@@ -157,18 +157,17 @@ fun SettingsScreen(
 
             VSpace(Gap.l)
             GroupLabel(tr("Бюджет", "Budget"))
-            val budget = data.budget
+            val envelope = data.envelope
             SettingRow(
-                0, 2, tr("Лимит в день", "Daily limit"),
+                0, 2, tr("Период трат", "Spending period"),
                 painter = painterResource(R.drawable.ic_calendar),
-                value = if (s.dailyLimitRub > 0) data.base.approx(s.dailyLimitRub) else tr("как обычно", "as usual"),
-                supporting = budget.paceRub?.let { tr("Обычно ", "Usually ") + data.base.approx(it) + tr(" в день", " a day") }
-                    ?: tr("Ежедневные траты за 30 дней", "Everyday spending over 30 days"),
-            ) { edit = Edit.Limit }
+                value = envelope?.account?.name,
+                supporting = envelope?.let { periodLabel(it.start, it.end, data.today) } ?: tr("Нет счёта для трат", "No account to spend from"),
+            ) { if (envelope != null) edit = Edit.Period }
             val expenseCategories = data.categories.filter { it.kind == CategoryKind.EXPENSE }
             SettingRow(
                 1, 2, tr("Корзины категорий", "Category buckets"),
-                painter = painterResource(R.drawable.ic_coins),
+                painter = painterResource(R.drawable.ic_cat_other),
                 supporting = tr("Регулярно: ", "Regular: ") + expenseCategories.filter { Buckets.of(it) == Bucket.REGULAR }.joinToString(", ") { it.label() }.ifBlank { "—" },
             ) { edit = Edit.Buckets }
 
@@ -240,14 +239,7 @@ fun SettingsScreen(
             under = tr("Обновляется сама после обмена рублей", "Updates itself after each ruble exchange"),
             onDismiss = { edit = null },
         ) { v -> onChange { it.copy(markup = v / 100) } }
-        Edit.Limit -> NumberSheet(
-            caption = tr("Сколько можно тратить в день на ежедневное", "How much may go on everyday things a day"),
-            initial = if (s.dailyLimitRub > 0) data.base.major(s.dailyLimitRub) else 0.0,
-            symbol = data.base.symbol,
-            under = tr("Пусто или 0 — как обычно", "Empty or 0: as usual") + (data.budget.paceRub?.let { " (" + data.base.approx(it) + ")" } ?: ""),
-            allowEmpty = true,
-            onDismiss = { edit = null },
-        ) { v -> onChange { it.copy(dailyLimitRub = limitRub(v, data)) } }
+        Edit.Period -> PeriodSheet(data, onDismiss = { edit = null }, onChange = onChange)
         Edit.Buckets -> PickSheet(tr("Что считается в «можно сегодня»: только «Каждый день»", "What counts in “safe today”: only “Everyday”"), onDismiss = { edit = null }, done = true) {
             BucketChoices(data.categories.filter { it.kind == CategoryKind.EXPENSE }, onSaveCategory)
         }
@@ -360,13 +352,11 @@ private fun NumberSheet(
     initial: Double,
     symbol: String,
     under: String? = null,
-    /** An empty field saves 0. */
-    allowEmpty: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (Double) -> Unit,
 ) {
     var text by remember { mutableStateOf(if (initial == 0.0) "" else Fmt.number(initial)) }
-    val value = (if (allowEmpty && text.isBlank()) 0.0 else Fmt.parseDouble(text))?.takeIf { it >= 0 }
+    val value = Fmt.parseDouble(text)?.takeIf { it >= 0 }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     FormSheet(onDismiss = onDismiss, actions = { PrimaryAction(tr("Сохранить", "Save"), { value?.let { onSave(it); onDismiss() } }, value != null) }) {
@@ -477,13 +467,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
-}
-
-/** The limit typed in the main currency, as kopecks; 0 turns it off. */
-private fun limitRub(major: Double, data: AppData): Long {
-    if (major <= 0) return 0
-    val code = data.base.code
-    return if (code == "RUB") Currencies.toMinor(major, "RUB") else data.rates.rubMinor(Currencies.toMinor(major, code), code) ?: 0
 }
 
 /** Each expense category with its bucket: three or four regular ones, a few big ones, the rest everyday. */

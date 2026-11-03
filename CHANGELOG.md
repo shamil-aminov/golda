@@ -9,17 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **"Safe to spend today" is a daily limit, not money until payday.** Set it
-  in Settings → Budget, or leave it empty and it follows your own pace of
-  everyday spending over the last 30 days.
-- **Three buckets of spending.** Every expense category is everyday, regular
-  (rent, phone, subscriptions) or big (clothes, travel, health); change them
-  in Settings → Budget. Only everyday spending counts against the day and
-  the pace; any single expense can be moved to another bucket on its page.
-- **Reserve.** Home shows how long the money on the accounts "in the reserve"
-  lasts at your pace plus the regular payments and debts.
+- **"Safe to spend today" is the spending card's money over a period**, not
+  money until payday. The period starts at the card's last top-up and lasts
+  a month, or a week, two, or until a date you pick (Settings → Spending
+  period, or tap the period on Home).
+- **Burn from the balance.** Home shows how much a day actually leaves the
+  card since the period began, reconciliations included, and the day the
+  money runs out at that pace.
+- **Buckets, four categories each.** An expense is everyday (food, transport,
+  household, treats), regular (housing, phone, subscriptions, loans) or big
+  (shopping, travel, health, other). Earlier categories move over by
+  themselves.
+- **A new entry form.** The bucket picks its four categories; currency, card
+  and date are buttons on the form itself; cards look like cards and scroll
+  sideways. "What it was" picks the category from earlier entries or, with a
+  Gemini key, from the words; such a pick is outlined until you tap one. Back
+  and Save sit together at the bottom.
+- **Inter** is bundled: every currency sign comes from one font, so ฿ no
+  longer shifts the line.
+- Accounts says what the dearest debt's interest costs a month.
 - **Reconciling a shortfall books it as everyday spending** "Not recorded"
-  by default, so the pace is honest. Switch it off for a plain adjustment.
+  by default. Switch it off for a plain adjustment.
 - Insights split the period into the three buckets; the bars and the daily
   average are everyday spending only.
 - Voice: the amount is checked against the numbers in the transcript.

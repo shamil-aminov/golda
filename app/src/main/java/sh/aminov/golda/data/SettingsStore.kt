@@ -21,7 +21,9 @@ private val Context.dataStore by preferencesDataStore("settings")
 class SettingsStore(context: Context, private val store: DataStore<Preferences> = context.dataStore) {
     private object K {
         val onboarded = booleanPreferencesKey("onboarded")
-        val dailyLimitRub = longPreferencesKey("dailyLimitRub")
+        val spendAccountId = longPreferencesKey("spendAccountId")
+        val periodStart = longPreferencesKey("periodStart")
+        val periodEnd = longPreferencesKey("periodEnd")
         val displayCurrencies = stringPreferencesKey("displayCurrencies")
         val localCurrency = stringPreferencesKey("localCurrency")
         val baseCurrency = stringPreferencesKey("baseCurrency")
@@ -55,7 +57,9 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val d = Settings()
         return Settings(
             onboarded = this[K.onboarded] ?: d.onboarded,
-            dailyLimitRub = this[K.dailyLimitRub] ?: d.dailyLimitRub,
+            spendAccountId = this[K.spendAccountId],
+            periodStart = this[K.periodStart] ?: d.periodStart,
+            periodEnd = this[K.periodEnd] ?: d.periodEnd,
             displayCurrencies = this[K.displayCurrencies]?.split(',')?.filter { it.isNotBlank() } ?: d.displayCurrencies,
             localCurrency = this[K.localCurrency] ?: d.localCurrency,
             baseCurrency = this[K.baseCurrency] ?: d.baseCurrency,
@@ -72,7 +76,9 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
 
     private fun MutablePreferences.write(s: Settings) {
         this[K.onboarded] = s.onboarded
-        this[K.dailyLimitRub] = s.dailyLimitRub
+        if (s.spendAccountId != null) this[K.spendAccountId] = s.spendAccountId else remove(K.spendAccountId)
+        this[K.periodStart] = s.periodStart
+        this[K.periodEnd] = s.periodEnd
         this[K.displayCurrencies] = s.displayCurrencies.joinToString(",")
         this[K.localCurrency] = s.localCurrency
         this[K.baseCurrency] = s.baseCurrency

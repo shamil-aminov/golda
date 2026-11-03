@@ -14,6 +14,13 @@ Full license text: third_party/iconoteka/LICENSE
 Each drawable is a vector conversion of an Iconoteka SVG and names its source
 in a comment on its first line.
 --------------------------------------------------------------------------------
+Inter typeface (app/src/main/res/font/inter.ttf, the variable Inter[opsz,wght]
+from Google Fonts)
+https://github.com/rsms/inter, https://github.com/google/fonts/tree/main/ofl/inter
+Copyright 2020 The Inter Project Authors
+Licensed under the SIL Open Font License, Version 1.1.
+Full license text: third_party/inter/OFL.txt
+--------------------------------------------------------------------------------
 Tailwind CSS default colour palette (the Zinc and Red values in
 app/src/main/java/sh/aminov/golda/ui/Colors.kt)
 https://github.com/tailwindlabs/tailwindcss

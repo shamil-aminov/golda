@@ -116,6 +116,15 @@ interface GoldaDao {
     @Update
     suspend fun updateCategory(category: Category)
 
+    @Insert
+    suspend fun insertCategory(category: Category): Long
+
+    @Query("UPDATE Operation SET categoryId = :to WHERE categoryId = :from")
+    suspend fun moveOperations(from: Long, to: Long)
+
+    @Query("DELETE FROM Category WHERE id = :id")
+    suspend fun deleteCategory(id: Long)
+
     @Upsert
     suspend fun upsertRates(rates: List<Rate>)
 

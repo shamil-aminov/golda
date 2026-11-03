@@ -52,6 +52,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import sh.aminov.golda.data.AccountType
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -108,6 +114,8 @@ fun EntrySheet(
     onDismiss: () -> Unit,
     onSave: (Draft) -> Unit,
     onDelete: (OperationFull) -> Unit,
+    /** The category a note most likely means: the history, else Gemini; null when neither knows. */
+    suggest: suspend (String, CategoryKind) -> Long? = { _, _ -> null },
 ) {
     val editing = request.editing
     val op = editing?.op
@@ -118,7 +126,8 @@ fun EntrySheet(
     // currency (the local one), else a free-money account in that currency,
     // else the last one anyway, and the charge is converted. So changing the local currency moves the
     // default account too, not only the currency.
-    val defaultAccount = VoiceMapper.pick(accounts.sortedBy { it.sort }, data.settings.localCurrency, data.settings)
+    val spentFrom = remember(data.operations) { VoiceMapper.spentFrom(data.operations) }
+    val defaultAccount = VoiceMapper.pick(accounts.sortedBy { it.sort }, data.settings.localCurrency, data.settings, spentFrom)
 
     if (op != null && op.type !in listOf(OpType.EXPENSE, OpType.INCOME, OpType.TRANSFER)) {
         BookkeepingSheet(data, editing, onDismiss, onDelete)
@@ -160,8 +169,15 @@ fun EntrySheet(
     var secondEdited by remember { mutableStateOf(op != null && !op.isEstimate) }
     var editingSecond by remember { mutableStateOf(false) }
     var categoryId by remember { mutableStateOf(op?.categoryId) }
-    // An expense's own bucket, set only when it differs from its category's.
-    var ownBucket by remember { mutableStateOf(op?.bucket) }
+    // A new entry's category and account are worked out by the app until one is picked by hand: then
+    // that pill keeps what was picked. An edit keeps what was stored.
+    var categoryAuto by remember { mutableStateOf(op == null) }
+    var accountAuto by remember { mutableStateOf(op == null) }
+    var thinking by remember { mutableStateOf(false) }
+    // The bucket comes first: everyday, regular or big; its four categories follow. A new entry's bucket
+    // follows the category the app picks until one is tapped.
+    var bucket by remember { mutableStateOf(op?.let { Buckets.of(it, data.categoryById) } ?: Bucket.DAILY) }
+    var bucketAuto by remember { mutableStateOf(op == null) }
     var note by remember { mutableStateOf(op?.note.orEmpty()) }
     var date by remember { mutableStateOf(op?.let { Ledger.localDate(it.timestamp, data.zone) } ?: data.today) }
     var pickingDate by remember { mutableStateOf(false) }
@@ -181,7 +197,10 @@ fun EntrySheet(
     LaunchedEffect(estimate, secondEdited) {
         if (!secondEdited) secondText = estimate?.let { Fmt.editable(it, secondCode!!) } ?: ""
     }
-    val second = secondCode?.let { Fmt.parseMinor(secondText, it) }
+    // Shown and saved straight from the estimate until it is corrected by hand: the state above
+    // catches up a frame later, and reading it would flash "—" on every change of currency or card.
+    val secondShown = if (secondEdited) secondText else estimate?.let { Fmt.editable(it, secondCode!!) } ?: ""
+    val second = secondCode?.let { Fmt.parseMinor(secondShown, it) }
 
     val valid = account != null && amount != null &&
         (secondCode == null || (second != null && second > 0)) &&
@@ -209,7 +228,8 @@ fun EntrySheet(
             purchaseCurrency = if (foreignPurchase) purchaseCurrency else null,
             isEstimate = secondCode != null && !secondEdited,
             voiceText = op?.voiceText,
-            bucket = if (type == OpType.EXPENSE) ownBucket else null,
+            // Stored only when it is not the category's own: a bucket picked with no category, say.
+            bucket = if (type == OpType.EXPENSE) bucket.takeIf { it != Buckets.of(categoryId?.let { data.categoryById[it] }) } else null,
         )
     }
 
@@ -225,6 +245,7 @@ fun EntrySheet(
     }
 
     fun pickAccount(picked: Long) {
+        accountAuto = false
         val newAccount = data.accountById.getValue(picked)
         // A purchase in the local currency stays in it on another card (48,5 ₾ charged to the dollar
         // card, SPEC §1.4); one typed in the old account's own currency follows the account.
@@ -253,10 +274,32 @@ fun EntrySheet(
         }
         type = value
         categoryId = null
-        ownBucket = null
+        categoryAuto = op == null
         editingSecond = false
         secondEdited = false
         if (value != OpType.EXPENSE) purchaseCurrency = accountId?.let { data.accountById[it]?.currency } ?: purchaseCurrency
+    }
+
+    // The card follows the currency while it is not picked: lari from the lari card, rubles from the
+    // ruble one, dollars with no dollar card from the usual one, converted (as voice does).
+    LaunchedEffect(purchaseCurrency, type) {
+        if (accountAuto && type == OpType.EXPENSE) {
+            VoiceMapper.pick(accounts.sortedBy { it.sort }, purchaseCurrency, data.settings, spentFrom)?.let { accountId = it.id; secondEdited = false }
+        }
+    }
+    // The category follows what is typed while it is not picked: a moment after typing stops.
+    LaunchedEffect(note, type) {
+        if (!categoryAuto || type == OpType.TRANSFER) return@LaunchedEffect
+        if (note.isBlank()) { categoryId = null; return@LaunchedEffect }
+        delay(600)
+        thinking = true
+        val found = suggest(note, if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE)
+        thinking = false
+        if (categoryAuto) {
+            categoryId = found
+            // An auto bucket follows the category the app found ("Netflix" → regular).
+            if (bucketAuto && type == OpType.EXPENSE) found?.let { data.categoryById[it] }?.let { bucket = Buckets.of(it) }
+        }
     }
 
     val focus = remember { FocusRequester() }
@@ -265,32 +308,29 @@ fun EntrySheet(
 
     FormPage(
         onClose = onDismiss,
-        navigation = { CloseButton(onDismiss) },
-        topActions = {
-            if (editing != null) DeleteAction { onDelete(editing) }
-        },
+        topBar = false,
+        // The way back sits by the save button, not in a bar of its own across the top.
         actions = {
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
+            if (editing != null) RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete")) { onDelete(editing) }
             PrimaryAction(if (op == null) tr("Записать", "Save") else tr("Сохранить", "Save"), ::save, valid)
         },
     ) {
         // The header: the type.
-        Box(Modifier.fillMaxWidth().height(48.dp), contentAlignment = Alignment.Center) {
-            ChoiceGroup(
-                options = listOf(OpType.EXPENSE, OpType.INCOME, OpType.TRANSFER),
-                selected = type,
-                onSelect = ::pickType,
-                fill = false,
-                height = 40.dp,
-                minWidth = 88.dp,
-            ) {
-                ChoiceText(
-                    when (it) {
-                        OpType.INCOME -> tr("Доход", "Income")
-                        OpType.TRANSFER -> tr("Перевод", "Transfer")
-                        else -> tr("Расход", "Expense")
-                    },
-                )
-            }
+        ChoiceGroup(
+            options = listOf(OpType.EXPENSE, OpType.INCOME, OpType.TRANSFER),
+            selected = type,
+            onSelect = ::pickType,
+            modifier = Modifier.fillMaxWidth(),
+            height = 40.dp,
+        ) {
+            ChoiceText(
+                when (it) {
+                    OpType.INCOME -> tr("Доход", "Income")
+                    OpType.TRANSFER -> tr("Перевод", "Transfer")
+                    else -> tr("Расход", "Expense")
+                },
+            )
         }
         VSpace(Gap.l)
 
@@ -307,7 +347,7 @@ fun EntrySheet(
                     toAccountId = a
                     // The typed number belongs to the old "from" side: across currencies, what arrived
                     // becomes what is sent, so 100 $ → 9 130 ₽ turns into 9 130 ₽ → 100 $, not 100 ₽.
-                    if (secondCode != null && second != null) amountText = secondText
+                    if (secondCode != null && second != null) amountText = secondShown
                     secondEdited = false
                 },
             )
@@ -315,7 +355,6 @@ fun EntrySheet(
         }
 
         // The amount is the whole point of the sheet: a bare, big, centred number with its currency.
-        var currencyMenu by remember { mutableStateOf(false) }
         val currencyChoices = account?.let { data.currencyChoices(it.currency) } ?: data.currencyChoices()
         HeroAmountField(
             text = amountText,
@@ -325,13 +364,6 @@ fun EntrySheet(
             maxSp = 80f,
             onDone = { save() },
             onSymbolClick = null,
-            symbolMenu = {
-                DropdownMenu(expanded = currencyMenu, onDismissRequest = { currencyMenu = false }, properties = KeepKeyboard) {
-                    currencyChoices.forEach { code ->
-                        DropdownMenuItem(text = { Text(currencyLabel(code)) }, onClick = { purchaseCurrency = code; currencyMenu = false })
-                    }
-                }
-            },
         )
         // Income has no line under the number: nothing it would say helps there.
         if (type != OpType.INCOME) VSpace(Gap.xs)
@@ -342,21 +374,21 @@ fun EntrySheet(
             type == OpType.INCOME -> Unit
             amount == null && type == OpType.TRANSFER -> Unit
             amount == null -> {
-                UnderLine(tr("Можно сегодня ", "Safe today ") + data.base.approx(data.budget.leftTodayRub))
+                data.envelope?.let { UnderLine(tr("Можно сегодня ", "Safe today ") + Fmt.amount(it.leftTodayMinor, it.currency)) }
             }
-            secondCode != null && type == OpType.TRANSFER -> ReceivedLine(secondCode, secondText, secondEdited, editingSecond, { editingSecond = it }) {
+            secondCode != null && type == OpType.TRANSFER -> ReceivedLine(secondCode, secondShown, secondEdited, editingSecond, { editingSecond = it }) {
                 secondText = it
                 secondEdited = true
             }
             secondCode != null && type == OpType.EXPENSE -> {
-                ChargedLine(secondCode, secondText, secondEdited, editingSecond, { editingSecond = it }) {
+                // One line, as for a purchase in the account's own currency: what the card is charged
+                // (✎ to put the bank's figure), then what it is in the other shown currencies. The
+                // card's currency is the charge, so it is not said twice.
+                val rest = data.rates.rubMinor(amount, amountCode)?.let { data.others(it, amountCode, secondCode) }?.takeIf { it.isNotBlank() }
+                ChargedLine(secondCode, secondShown, secondEdited, editingSecond, rest, { editingSecond = it }) {
                     secondText = it
                     secondEdited = true
                 }
-                // The price in every shown currency too, as for a purchase in the account's own currency:
-                // what is charged is one line, what it is worth the other.
-                val rub = data.rates.rubMinor(amount, amountCode)
-                rub?.let { data.others(it, amountCode) }?.takeIf { it.isNotBlank() }?.let { UnderLine(it) }
             }
             else -> {
                 val rub = if (amountCode == "RUB") amount else data.rates.rubMinor(amount, amountCode)
@@ -374,33 +406,41 @@ fun EntrySheet(
                     }
                 }
                 else -> {
+                    // Everything on the first level: currency, card and date are buttons, not menus.
                     if (type == OpType.EXPENSE) {
-                        VSpace(Gap.m)
+                        VSpace(Gap.s)
                         CurrencyPicker(currencyChoices, purchaseCurrency, { purchaseCurrency = it; secondEdited = false }, Modifier.align(Alignment.CenterHorizontally))
                     }
                     VSpace(Gap.l)
-                    // The placeholder says what the line is for, never the type picked above it.
-                    val fallback = categoryId?.let { data.categoryById[it]?.label() } ?: if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Покупка", "Purchase")
-                    TonalField(note, { note = it }, Modifier.fillMaxWidth(), placeholder = fallback, onDone = { if (valid) save() })
-                    VSpace(Gap.s)
-                    Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                        AccountPill(accounts, account, ::pickAccount, Modifier.weight(1f, fill = false))
-                        DatePill(date, data) { pickingDate = true }
-                    }
+                    TonalField(
+                        note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                        placeholder = if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Что купил", "What it was"),
+                        onDone = { if (valid) save() },
+                    )
                     VSpace(Gap.l)
-                    // Always open: every category at once. With the keyboard up the form simply
-                    // scrolls under the action bar.
+                    // The bucket over its four categories: picking it changes them.
+                    if (type == OpType.EXPENSE) {
+                        ChoiceGroup(listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), bucket, { picked ->
+                            bucketAuto = false
+                            bucket = picked
+                            // A category of another bucket does not belong any more.
+                            if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != picked) { categoryId = null }
+                        }, Modifier.fillMaxWidth(), height = 36.dp) { ChoiceText(bucketLabel(it)) }
+                        VSpace(Gap.m)
+                    }
+                    // The four of the bucket (or of income). While the app picks, the tile is outlined.
                     CategoryGrid(
                         data = data,
                         kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
+                        bucket = if (type == OpType.EXPENSE) bucket else null,
                         selected = categoryId,
-                        onPick = { categoryId = if (categoryId == it) null else it },
+                        auto = categoryAuto,
+                        onPick = { categoryId = if (categoryId == it && !categoryAuto) null else it; categoryAuto = false },
                     )
-                    if (type == OpType.EXPENSE) {
-                        VSpace(Gap.l)
-                        val ofCategory = Buckets.of(categoryId?.let { data.categoryById[it] })
-                        BucketPicker(ownBucket ?: ofCategory) { picked -> ownBucket = picked.takeIf { it != ofCategory } }
-                    }
+                    VSpace(Gap.m)
+                    AccountCards(accounts.filter { it.type != AccountType.LOAN }, accountId, ::pickAccount)
+                    VSpace(Gap.m)
+                    DateChoices(date, data.today) { picked -> if (picked == null) pickingDate = true else date = picked }
                 }
             }
         }
@@ -454,17 +494,17 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
 
 /** "≈ 5,87 $ со счёта ✎": what the card is charged; a tap opens it for the bank's real figure. */
 @Composable
-private fun ChargedLine(code: String, text: String, edited: Boolean, open: Boolean, onOpen: (Boolean) -> Unit, onText: (String) -> Unit) {
+private fun ChargedLine(code: String, text: String, edited: Boolean, open: Boolean, rest: String?, onOpen: (Boolean) -> Unit, onText: (String) -> Unit) {
     SecondAmount(code, text, open, onOpen, onText) {
         val amount = Fmt.parseMinor(text, code)?.let { Fmt.amount(it, code) } ?: "—"
+        val style = MaterialTheme.typography.bodyLarge.merge(Tnum)
+        val ink = MaterialTheme.colorScheme.onSurfaceVariant
+        // The other currencies first, the charge last with ✎ at the very end: the one thing to tap is
+        // always at the edge. "≈" says it is the app's estimate; no words needed.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                (if (edited) "" else "≈ ") + amount + tr(" со счёта", " from the account"),
-                style = MaterialTheme.typography.bodyLarge.merge(Tnum),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.width(Gap.s))
-            Icon(painterResource(R.drawable.ic_edit), tr("Поправить", "Correct"), Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            rest?.let { Text("$it · ", Modifier.weight(1f, fill = false), style = style, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            Text((if (edited) "" else "≈ ") + amount, style = style, color = ink, maxLines = 1)
+            Icon(painterResource(R.drawable.ic_edit), tr("Поправить", "Correct"), Modifier.padding(start = Gap.xs).size(14.dp), tint = ink)
         }
     }
 }
@@ -499,7 +539,9 @@ private fun SecondAmount(code: String, text: String, open: Boolean, onOpen: (Boo
                 focusRequester = focus,
             )
         } else {
-            Box(Modifier.clip(MaterialTheme.shapes.large).clickable { onOpen(true) }.padding(horizontal = Gap.s, vertical = Gap.xs)) { closed() }
+            // No vertical padding: the line takes the same height as the plain one it replaces, so
+            // switching currency moves nothing.
+            Box(Modifier.clip(MaterialTheme.shapes.large).clickable { onOpen(true) }.padding(horizontal = Gap.s)) { closed() }
         }
     }
 }
@@ -516,27 +558,9 @@ fun CurrencyPicker(choices: List<String>, selected: String, onPick: (String) -> 
     }
 }
 
-/** "Мультивалютная USD · $ ▾": the account, rarely changed, as a pill with a menu. */
 @Composable
-private fun AccountPill(accounts: List<Account>, account: Account?, onPick: (Long) -> Unit, modifier: Modifier = Modifier) {
-    var open by remember { mutableStateOf(false) }
-    Box(modifier) {
-        MetaPill(
-            text = account?.let { "${it.name} · ${Currencies.symbol(it.currency)}" } ?: tr("Счёт", "Account"),
-            onClick = { open = true },
-            painter = painterResource(account?.let { typeIcon(it.type) } ?: R.drawable.ic_card),
-        )
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, properties = KeepKeyboard) {
-            accounts.forEach { a ->
-                DropdownMenuItem(text = { Text("${a.name} · ${Currencies.symbol(a.currency)}") }, onClick = { onPick(a.id); open = false })
-            }
-        }
-    }
-}
-
-@Composable
-private fun DatePill(date: LocalDate, data: AppData, onClick: () -> Unit) {
-    MetaPill(dayLabel(date, data.today), onClick, painter = painterResource(R.drawable.ic_calendar))
+private fun DatePill(date: LocalDate, data: AppData, auto: Boolean? = null, onClick: () -> Unit) {
+    MetaPill(dayLabel(date, data.today), onClick, painter = painterResource(R.drawable.ic_calendar), auto = auto)
 }
 
 /** From and to as two tiles with a round swap button over the gap; a tile opens the list of accounts. */
@@ -592,16 +616,16 @@ private fun RouteTile(data: AppData, label: String, account: Account?, choices: 
 
 /** Every category as a grid of tiles, four across, the most used first. The picked one grows into a pill. */
 @Composable
-private fun CategoryGrid(data: AppData, kind: CategoryKind, selected: Long?, onPick: (Long) -> Unit) {
-    val ordered = remember(data.categories, data.operations, kind) {
-        val uses = data.operations.groupingBy { it.op.categoryId }.eachCount()
-        data.categories.filter { it.kind == kind }.sortedWith(compareByDescending<Category> { uses[it.id] ?: 0 }.thenBy { it.sort })
+private fun CategoryGrid(data: AppData, kind: CategoryKind, bucket: Bucket?, selected: Long?, auto: Boolean = false, onPick: (Long) -> Unit) {
+    // In their own order, so a tile never moves under the finger.
+    val ordered = remember(data.categories, kind, bucket) {
+        data.categories.filter { it.kind == kind && (bucket == null || Buckets.of(it) == bucket) }.sortedBy { it.sort }
     }
     Column(verticalArrangement = Arrangement.spacedBy(Gap.s)) {
         ordered.chunked(4).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 row.forEach { category ->
-                    CategoryTile(categoryIcon(category.key), category.label(), category.id == selected, Modifier.weight(1f)) { onPick(category.id) }
+                    CategoryTile(categoryIcon(category.key), category.label(), category.id == selected, auto, Modifier.weight(1f)) { onPick(category.id) }
                 }
                 repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
@@ -610,34 +634,98 @@ private fun CategoryGrid(data: AppData, kind: CategoryKind, selected: Long?, onP
 }
 
 @Composable
-private fun CategoryTile(icon: Int, label: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val corner by animateDpAsState(if (on) 36.dp else 20.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "corner")
-    val container by animateColorAsState(if (on) pickedColor() else unpickedColor(), MaterialTheme.motionScheme.fastEffectsSpec(), label = "tile")
-    val ink = if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface
-    Surface(onClick = onClick, modifier = modifier.height(72.dp), shape = RoundedCornerShape(corner), color = container, contentColor = ink) {
+private fun CategoryTile(icon: Int, label: String, on: Boolean, auto: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    // Picked by the app, not by you: the tile is outlined, not filled.
+    val filled = on && !auto
+    val corner by animateDpAsState(if (on) 24.dp else 16.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "corner")
+    val container by animateColorAsState(if (filled) pickedColor() else unpickedColor(), MaterialTheme.motionScheme.fastEffectsSpec(), label = "tile")
+    val ink = if (filled) onPickedColor() else MaterialTheme.colorScheme.onSurface
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(68.dp),
+        shape = RoundedCornerShape(corner),
+        color = container,
+        contentColor = ink,
+        border = if (on && auto) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+    ) {
         Column(Modifier.padding(horizontal = Gap.xs), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (on) ink else MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (filled) ink else MaterialTheme.colorScheme.onSurfaceVariant)
             VSpace(Gap.xs)
             Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
     }
 }
 
+/** The date as three short buttons across: today, yesterday, or another (the calendar; null asks for it). */
+@Composable
+private fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) -> Unit) {
+    val yesterday = today.minusDays(1)
+    // The third holds any other day: the day itself once picked, the calendar before.
+    val other = date.takeIf { it != today && it != yesterday }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+        listOf<LocalDate?>(today, yesterday, other).forEach { day ->
+            val on = day == date
+            val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
+            val container by animateColorAsState(if (on) pickedColor() else unpickedColor(), spec, label = "day")
+            val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "day-ink")
+            Surface(
+                onClick = { onPick(if (day == null || day == other) null else day) },
+                modifier = Modifier.weight(1f).height(36.dp),
+                shape = CircleShape,
+                color = container,
+                contentColor = ink,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(day?.let { dayLabel(it, today) } ?: tr("Другой день", "Another day"), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                }
+            }
+        }
+    }
+}
 
 /**
- * Which bucket an expense is in: "Каждый день" counts against the day's limit, "Регулярно" and
- * "Крупное" do not. It starts at the category's; picking another sets this expense's own.
+ * The accounts as cards in one row that scrolls sideways: the name, and the currency under it. They
+ * are what the money leaves from, so they look like the cards in a wallet, not like the other buttons.
  */
 @Composable
-private fun BucketPicker(selected: Bucket, onPick: (Bucket) -> Unit) {
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        ChoiceGroup(
-            options = listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG),
-            selected = selected,
-            onSelect = onPick,
-            fill = false,
-            height = 40.dp,
-            minWidth = 88.dp,
-        ) { ChoiceText(bucketLabel(it)) }
+private fun AccountCards(accounts: List<Account>, selected: Long?, onPick: (Long) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(Gap.s),
+    ) {
+        accounts.forEach { account ->
+            val on = account.id == selected
+            // The same easing as every other choice on the form: no hard switch between cards.
+            val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
+            val container by animateColorAsState(if (on) pickedColor() else MaterialTheme.colorScheme.surfaceContainerLowest, spec, label = "card")
+            val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "card-ink")
+            val quiet by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurfaceVariant, spec, label = "card-quiet")
+            Surface(
+                onClick = { onPick(account.id) },
+                modifier = Modifier.width(116.dp).height(72.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = container,
+                contentColor = ink,
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                    Text(account.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        Currencies.symbol(account.currency),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = quiet,
+                    )
+                }
+            }
+        }
     }
+}
+
+/** A round icon button the height of the save button, beside it: back, delete. */
+@Composable
+private fun RowScope.RoundAction(icon: Int, description: String, onClick: () -> Unit) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(ButtonDefaults.MediumContainerHeight),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
+    ) { Icon(painterResource(icon), description) }
 }

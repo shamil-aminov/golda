@@ -10,6 +10,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
@@ -103,6 +105,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -453,8 +456,32 @@ fun <T> ToggleFlow(options: List<T>, isOn: (T) -> Boolean, onToggle: (T) -> Unit
 
 /** A quiet tonal pill with an icon and a value; it opens a menu or a picker. */
 @Composable
-fun MetaPill(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, icon: ImageVector? = null, painter: Painter? = null) {
-    Surface(onClick = onClick, modifier = modifier.height(40.dp), shape = CircleShape, color = tileColor(), contentColor = MaterialTheme.colorScheme.onSurface) {
+fun MetaPill(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    painter: Painter? = null,
+    /** Worked out by the app, not picked: outlined and quiet. Picked: filled. Null: the plain tile look. */
+    auto: Boolean? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(40.dp),
+        shape = CircleShape,
+        color = when (auto) {
+            true -> Color.Transparent
+            false -> scheme.secondaryContainer
+            null -> tileColor()
+        },
+        contentColor = when (auto) {
+            true -> scheme.onSurfaceVariant
+            false -> scheme.onSecondaryContainer
+            null -> scheme.onSurface
+        },
+        border = if (auto == true) BorderStroke(1.dp, scheme.outlineVariant) else null,
+    ) {
         Row(Modifier.padding(start = if (icon != null || painter != null) 12.dp else 16.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             val tint = MaterialTheme.colorScheme.onSurfaceVariant
             when {
@@ -509,6 +536,8 @@ fun FormPage(
     actions: (@Composable RowScope.() -> Unit)? = null,
     /** 2 dp for a connected group of actions. */
     actionGap: Dp = Gap.s,
+    /** No top bar: the page starts under the status bar and its way back is among the [actions]. */
+    topBar: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     BackHandler(onBack = onClose)
@@ -516,12 +545,17 @@ fun FormPage(
     val color = sheetColor()
     Surface(Modifier.fillMaxSize(), color = color) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars).only(WindowInsetsSides.Bottom))) {
-            TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = navigation,
-                actions = topActions,
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = color, scrolledContainerColor = color),
-            )
+            if (topBar) {
+                TopAppBar(
+                    title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    navigationIcon = navigation,
+                    actions = topActions,
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = color, scrolledContainerColor = color),
+                )
+            } else {
+                Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+                VSpace(Gap.m)
+            }
             // 24 dp under the form and 16 above the action bar: 40 in all, and never less while the
             // form scrolls under the bar.
             Column(
@@ -676,6 +710,10 @@ fun HeroAmountField(
         val chars = (if (text.isEmpty()) placeholder.length else text.length + text.length / 4).coerceAtLeast(1) + 1 + symbol.length
         val fit = with(LocalDensity.current) { (maxWidth * 0.9f / (chars * 0.66f)).toSp() }
         val big = if (fit < base.fontSize) base.copy(fontSize = fit, lineHeight = fit * 1.15f) else base.copy(lineHeight = base.fontSize * 1.15f)
+        // A fixed height, one line of [big]: a sign from a fallback font ("฿", Thai metrics) would
+        // otherwise make the baseline-aligned row taller, and everything under it jump.
+        val height = with(LocalDensity.current) { big.lineHeight.toDp() }
+        Box(Modifier.height(height), contentAlignment = Alignment.Center) {
         BasicTextField(
             value = text,
             onValueChange = onText,
@@ -705,6 +743,7 @@ fun HeroAmountField(
                 }
             },
         )
+        }
     }
 }
 
@@ -914,6 +953,7 @@ object Tags {
 
     /** Home's "· N дней до зарплаты". */
     const val HOME_RUNWAY = "home-runway"
+    const val HOME_PERIOD = "home-period"
 
     /** Settings' "Час на руки" value. */
     const val HOUR_NET = "hour-net"
