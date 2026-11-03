@@ -443,6 +443,8 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
  */
 @Composable
 private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<Pair<Color, Long>>>) {
+    // The picked day's dot in the theme's own colour, like the other leading marks.
+    val accent = leitmotifColor(0, LocalTones.current)
     if (days.isEmpty()) return
     // The last day with spending, so the pill opens on something, not on an empty today.
     val start = days.indexOfLast { it.second > 0 }.takeIf { it >= 0 } ?: days.lastIndex
@@ -514,7 +516,7 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         drawPath(path, normal)
                     }
                     // Every day in its full colours; the picked one gets a dot under it, its date and sum are in the pill.
-                    if (i == picked) drawCircle(strong, radius = 3.dp.toPx(), center = Offset(left + barWidth / 2, size.height + 6.dp.toPx()))
+                    if (i == picked) drawCircle(accent, radius = 3.dp.toPx(), center = Offset(left + barWidth / 2, size.height + 6.dp.toPx()))
                 }
                 budget?.let {
                     val y = size.height - size.height * it / top

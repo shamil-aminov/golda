@@ -39,6 +39,11 @@ class Tones(
     val infoC: Float = 0.09f,
     /** The theme's own hue (OKLCH degrees): the leitmotif the biggest colours take. */
     val seedHue: Int = hueOf(gold),
+    /**
+     * Colours told apart by lightness as well as hue, with no green-yellow or blue-violet pairs:
+     * for eyes that mix those up.
+     */
+    val clearColours: Boolean = false,
 )
 
 internal val GoldaLight = Tones(

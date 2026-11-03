@@ -133,6 +133,7 @@ private val harmony = listOf(0.0, 150.0, 55.0, -55.0, 210.0, 25.0, -110.0, 95.0,
  */
 fun leitmotifColor(rank: Int?, tones: Tones): Color {
     if (rank == null) return oklch(tones.infoL.toDouble(), 0.012, tones.seedHue.toDouble())
+    if (tones.clearColours) return clearColour(rank)
     val chroma = tones.infoC.toDouble() * if (rank == 0) 1.25 else 1.0
     return oklch(tones.infoL.toDouble() - if (rank == 0) 0.04 else 0.0, chroma.coerceAtLeast(0.06), tones.seedHue + harmony[rank % harmony.size])
 }
@@ -192,3 +193,15 @@ private fun oklabToLinear(l: Double, a: Double, b: Double): List<Double> {
 
 private fun encode(x: Double) = if (x <= 0.0031308) 12.92 * x else 1.055 * x.pow(1 / 2.4) - 0.055
 private fun decode(x: Double) = if (x <= 0.04045) x / 12.92 else ((x + 0.055) / 1.055).pow(2.4)
+
+/**
+ * Colours for eyes that mix up green with yellow and blue with violet: orange, sky blue, pink,
+ * deep teal, sand, navy... Neighbours in the list differ in lightness too, so even two that read as
+ * one hue are told apart by how light they are.
+ */
+private val clearSet = listOf(
+    Triple(0.72, 0.16, 55.0), Triple(0.60, 0.13, 245.0), Triple(0.82, 0.10, 355.0), Triple(0.50, 0.09, 195.0),
+    Triple(0.88, 0.07, 80.0), Triple(0.42, 0.12, 265.0), Triple(0.68, 0.14, 20.0), Triple(0.78, 0.05, 220.0),
+)
+
+private fun clearColour(rank: Int): Color = clearSet[rank % clearSet.size].let { (l, c, h) -> oklch(l, c, h) }

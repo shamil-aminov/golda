@@ -18,6 +18,8 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
     ESPRESSO("espresso", "Эспрессо", "Espresso", null, espresso()),
     FOREST("forest", "Лес", "Forest", null, forest()),
     GRAPHITE("graphite", "Графит", "Graphite", null, graphite()),
+    CLEAR("clear", "Ясная", "Clear", clear(), null),
+    CLEAR_NIGHT("clear-night", "Ясная ночь", "Clear night", null, clearNight()),
     ;
 
     val label: String get() = tr(ru, en)
@@ -33,15 +35,15 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
     }
 }
 
-private fun lightSet(page: Long, card: Long, soft: Long, line: Long, muted: Long, text: Long, picked: Long, onPicked: Long, action: Long, onAction: Long) = Tones(
-    dark = false,
+private fun lightSet(page: Long, card: Long, soft: Long, line: Long, muted: Long, text: Long, picked: Long, onPicked: Long, action: Long, onAction: Long, clear: Boolean = false) = Tones(
+    dark = false, clearColours = clear,
     page = Color(page), card = Color(card), soft = Color(soft), line = Color(line), muted = Color(muted), text = Color(text),
     graphite = Color(picked), onGraphite = Color(onPicked), gold = Color(action), onGold = Color(onAction),
     error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF), errorSoft = Color(0xFFFEE2E2), onErrorSoft = Color(0xFF991B1B),
 )
 
-private fun darkSet(page: Long, card: Long, soft: Long, line: Long, muted: Long, text: Long, picked: Long, onPicked: Long, action: Long, onAction: Long) = Tones(
-    dark = true,
+private fun darkSet(page: Long, card: Long, soft: Long, line: Long, muted: Long, text: Long, picked: Long, onPicked: Long, action: Long, onAction: Long, clear: Boolean = false) = Tones(
+    dark = true, clearColours = clear,
     page = Color(page), card = Color(card), soft = Color(soft), line = Color(line), muted = Color(muted), text = Color(text),
     graphite = Color(picked), onGraphite = Color(onPicked), gold = Color(action), onGold = Color(onAction),
     error = Color(0xFFF87171), onError = Color(0xFF450A0A), errorSoft = Color(0xFF4C1D1D), onErrorSoft = Color(0xFFFECACA),
@@ -70,3 +72,9 @@ private fun forest() = darkSet(0xFF111A15, 0xFF19251E, 0xFF24352B, 0xFF2F4538, 0
 
 // Plain black and greys, the gold for the action.
 private fun graphite() = darkSet(0xFF121212, 0xFF1E1E1E, 0xFF2C2C2C, 0xFF3A3A3A, 0xFFA0A0A0, 0xFFF2F2F2, 0xFF3D3D3D, 0xFFFFFFFF, 0xFFF2C14E, 0xFF2B1D00)
+
+// For eyes that mix up green with yellow and blue with violet: neutral greys, a blue picked state,
+// an orange action, and information colours that differ in lightness as well as hue.
+private fun clear() = lightSet(0xFFF5F5F4, 0xFFFFFFFF, 0xFFE7E5E4, 0xFFD6D3D1, 0xFF57534E, 0xFF1C1917, 0xFFBFDBFE, 0xFF1E3A8A, 0xFFFDBA74, 0xFF431407, clear = true)
+
+private fun clearNight() = darkSet(0xFF121212, 0xFF1E1E1E, 0xFF2C2C2C, 0xFF3A3A3A, 0xFFB0B0B0, 0xFFF5F5F5, 0xFF1E3A8A, 0xFFDBEAFE, 0xFFFDBA74, 0xFF431407, clear = true)
