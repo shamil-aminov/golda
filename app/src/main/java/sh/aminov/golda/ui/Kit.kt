@@ -218,7 +218,8 @@ fun circleColor(): Color = MaterialTheme.colorScheme.surface
 @Composable
 fun HeroTile(
     modifier: Modifier = Modifier,
-    container: Color = MaterialTheme.colorScheme.primaryFixed,
+    // Flat by default, like Android's settings: the page carries it; a colour only to warn.
+    container: Color = Color.Transparent,
     content: Color = MaterialTheme.colorScheme.onPrimaryFixed,
     onClick: (() -> Unit)? = null,
     body: @Composable ColumnScope.() -> Unit,
@@ -228,20 +229,21 @@ fun HeroTile(
     val shape = MaterialTheme.shapes.extraLargeIncreased
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            Column(Modifier.padding(Gap.l), content = body)
+            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
         }
     } else {
         Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            Column(Modifier.padding(Gap.l), content = body)
+            // 16 at the sides lines the text up with the rows' under it; 24 above and below.
+            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
         }
     }
 }
 
-/** A secondary tile: corner 28, 16 dp inside. */
+/** A block of the page: 16 dp inside, flat (no card) unless a colour is asked for. */
 @Composable
 fun Tile(
     modifier: Modifier = Modifier,
-    container: Color = tileColor(),
+    container: Color = Color.Transparent,
     content: Color = MaterialTheme.colorScheme.onSurface,
     onClick: (() -> Unit)? = null,
     padding: PaddingValues = PaddingValues(Gap.m),
@@ -265,15 +267,23 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
     Text(text, modifier, style = MaterialTheme.typography.labelLarge, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
-/** The label over a group: labelLarge onSurfaceVariant, lined up with the rows' text. */
+/**
+ * The label over a group, the way Android's settings head a section: small and semibold, then a
+ * hairline to the end; lined up with the rows' text.
+ */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(start = Gap.m, bottom = Gap.s).heightIn(min = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    Column(modifier.fillMaxWidth().padding(start = Gap.m, end = Gap.m)) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            Spacer(Modifier.width(Gap.s))
+            HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+            trailing?.let {
+                Spacer(Modifier.width(Gap.s))
+                it()
+            }
         }
-        trailing?.invoke()
+        supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -304,12 +314,14 @@ fun GroupRow(
     leading: (@Composable () -> Unit)? = null,
     supporting: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
-    container: Color = tileColor(),
+    // Flat by default: rows on the page itself, no card round the group.
+    container: Color = Color.Transparent,
     headline: @Composable () -> Unit,
 ) {
+    val flat = container == Color.Transparent
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
-    val spaced = modifier.padding(bottom = if (index < count - 1) GroupGap else 0.dp)
+    val spaced = modifier.padding(bottom = if (index < count - 1 && !flat) GroupGap else 0.dp)
     if (onClick != null) {
         SegmentedListItem(
             onClick = onClick,

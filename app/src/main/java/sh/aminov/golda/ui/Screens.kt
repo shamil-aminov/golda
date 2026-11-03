@@ -105,7 +105,7 @@ fun HomeScreen(
             val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
             HeroTile(
                 Modifier.padding(horizontal = Gap.m),
-                container = if (over) scheme.errorContainer else scheme.primaryFixed,
+                container = if (over) scheme.errorContainer else Color.Transparent,
                 content = ink,
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -420,7 +420,7 @@ fun AccountScreen(
                 val quiet = if (free) scheme.onPrimaryFixedVariant else scheme.onSurfaceVariant
                 HeroTile(
                     Modifier.padding(horizontal = Gap.m),
-                    container = if (free) scheme.primaryFixed else tileColor(),
+                    container = Color.Transparent,
                     content = ink,
                 ) {
                     Caption(typeLabel(account.type), color = quiet)
