@@ -316,11 +316,11 @@ fun EntrySheet(
     FormPage(
         onClose = onDismiss,
         topBar = false,
-        // The way back sits by the save button, not in a bar of its own across the top.
+        // The way back sits by the save button, on the right like every page's, not in a bar across the top.
         actions = {
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
             if (editing != null) RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete")) { onDelete(editing) }
             PrimaryAction(if (op == null) tr("Записать", "Save") else tr("Сохранить", "Save"), ::save, valid)
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
         },
     ) {
         // The header: the type.
@@ -423,11 +423,6 @@ fun EntrySheet(
                         placeholder = if (type == OpType.INCOME) tr("Откуда", "From where") else tr("Что купил", "What it was"),
                         onDone = { if (valid) save() },
                     )
-                    // Gemini's precise tag, while the note it was given for is unchanged.
-                    op?.tag?.takeIf { OpTags.key(op.note) == OpTags.key(note) }?.let { tag ->
-                        VSpace(Gap.s)
-                        UnderLine(tr("Метка Gemini: ", "Gemini tag: ") + tag)
-                    }
                     VSpace(Gap.l)
                     // The bucket over its four categories: picking it changes them.
                     if (type == OpType.EXPENSE) {
@@ -452,6 +447,11 @@ fun EntrySheet(
                     AccountCards(accounts.filter { it.type != AccountType.LOAN }, accountId, ::pickAccount)
                     VSpace(Gap.m)
                     DateChoices(date, data.today) { picked -> if (picked == null) pickingDate = true else date = picked }
+                    // Gemini's precise tag, under all that was chosen, while its note is unchanged.
+                    op?.tag?.takeIf { OpTags.key(op.note) == OpTags.key(note) }?.let { tag ->
+                        VSpace(Gap.m)
+                        UnderLine(tr("Метка Gemini: ", "Gemini tag: ") + tag)
+                    }
                 }
             }
         }

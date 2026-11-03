@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -962,6 +963,18 @@ object Tags {
 
     /** The big facts tile in "Сомневаюсь": the hours of work, when an hourly income is set. */
     const val DECIDE_HOURS = "decide-hours"
+}
+
+/** Room left under a page's content for [BackDock], so the last row scrolls clear of it. */
+val DockClearance = 96.dp
+
+/**
+ * The way back on a page: round buttons floating at the bottom right, by the thumb, with nothing
+ * behind them, like the tab bar's island. Back is always the rightmost.
+ */
+@Composable
+fun BackDock(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(modifier.navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically, content = content)
 }
 
 /** A round icon button the height of the save button, beside it: back, delete. */

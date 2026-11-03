@@ -129,8 +129,8 @@ fun HomeScreen(
                     envelope.perDayMinor > 0 -> (left.toFloat() / envelope.perDayMinor).coerceIn(0f, 1f)
                     else -> 0f
                 }
-                // The tile's quiet ink, not black: a black line with no visible track reads as a divider.
-                WavyBar(share, ink = quiet, hero = true, flat = over || share >= 1f)
+                // The same ink as the number over it: the two say one thing.
+                WavyBar(share, ink = ink, hero = true, flat = over || share >= 1f)
                 VSpace(Gap.m)
                 // Looking ahead from today: the days still to get through, and the days the money lasts
                 // at the pace it really goes. Worked out again every day. A tap changes the period.
@@ -237,12 +237,12 @@ fun AccountsScreen(
                 HeroAmount(data.base.whole(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
                 VSpace(Gap.s)
                 Text(data.others(total, data.base.code), style = text, color = quiet)
-                // The one line that says something here: semibold, like Home's; its figure under it.
+                // What the debt costs: the label quiet, the money it eats semibold, like Home's main line.
                 Debts.advice(data.accounts, data.states)?.let { advice ->
                     VSpace(Gap.m)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
-                    Text(head, style = text.copy(fontWeight = FontWeight.SemiBold), color = scheme.onPrimaryFixed)
-                    tail?.let { Text(it, style = text, color = quiet) }
+                    Text(head, style = text, color = quiet)
+                    tail?.let { Text(it, style = text.copy(fontWeight = FontWeight.SemiBold), color = scheme.onPrimaryFixed) }
                 }
             }
         }
@@ -386,17 +386,9 @@ fun AccountScreen(
     var reconciling by remember { mutableStateOf(false) }
     val operations = data.visibleOperations.filter { full -> full.postings.any { it.accountId == accountId } }
     BackHandler(onBack = onBack)
-    // Back and edit at the bottom, by the thumb, as on every page.
-    Scaffold(
-        bottomBar = {
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-                RoundAction(R.drawable.ic_edit, tr("Изменить", "Edit"), onEditAccount)
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l)) {
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+      Box(Modifier.fillMaxSize()) {
+        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + DockClearance)) {
             item(key = "title") {
                 Text(
                     account.name,
@@ -462,6 +454,12 @@ fun AccountScreen(
             }
             operationItems(data, operations, accountId, onEditOperation)
         }
+        // Back and edit float at the bottom right, by the thumb, where the mic is on the tabs.
+        BackDock(Modifier.align(Alignment.BottomEnd)) {
+            RoundAction(R.drawable.ic_edit, tr("Изменить", "Edit"), onEditAccount)
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
+        }
+      }
     }
     if (reconciling) ReconcileSheet(state, onDismiss = { reconciling = false }) { actual, asSpending -> reconciling = false; onReconcile(actual, asSpending) }
 }

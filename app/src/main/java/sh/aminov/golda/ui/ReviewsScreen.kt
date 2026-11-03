@@ -2,6 +2,7 @@ package sh.aminov.golda.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -65,7 +66,6 @@ fun ReviewsScreen(
     var error by remember { mutableStateOf<String?>(null) }
     BottomPage(
         actions = {
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
             Button(
                 onClick = {
                     working = true
@@ -83,6 +83,7 @@ fun ReviewsScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
         },
     ) {
         Text(tr("Разборы", "Reviews"), style = MaterialTheme.typography.headlineMedium)
@@ -116,9 +117,9 @@ fun ReviewScreen(review: Review, onBack: () -> Unit, onDelete: () -> Unit) {
     BackHandler(onBack = onBack)
     BottomPage(
         actions = {
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-            RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete"), onDelete)
             Spacer(Modifier.weight(1f))
+            RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete"), onDelete)
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
         },
     ) {
         Markdown(review.text)
@@ -131,18 +132,21 @@ private fun written(review: Review): String =
     Instant.ofEpochMilli(review.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
         .format(DateTimeFormatter.ofPattern("d MMMM", sh.aminov.golda.domain.I18n.locale))
 
-/** A full page with no top bar: content from under the status bar, actions at the bottom. */
+/**
+ * A full page with no top bar: content from under the status bar, and [actions] floating at the
+ * bottom over it with nothing behind them, back the rightmost.
+ */
 @Composable
 fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Composable () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = sheetColor()) {
-        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)) {
+        Box(Modifier.fillMaxSize()) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).windowInsetsPadding(WindowInsets.navigationBars)) {
                 Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                 VSpace(Gap.l)
                 content()
-                VSpace(Gap.l)
+                VSpace(DockClearance)
             }
-            Row(Modifier.fillMaxWidth().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically, content = actions)
+            BackDock(Modifier.fillMaxWidth().align(Alignment.BottomCenter), content = actions)
         }
     }
 }

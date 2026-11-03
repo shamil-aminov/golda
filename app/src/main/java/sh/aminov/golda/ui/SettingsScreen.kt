@@ -1,7 +1,7 @@
 package sh.aminov.golda.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import sh.aminov.golda.data.AppLanguage
 import android.content.ContextWrapper
@@ -106,17 +106,10 @@ fun SettingsScreen(
     val s = data.settings
     BackHandler(onBack = onBack)
 
-    // Back sits at the bottom, by the thumb, as on every page.
-    Scaffold(
-        bottomBar = {
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m)) {
-                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+      Box(Modifier.fillMaxSize()) {
         Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l),
+            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = DockClearance),
         ) {
             VSpace(Gap.l)
             Text(tr("Настройки", "Settings"), style = MaterialTheme.typography.headlineMedium)
@@ -208,6 +201,9 @@ fun SettingsScreen(
                 leading = { Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error) },
             ) { Text(tr("Стереть всё", "Erase everything"), color = MaterialTheme.colorScheme.error) }
         }
+        // Back floats at the bottom right, by the thumb, where the mic is on the tabs.
+        BackDock(Modifier.align(Alignment.BottomEnd)) { RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack) }
+      }
     }
 
     when (edit) {

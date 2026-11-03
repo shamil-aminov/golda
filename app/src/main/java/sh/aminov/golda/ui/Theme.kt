@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -95,6 +96,9 @@ val Inter = FontFamily(
 
 /** Every style of [this] in [family], the emphasized ones too. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** Material's tracking is set for Roboto; Inter reads better without it. */
+private val Tight = 0.sp
+
 private fun Typography.withFamily(family: FontFamily) = Typography(
     displayLarge = displayLarge.copy(fontFamily = family),
     displayMedium = displayMedium.copy(fontFamily = family),
@@ -102,28 +106,28 @@ private fun Typography.withFamily(family: FontFamily) = Typography(
     headlineLarge = headlineLarge.copy(fontFamily = family),
     headlineMedium = headlineMedium.copy(fontFamily = family),
     headlineSmall = headlineSmall.copy(fontFamily = family),
-    titleLarge = titleLarge.copy(fontFamily = family),
-    titleMedium = titleMedium.copy(fontFamily = family),
-    titleSmall = titleSmall.copy(fontFamily = family),
-    bodyLarge = bodyLarge.copy(fontFamily = family),
-    bodyMedium = bodyMedium.copy(fontFamily = family),
-    bodySmall = bodySmall.copy(fontFamily = family),
-    labelLarge = labelLarge.copy(fontFamily = family),
-    labelMedium = labelMedium.copy(fontFamily = family),
-    labelSmall = labelSmall.copy(fontFamily = family),
+    titleLarge = titleLarge.copy(fontFamily = family, letterSpacing = Tight),
+    titleMedium = titleMedium.copy(fontFamily = family, letterSpacing = Tight),
+    titleSmall = titleSmall.copy(fontFamily = family, letterSpacing = Tight),
+    bodyLarge = bodyLarge.copy(fontFamily = family, letterSpacing = Tight),
+    bodyMedium = bodyMedium.copy(fontFamily = family, letterSpacing = Tight),
+    bodySmall = bodySmall.copy(fontFamily = family, letterSpacing = Tight),
+    labelLarge = labelLarge.copy(fontFamily = family, letterSpacing = Tight),
+    labelMedium = labelMedium.copy(fontFamily = family, letterSpacing = Tight),
+    labelSmall = labelSmall.copy(fontFamily = family, letterSpacing = Tight),
     displayLargeEmphasized = displayLargeEmphasized.copy(fontFamily = family),
     displayMediumEmphasized = displayMediumEmphasized.copy(fontFamily = family),
     displaySmallEmphasized = displaySmallEmphasized.copy(fontFamily = family),
     headlineLargeEmphasized = headlineLargeEmphasized.copy(fontFamily = family),
     headlineMediumEmphasized = headlineMediumEmphasized.copy(fontFamily = family),
     headlineSmallEmphasized = headlineSmallEmphasized.copy(fontFamily = family),
-    titleLargeEmphasized = titleLargeEmphasized.copy(fontFamily = family),
-    titleMediumEmphasized = titleMediumEmphasized.copy(fontFamily = family),
-    titleSmallEmphasized = titleSmallEmphasized.copy(fontFamily = family),
-    bodyLargeEmphasized = bodyLargeEmphasized.copy(fontFamily = family),
-    bodyMediumEmphasized = bodyMediumEmphasized.copy(fontFamily = family),
-    bodySmallEmphasized = bodySmallEmphasized.copy(fontFamily = family),
-    labelLargeEmphasized = labelLargeEmphasized.copy(fontFamily = family),
-    labelMediumEmphasized = labelMediumEmphasized.copy(fontFamily = family),
-    labelSmallEmphasized = labelSmallEmphasized.copy(fontFamily = family),
+    titleLargeEmphasized = titleLargeEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    titleMediumEmphasized = titleMediumEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    titleSmallEmphasized = titleSmallEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    bodyLargeEmphasized = bodyLargeEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    bodyMediumEmphasized = bodyMediumEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    bodySmallEmphasized = bodySmallEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    labelLargeEmphasized = labelLargeEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    labelMediumEmphasized = labelMediumEmphasized.copy(fontFamily = family, letterSpacing = Tight),
+    labelSmallEmphasized = labelSmallEmphasized.copy(fontFamily = family, letterSpacing = Tight),
 )
