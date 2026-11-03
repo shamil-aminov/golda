@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The mosaic's corners follow each tile's size, so small tiles stay tiles
+  instead of turning into pills.
 - A spoken transfer with one sum ("погасил кредитку 15 тысяч с карты") is
   booked: the prompt now says one sum is what was sent, and when the model
   still gives it as what arrived, between accounts in one currency the app

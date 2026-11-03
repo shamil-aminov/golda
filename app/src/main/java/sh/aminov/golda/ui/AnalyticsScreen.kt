@@ -306,13 +306,16 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
                     // Ink: the tile's own colour, made deep, so the words belong to it.
                     // Deep ink on light tiles, light ink on deep ones: readable on either.
                     val ink = if (item.color.luminance() < 0.3f) lerp(item.color, Color.White, 0.9f) else lerp(item.color, Color.Black, 0.72f)
+                    // Corners in proportion to the tile: 16 dp on the big ones, and a small tile keeps
+                    // its corners small rather than turning into a pill.
+                    val corner = with(density) { (minOf(tile.width, tile.height) * 0.12f).toDp() }.coerceIn(4.dp, 16.dp)
                     Box(
                         Modifier
                             .offset { IntOffset(tile.x.roundToInt(), tile.y.roundToInt()) }
                             .size(with(density) { tile.width.toDp() }, with(density) { tile.height.toDp() })
                             .padding(gap / 2)
                             .graphicsLayer { alpha = shown.value; scaleX = 0.92f + 0.08f * shown.value; scaleY = 0.92f + 0.08f * shown.value }
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(corner))
                             .background(item.color)
                             .semantics(mergeDescendants = true) { contentDescription = "${item.name}, ${item.amount}, ${wholePercent(item.rub.toDouble() / total)}" }
                             .padding(14.dp),
