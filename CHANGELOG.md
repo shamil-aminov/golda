@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   period's spending and writes a short Markdown note on where the money went
   and what could be cut. Past reviews are kept, listed and backed up.
 
+### Removed
+
+- **Account groups.** One bank, one account: accounts are one list, and the
+  account form no longer asks for a group.
+
 ### Changed
 
 - **Insights** shows the total with the three buckets as filters, categories

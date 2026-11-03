@@ -70,8 +70,6 @@ fun AccountSheet(
     var name by remember { mutableStateOf(editing?.name.orEmpty()) }
     var type by remember { mutableStateOf(editing?.type ?: AccountType.CARD) }
     var currency by remember { mutableStateOf(editing?.currency ?: data.settings.localCurrency) }
-    var group by remember { mutableStateOf(editing?.groupName.orEmpty()) }
-    var newGroup by remember { mutableStateOf(false) }
     var balanceText by remember { mutableStateOf("") }
     var rateText by remember { mutableStateOf(editing?.interestRate?.let { Fmt.number(it) }.orEmpty()) }
     var includeInFree by remember { mutableStateOf(editing?.includeInFree) }
@@ -97,7 +95,8 @@ fun AccountSheet(
             name = name.trim(),
             currency = currency,
             type = type,
-            groupName = group.trim().ifBlank { null },
+            // Groups are gone: one bank, one account. Saving an account drops its old group.
+            groupName = null,
             includeInFree = free,
             interestRate = if (type == AccountType.SAVINGS || debt) rate else null,
             sort = editing?.sort ?: ((data.accounts.maxOfOrNull { it.sort } ?: -1) + 1),
@@ -177,9 +176,6 @@ fun AccountSheet(
         }
 
         VSpace(Gap.l)
-        GroupPicker(data, group, newGroup, { group = it; newGroup = false }, { newGroup = true; group = "" }, { group = it })
-
-        VSpace(Gap.s)
         // The whole line flips the switch.
         Row(
             Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(free, role = Role.Switch) { includeInFree = it },
@@ -251,7 +247,7 @@ private fun TypeTiles(selected: AccountType, onPick: (AccountType) -> Unit) {
     }
 }
 
-/** The shown currencies as a connected group, and "…" for any other one. */
+/** The shown currencies as a connected group, and "Ещё" for any other one. */
 @Composable
 private fun AccountCurrency(data: AppData, currency: String, onPick: (String) -> Unit) {
     val base = data.currencyChoices().take(4)
@@ -278,31 +274,3 @@ private fun AccountCurrency(data: AppData, currency: String, onPick: (String) ->
 
 /** The choice that opens the rest of the currencies. */
 private const val MORE = "more"
-
-/** A bank's accounts stand together: the groups there are, and "Новая" for another. */
-@Composable
-private fun GroupPicker(
-    data: AppData,
-    group: String,
-    typingNew: Boolean,
-    onPick: (String) -> Unit,
-    onNew: () -> Unit,
-    onType: (String) -> Unit,
-) {
-    val existing = data.accounts.mapNotNull { it.groupName?.takeIf(String::isNotBlank) }.distinct()
-    Caption(tr("Группа", "Group"))
-    VSpace(Gap.s)
-    if (existing.isNotEmpty()) {
-        val newLabel = tr("Новая", "New")
-        ToggleFlow(
-            options = existing + newLabel,
-            isOn = { if (it == newLabel) typingNew || (group.isNotBlank() && group !in existing) else it == group && !typingNew },
-            onToggle = { if (it == newLabel) onNew() else onPick(if (it == group) "" else it) },
-            label = { it },
-        )
-    }
-    if (existing.isEmpty() || typingNew || (group.isNotBlank() && group !in existing)) {
-        if (existing.isNotEmpty()) VSpace(Gap.s)
-        TonalField(group, onType, Modifier.fillMaxWidth(), placeholder = tr("Например, название банка", "Like the bank's name"))
-    }
-}

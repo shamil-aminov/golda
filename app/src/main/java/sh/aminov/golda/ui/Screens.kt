@@ -232,47 +232,22 @@ fun AccountsScreen(
                 )
             }
         }
-        val blocks = accountBlocks(data.accounts)
-        blocks.forEachIndexed { b, (group, accounts) ->
-            val last = b == blocks.lastIndex
-            // "+ Счёт" closes the last plain list; under a bank's group it stands on its own.
-            val withAdd = last && group == null
-            item(key = "gap-$b") { VSpace(if (b == 0 && reconcileMode) 0.dp else Gap.l) }
-            if (group != null) {
-                item(key = "group-$group") {
-                    val rub = accounts.sumOf { data.states[it.id]?.rubMinor ?: 0 }
-                    // The bank's total on the right, under the accounts' amounts: what its app shows.
-                    GroupLabel(group, Modifier.padding(horizontal = Gap.m)) {
-                        Text(
-                            data.base.approx(rub),
-                            Modifier.padding(end = Gap.m),
-                            style = MaterialTheme.typography.labelLarge.merge(Tnum),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-            val count = accounts.size + if (withAdd) 1 else 0
-            accounts.forEachIndexed { i, account ->
-                item(key = account.id) {
-                    val state = data.states.getValue(account.id)
-                    AccountRow(
-                        data, state, i, count,
-                        reconcileMode = reconcileMode,
-                        checked = checked[account.id],
-                        onClick = { if (reconcileMode) reconciling = state else onOpen(account.id) },
-                        onMatch = { done(state, state.balanceMinor) },
-                    )
-                }
-            }
-            if (withAdd) item(key = "add") { AddRow(count - 1, count, tr("Счёт", "Account"), onAdd) }
-        }
-        if (blocks.isEmpty() || blocks.last().first != null) {
-            item(key = "add") {
-                VSpace(if (blocks.isEmpty()) Gap.l else Gap.s)
-                AddRow(0, 1, tr("Счёт", "Account"), onAdd)
+        // One list: one bank, one account, so there is nothing to group.
+        val count = data.accounts.size + 1
+        item(key = "gap") { VSpace(if (reconcileMode) 0.dp else Gap.l) }
+        data.accounts.forEachIndexed { i, account ->
+            item(key = account.id) {
+                val state = data.states.getValue(account.id)
+                AccountRow(
+                    data, state, i, count,
+                    reconcileMode = reconcileMode,
+                    checked = checked[account.id],
+                    onClick = { if (reconcileMode) reconciling = state else onOpen(account.id) },
+                    onMatch = { done(state, state.balanceMinor) },
+                )
             }
         }
+        item(key = "add") { AddRow(count - 1, count, tr("Счёт", "Account"), onAdd) }
     }
     reconciling?.let { state ->
         ReconcileSheet(state, onDismiss = { reconciling = null }) { actual, asSpending ->
@@ -291,24 +266,6 @@ fun AddRow(index: Int, count: Int, text: String, onClick: () -> Unit, modifier: 
         // A bare "+" glyph, the same everywhere.
         leading = { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
     ) { Text(text, style = MaterialTheme.typography.titleMedium) }
-}
-
-/**
- * Accounts in their order, a bank's accounts pulled together where the first of them stands, and
- * neighbours without a bank in one list. A group of one is not a group.
- */
-private fun accountBlocks(accounts: List<Account>): List<Pair<String?, List<Account>>> {
-    val groups = accounts.filter { !it.groupName.isNullOrBlank() }.groupBy { it.groupName!! }.filterValues { it.size > 1 }
-    val seen = mutableSetOf<String>()
-    val blocks = mutableListOf<Pair<String?, MutableList<Account>>>()
-    for (account in accounts) {
-        val group = account.groupName?.takeIf { it in groups }
-        when {
-            group == null -> if (blocks.lastOrNull()?.first == null && blocks.isNotEmpty()) blocks.last().second += account else blocks += null to mutableListOf(account)
-            seen.add(group) -> blocks += group to groups.getValue(group).toMutableList()
-        }
-    }
-    return blocks
 }
 
 /**

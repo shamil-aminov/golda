@@ -93,7 +93,7 @@ fun Onboarding(
                             GroupRow(
                                 i, count,
                                 onClick = { editing = account },
-                                supporting = { Text(typeLabel(account.type) + (account.groupName?.let { " · $it" } ?: "")) },
+                                supporting = { Text(typeLabel(account.type)) },
                                 trailing = { AmountColumn(Fmt.amount(state.balanceMinor, account.currency)) },
                             ) { Text(account.name, style = MaterialTheme.typography.titleMedium) }
                         }
