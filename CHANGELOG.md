@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Regular payments** (Settings → Budget). Two days before a subscription is
+  charged a notification asks whether it is still needed; no amount means a
+  free trial. What looks regular in the last two months of spending is
+  offered for one-tap adding.
 - **Reviews.** Insights has an ice-blue "Review" button: Gemini reads the
   period's spending and writes a short Markdown note on where the money went
   and what could be cut. Past reviews are kept, listed and backed up.

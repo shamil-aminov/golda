@@ -133,7 +133,7 @@ private fun written(review: Review): String =
 
 /** A full page with no top bar: content from under the status bar, actions at the bottom. */
 @Composable
-private fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Composable () -> Unit) {
+fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Composable () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = sheetColor()) {
         Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)) {

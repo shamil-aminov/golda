@@ -76,6 +76,9 @@ class Repo(
 
     suspend fun deleteObligation(id: Long) = write { dao.deleteObligation(id) }
 
+    /** The regular payments as they are now, for the daily reminder. */
+    suspend fun obligationsNow(): List<Obligation> = dao.obligationsNow()
+
     /**
      * The category for a purchase typed by hand: the one the same note had last time, else what
      * Gemini says, else null (no key, no network, or no answer that names one). Never throws.

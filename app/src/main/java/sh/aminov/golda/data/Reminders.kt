@@ -20,6 +20,7 @@ import sh.aminov.golda.R
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.domain.Regulars
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
 import java.time.LocalDate
@@ -54,7 +55,10 @@ fun notify(context: Context, channel: String, channelName: String, id: Int, titl
     NotificationManagerCompat.from(context).notify(id, notification)
 }
 
-/** Once a day: payments due in three days or today, and interest-free periods running out. */
+/**
+ * Once a day: debt payments due in three days or today, interest-free periods running out, and
+ * regular payments two days before they are charged.
+ */
 class DebtReminder(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val app = applicationContext as GoldaApplication
@@ -86,6 +90,10 @@ class DebtReminder(context: Context, params: WorkerParameters) : CoroutineWorker
                     notify(app, "debts", name, 200_000 + account.id.toInt(), account.name, text)
                 }
             }
+        }
+        for (payment in app.repo.obligationsNow()) {
+            val text = Regulars.reminder(payment, today) ?: continue
+            notify(app, "regulars", tr("Регулярные платежи", "Regular payments"), 300_000 + payment.id.toInt(), payment.name, text)
         }
         return Result.success()
     }
