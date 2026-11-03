@@ -24,7 +24,7 @@
   <img src="docs/screenshots/accounts.png" width="19%" alt="Счета">
   <img src="docs/screenshots/insights.png" width="19%" alt="Аналитика">
 </p>
-<p align="center"><sub>Демо-данные, до 0.17. Главная, новый расход, счета, аналитика. <a href="docs/screenshots/home-dark.png">Тёмная тема</a>.</sub></p>
+<p align="center"><sub>Демо-данные, 0.17. Главная, новый расход, счета, аналитика. <a href="docs/screenshots/home-dark.png">Тема «Полночь»</a>.</sub></p>
 
 ---
 

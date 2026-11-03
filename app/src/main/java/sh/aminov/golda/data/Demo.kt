@@ -67,16 +67,17 @@ object Demo {
         fun expense(at: Long, from: Long, minor: Long, key: String, note: String = "") =
             Draft(OpType.EXPENSE, at, from, minor, categoryId = category[key], note = note)
 
-        // Pay arrives in rubles: half goes to savings, 800 $ go abroad for 73 600 ₽, and part of that into lari and cash.
+        // Pay arrives in rubles: some goes to savings, 1 600 $ go abroad for 147 200 ₽, the rent is paid in dollars,
+        // and the rest of the month lives on lari: the card and cash.
         repo.save(Draft(OpType.INCOME, now - 12 * day, rub, 15_840_000, categoryId = category["salary"]))
-        repo.save(Draft(OpType.TRANSFER, now - 12 * day + hour, rub, 8_000_000, toAccountId = account.getValue("Накопительный"), toAmountMinor = 8_000_000, note = "В подушку"))
-        repo.save(Draft(OpType.TRANSFER, now - 12 * day + 2 * hour, rub, 7_360_000, toAccountId = usd, toAmountMinor = 80_000, note = "Перевод за границу"))
-        repo.save(Draft(OpType.TRANSFER, now - 11 * day, usd, 60_000, toAccountId = gel, toAmountMinor = 160_800, note = "Обмен в приложении банка"))
+        repo.save(Draft(OpType.TRANSFER, now - 12 * day + hour, rub, 1_000_000, toAccountId = account.getValue("Накопительный"), toAmountMinor = 1_000_000, note = "В подушку"))
+        repo.save(Draft(OpType.TRANSFER, now - 12 * day + 2 * hour, rub, 14_720_000, toAccountId = usd, toAmountMinor = 160_000, note = "Перевод за границу"))
+        repo.save(expense(now - 12 * day + 3 * hour, usd, 34_000, "housing", "Аренда"))
+        repo.save(Draft(OpType.TRANSFER, now - 11 * day, usd, 90_000, toAccountId = gel, toAmountMinor = 241_200, note = "Обмен в приложении банка"))
         repo.save(Draft(OpType.TRANSFER, now - 10 * day, usd, 10_000, toAccountId = cash, toAmountMinor = 26_500, note = "Банкомат"))
         repo.save(Draft(OpType.EXPENSE, now - 10 * day, usd, 300, categoryId = category["other"], note = "Комиссия банкомата"))
 
         val days = listOf(
-            expense(now - 9 * day, gel, 90_000, "housing", "Аренда"),
             expense(now - 9 * day, rub, 69_900, "subscriptions", "Музыка и облако"),
             expense(now - 8 * day, gel, 6_420, "food", "Продукты"),
             expense(now - 8 * day, cash, 1_500, "food", "Хачапури"),

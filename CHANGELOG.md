@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The demo lives on lari for the month: the rent is paid in dollars, so the
+  spending card lasts and the screenshots show an ordinary month.
 - **Gemini evals**, run by hand with a key: 32 spoken-style phrases through
   the app's own prompt and reply reading, every field scored.
 - **Screenshot tests** (Roborazzi) of home, accounts, insights, a new

@@ -24,7 +24,7 @@
   <img src="docs/screenshots/accounts.png" width="19%" alt="Accounts">
   <img src="docs/screenshots/insights.png" width="19%" alt="Insights">
 </p>
-<p align="center"><sub>Demo data, from before 0.17. Home, a new expense, accounts, insights. <a href="docs/screenshots/home-dark.png">Dark theme</a>.</sub></p>
+<p align="center"><sub>Demo data, 0.17. Home, a new expense, accounts, insights. <a href="docs/screenshots/home-dark.png">The Midnight theme</a>.</sub></p>
 
 ---
 
