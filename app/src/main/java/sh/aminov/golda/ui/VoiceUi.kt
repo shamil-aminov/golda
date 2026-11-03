@@ -240,8 +240,8 @@ fun GoldaToolbar(
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
     HorizontalFloatingToolbar(
         expanded = true,
-        // No shadow, no outline: the card colour alone sets it off the page.
-        modifier = Modifier,
+        // A soft shadow all round, no outline: it floats over the cards without a hard edge.
+        modifier = Modifier.softShadow(CircleShape),
         colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
             // A card in light; in dark a step up, or it melts into the cards it floats over.
             toolbarContainerColor = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
@@ -294,7 +294,7 @@ fun GoldaToolbar(
     FloatingActionButton(
         onClick = voice.toggle,
         interactionSource = micPress,
-        modifier = Modifier.size(ToolbarHeight).squish(micPress).semantics { contentDescription = label },
+        modifier = Modifier.size(ToolbarHeight).squish(micPress).softShadow(RoundedCornerShape(20.dp)).semantics { contentDescription = label },
         // A rounded square, so the action reads apart from the round tabs beside it.
         shape = RoundedCornerShape(20.dp),
         containerColor = mic,

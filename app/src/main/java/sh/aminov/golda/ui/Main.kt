@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -382,9 +383,12 @@ private fun MainScreen(
                         )
                         else -> AnalyticsScreen(data, padding) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
-                // Rows scroll under the clock: a band of the page's colour keeps them from showing through.
-                Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.background))
                 }
+                // Rows scroll under the clock: a band of the page's colour, over the pager, keeps them from
+                // showing through. Measured directly: the Scaffold has consumed the inset.
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val clock = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
+                Spacer(Modifier.fillMaxWidth().height(clock).background(MaterialTheme.colorScheme.background))
                 }
             }
         }

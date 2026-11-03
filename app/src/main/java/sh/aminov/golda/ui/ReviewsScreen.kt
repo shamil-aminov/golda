@@ -1,5 +1,15 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.foundation.background
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.material3.TopAppBarDefaults
@@ -55,9 +65,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
- * Gemini's reviews, laid out like Settings: a big title that folds into a bar with back, the past
- * reviews under it, and one wide button at the bottom that writes a review of the period picked in
- * insights ("Разобрать октябрь").
+ * Gemini's reviews the way a notes app keeps notes: a plain bar with back and the title, each review
+ * a card with its period, when it was written and its first lines, and a floating button at the
+ * bottom right that writes a review of the period picked in insights ("Разобрать октябрь").
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,56 +82,76 @@ fun ReviewsScreen(
     BackHandler(onBack = onBack)
     var working by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val page = MaterialTheme.colorScheme.background
     Scaffold(
-        modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
-        topBar = { CollapsingHeader(tr("Разборы", "Reviews"), onBack, bar) },
-        bottomBar = {
-            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m)) {
-                Button(
-                    onClick = {
+        topBar = {
+            TopAppBar(
+                title = { Text(tr("Разборы", "Reviews"), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = {
+                    if (!working) {
                         working = true
                         error = null
                         onReview { problem -> working = false; error = problem }
-                    },
-                    enabled = !working,
-                    colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = ButtonDefaults.MediumContainerHeight),
-                ) {
-                    Text(
-                        if (working) tr("Gemini пишет разбор", "Gemini is writing") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                    )
-                }
+                    }
+                },
+                containerColor = iceColor(),
+                contentColor = onIceColor(),
+                modifier = Modifier.softShadow(RoundedCornerShape(16.dp)),
+                elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+            ) {
+                Text(
+                    if (working) tr("Gemini пишет разбор", "Gemini is writing") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                )
             }
         },
     ) { padding ->
-        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l)) {
-            error?.let {
-                Text(it, Modifier.padding(horizontal = Gap.s), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-                VSpace(Gap.m)
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = Gap.s, end = Gap.s, top = padding.calculateTopPadding() + Gap.s, bottom = padding.calculateBottomPadding() + 96.dp),
+            verticalArrangement = Arrangement.spacedBy(Gap.s),
+        ) {
+            error?.let { problem ->
+                item(key = "error") { Text(problem, Modifier.padding(horizontal = Gap.m), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error) }
             }
             if (reviews.isEmpty()) {
-                Text(
-                    tr("Разборов пока нет. Gemini посмотрит траты за период и коротко напишет, куда ушли деньги и что можно урезать.",
-                        "No reviews yet. Gemini reads the period's spending and writes briefly where the money went and what could be cut."),
-                    Modifier.padding(horizontal = Gap.s),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                item(key = "empty") {
+                    Text(
+                        tr("Разборов пока нет. Gemini посмотрит траты за период и коротко напишет, куда ушли деньги и что можно урезать.",
+                            "No reviews yet. Gemini reads the period's spending and writes briefly where the money went and what could be cut."),
+                        Modifier.padding(Gap.m),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            reviews.forEachIndexed { i, review ->
+            items(reviews, key = { it.id }) { review ->
                 val span = Period(LocalDate.ofEpochDay(review.fromDay), LocalDate.ofEpochDay(review.toDay))
-                GroupRow(
-                    i, reviews.size,
-                    onClick = { onOpen(review.id) },
-                    supporting = { Text(tr("Написан ", "Written ") + written(review), maxLines = 1) },
-                ) { Text(ReviewPrompt.title(span, LocalDate.MAX).replaceFirstChar { it.uppercase() }) }
+                // A note card: the period as its title, when it was written, and its first lines.
+                Tile(Modifier.fillMaxWidth(), onClick = { onOpen(review.id) }) {
+                    Text(ReviewPrompt.title(span, LocalDate.MAX).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+                    Text(tr("Написан ", "Written ") + written(review), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    VSpace(Gap.s)
+                    Text(preview(review.text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 4, overflow = TextOverflow.Clip)
+                }
             }
         }
     }
 }
+
+/** The review's text without its Markdown marks and its heading: what a note card shows of it. */
+private fun preview(text: String): String = text.lines()
+    .map { it.trim().trimStart('#', '-', '*', ' ').replace("**", "") }
+    .filter { it.isNotBlank() }
+    .drop(1)
+    .joinToString(" ")
 
 /** One review, as a document: its Markdown with headings, points and bold figures. */
 @Composable
