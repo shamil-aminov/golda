@@ -28,8 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **The entry form, calmer.** One row of pills, at the top, for the type. The
   currency is picked on the sum's own symbol (a small chevron, a menu), and
-  picking it moves typing to the amount. The bucket is quiet tabs over its
-  category tiles, still on the first level; the account and the day are rows
+  picking it moves typing to the amount. Every category is on the first level,
+  under a quiet caption of its bucket, and picking one sets the bucket: no
+  bucket switch of its own. The account and the day are rows
   that open their choice in a sheet, with "Каждый месяц" for a regular
   expense.
 - Years of records stay quick: the app's figures are worked out off the main

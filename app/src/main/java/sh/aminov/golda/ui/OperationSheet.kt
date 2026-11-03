@@ -1,7 +1,5 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.material3.Tab
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
@@ -473,8 +471,8 @@ fun EntrySheet(
                 }
                 else -> {
                     // Everything on the first level: currency, card and date are buttons, not menus.
-                    // The note; what it is (the bucket's tabs over its categories, on the first level);
-                    // then where from and when, as rows.
+                    // The note; what it is (every category, by bucket, on the first level); then where
+                    // from and when, as rows.
                     VSpace(Gap.l)
                     TonalField(
                         note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp),
@@ -482,41 +480,28 @@ fun EntrySheet(
                         onDone = { if (valid) save() },
                     )
                     VSpace(Gap.m)
-                    // The bucket is a filter of the categories under it, not a mode: quiet secondary tabs.
+                    // Every category at once, under a quiet caption of its bucket: the category says the
+                    // bucket ("Аренда" is regular), so there is no bucket to pick on its own.
                     if (type == OpType.EXPENSE) {
-                        val buckets = listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG)
-                        SecondaryTabRow(
-                            selectedTabIndex = buckets.indexOf(bucket),
-                            modifier = Modifier.bleed(Gap.s),
-                            containerColor = Color.Transparent,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                            divider = {},
-                        ) {
-                            buckets.forEach { b ->
-                                Tab(
-                                    selected = b == bucket,
-                                    onClick = {
-                                        bucketAuto = false
-                                        bucket = b
-                                        // A category of another bucket does not belong any more.
-                                        if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != b) { categoryId = null }
-                                    },
-                                    text = { Text(bucketLabel(b), style = MaterialTheme.typography.labelLarge, maxLines = 1) },
-                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                        listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG)
+                            .filter { b -> data.categories.any { it.kind == CategoryKind.EXPENSE && Buckets.of(it) == b } }
+                            .forEachIndexed { i, b ->
+                                if (i > 0) VSpace(Gap.m)
+                                Caption(bucketLabel(b))
+                                VSpace(Gap.s)
+                                CategoryGrid(data, CategoryKind.EXPENSE, b, categoryId, categoryAuto) { picked ->
+                                    categoryId = if (categoryId == picked && !categoryAuto) null else picked
+                                    categoryAuto = false
+                                    bucket = categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } ?: Bucket.DAILY
+                                    bucketAuto = false
+                                }
                             }
+                    } else {
+                        CategoryGrid(data, CategoryKind.INCOME, null, categoryId, categoryAuto) { picked ->
+                            categoryId = if (categoryId == picked && !categoryAuto) null else picked
+                            categoryAuto = false
                         }
-                        VSpace(Gap.s)
                     }
-                    // The four of the bucket (or of income). While the app picks, the tile is outlined.
-                    CategoryGrid(
-                        data = data,
-                        kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
-                        bucket = if (type == OpType.EXPENSE) bucket else null,
-                        selected = categoryId,
-                        auto = categoryAuto,
-                        onPick = { categoryId = if (categoryId == it && !categoryAuto) null else it; categoryAuto = false },
-                    )
                     VSpace(Gap.l)
                     // Where it comes from and when: rows that open their choice, changed seldom.
                     val rows = 2 + if (offersMonthly) 1 else 0
