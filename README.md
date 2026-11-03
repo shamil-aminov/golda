@@ -40,8 +40,9 @@ loud is the moment you notice you are spending.
 
 ## Features
 
-- **Every amount in several currencies.** You pick the currencies, and every
-  amount shows in all of them: `15 ₾ ≈ 530 ₽ · 5,8 $`.
+- **Every amount in several currencies.** Pick any currencies the CBR quotes,
+  from a searchable list, and every amount shows in all of them:
+  `15 ₾ ≈ 530 ₽ · 5,8 $`.
 - **Main currency.** Big numbers and totals can be shown in dollars, lari or
   any shown currency. The books stay in rubles; a non-ruble figure is the ruble
   amount at today's display rate.
@@ -63,17 +64,28 @@ loud is the moment you notice you are spending.
   for days you wrote nothing down.
 - **Three buckets.** Everyday, regular (rent, phone, subscriptions) and big
   (clothes, travel) spending, apart in insights.
+- **Regular payments**, under the accounts, with the day each is charged. Two
+  days before a subscription is charged you're asked whether you still need
+  it; a payment due soon shows on the home screen.
+- **Gemini tags.** Each purchase gets a precise word ("кафе", "такси",
+  "подписка") on top of its category.
 - **Honest reconciling.** Less money on an account than recorded is booked as
   everyday spending "Not recorded".
 - **Debts.** Credit cards and loans have a rate, a payment day and a grace
   period. You get reminders, a payoff estimate, an early-repayment calculator
   and a hint on which debt to pay first.
-- **Insights.** Spending by day and by category, the average per day, income,
-  and how much currency exchange cost you against the CBR rate.
+- **Insights.** Spending by category as a mosaic sized by share, by day as
+  bars stacked by category, the average per day, income, and how much currency
+  exchange cost you against the CBR rate.
+- **Reviews.** Gemini reads a period's spending and writes a short note on
+  where the money went and what could be cut. Reviews are kept and backed up.
 - **Reconcile** any account against the bank, with a Sunday reminder.
 - **Backup** everything to one JSON file and restore from it.
-- **Russian and English.** Material 3 Expressive, in a light graphite palette
-  with a dark variant. Gold marks only the one action to take.
+- **Themes.** Eleven ready palettes, two of them made for colour-vision
+  deficiency, and a generator that builds a whole light or dark theme from one
+  colour, a style and a contrast. Category colours follow the theme.
+- **Russian and English.** Material 3 Expressive, one card per group, one
+  accent for the one action to take.
 
 ## How it works
 

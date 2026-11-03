@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Themes.** Settings → Тема: nine ready palettes and a generator that
+- **Themes.** Settings → Тема: eleven ready palettes (two for colour-vision deficiency) and a generator that
   builds a whole theme from one colour (a hue slider, the wallpaper's colour,
   or a surprise), a style (calm, vivid, bold, mono), light or dark, and a
   contrast; generated themes can be kept. Category and pace colours keep
@@ -21,8 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   tagged too, in one request; a note seen before reuses its tag.
 - **Regular payments**, under the accounts. Two days before a subscription is
   charged a notification asks whether it is still needed; no amount means a
-  free trial. What looks regular in the last two months of spending is
-  offered for one-tap adding. A payment due in the next two days shows on
+  free trial. A payment due in the next two days shows on
   the home screen under the hero.
 - **Reviews.** Insights has an ice-blue "Review" button: Gemini reads the
   period's spending and writes a short Markdown note on where the money went
