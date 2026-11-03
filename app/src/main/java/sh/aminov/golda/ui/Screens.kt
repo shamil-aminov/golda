@@ -159,6 +159,7 @@ fun HomeScreen(
                     Text(
                         when {
                             envelope.balanceMinor <= 0 -> tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go")
+                            left < 0 -> tr("Сегодня сверх плана на ${whole(-left, code)}", "${whole(-left, code)} over today's plan")
                             ahead <= 1L -> tr("Последний день", "The last day")
                             lasts == null -> tr("Впереди $ahead ${days(ahead)}", "$ahead ${days(ahead)} to go")
                             envelope.lasts(today) -> (lasts - ahead).let { spare ->
@@ -367,8 +368,8 @@ private fun AccountRow(
                     val pop = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
                     AnimatedContent(checked != null, transitionSpec = { scaleIn(pop) + fadeIn() togetherWith fadeOut() }, label = "check") { done ->
                         if (done) {
-                            Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.secondary, CircleShape), contentAlignment = Alignment.Center) {
-                                Icon(painterResource(R.drawable.ic_check), tr("Сверено", "Checked"), tint = MaterialTheme.colorScheme.onSecondary)
+                            Box(Modifier.size(40.dp).background(pickedColor(), CircleShape), contentAlignment = Alignment.Center) {
+                                Icon(painterResource(R.drawable.ic_check), tr("Сверено", "Checked"), tint = onPickedColor())
                             }
                         } else {
                             FilledTonalButton(onClick = onMatch, modifier = Modifier.height(40.dp), contentPadding = PaddingValues(horizontal = 12.dp)) {
@@ -419,7 +420,7 @@ fun AccountScreen(
                 Text(
                     account.name,
                     Modifier.padding(start = Gap.l, end = Gap.l, top = Gap.l, bottom = Gap.m),
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.SemiBold),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -428,18 +429,18 @@ fun AccountScreen(
                 // Neutral unless the money is free to spend: only then the vivid tile.
                 val scheme = MaterialTheme.colorScheme
                 val free = account.includeInFree
-                val ink = if (free) scheme.onPrimaryFixed else scheme.onSurface
-                val quiet = if (free) scheme.onPrimaryFixedVariant else scheme.onSurfaceVariant
+                val ink = scheme.onSurface
+                val quiet = scheme.onSurfaceVariant
                 HeroTile(
                     Modifier.padding(horizontal = Gap.s),
-                    container = Color.Transparent,
+                    container = tileColor(),
                     content = ink,
                 ) {
                     Caption(typeLabel(account.type), color = quiet)
                     VSpace(Gap.xs)
                     val amount = Fmt.amount(state.balanceMinor, state.currency)
                     // The kopecks are the same ink, only quieter.
-                    BigNumber(amount, state.balanceMinor, ink, maxSp = BIG_FIGURE_SP, quiet = centsOf(amount), quietColor = ink.copy(alpha = 0.55f))
+                    HeroAmount(amount, ink)
                     data.others(state.rubMinor, state.currency).takeIf { it.isNotBlank() }?.let {
                         Text(it, style = MaterialTheme.typography.bodyLarge.merge(Tnum), color = quiet)
                     }
@@ -562,7 +563,7 @@ private fun interestLine(minor: Long, currency: String, today: LocalDate): Strin
 }
 
 /** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
-private fun whole(minor: Long, code: String): String = Fmt.split(minor, code).first + " " + Currencies.symbol(code)
+private fun whole(minor: Long, code: String): String = Fmt.whole(minor, code) + " " + Currencies.symbol(code)
 
 /**
  * Today's share as a chunky capsule: the pace's colour filling a pale track of the same colour,
@@ -576,16 +577,6 @@ private fun PaceCapsule(share: Float, color: Color) {
     }
 }
 
-/** One character of a big figure: a new one slides up into place and the old one out above it. */
-@Composable
-private fun RollingChar(ch: Char, style: TextStyle, color: Color) {
-    val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
-    AnimatedContent(
-        ch,
-        transitionSpec = { (slideInVertically(slide) { it } + fadeIn()) togetherWith (slideOutVertically(slide) { -it } + fadeOut()) },
-        label = "roll",
-    ) { c -> Text(c.toString(), style = style, color = color, maxLines = 1) }
-}
 
 /** The empty band under [HeroAmount]'s digits (the font's descent at 72 sp): spacing after it is that much shorter. */
 val HeroDescent = 10.dp
@@ -601,18 +592,20 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
         // One size on every tab, so the figure does not jump when swiping; smaller only to fit.
         val size = minOf(fit, BIG_FIGURE_SP).sp
-        // Bold and tight: the one loud thing on a tab. The sign in the muted ink, lighter, so the
-        // digits are read first. Each character rolls to its new value, so a saved purchase is seen.
+        // The one big thing on a tab, still: the sign as in the entry field, one space away, in the
+        // muted ink, so the digits are read first.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
         val style = bigFigure(size)
         val muted = MaterialTheme.colorScheme.onSurfaceVariant
-        // Read as one figure, not as its characters.
-        Row(Modifier.clearAndSetSemantics { this.text = AnnotatedString(text) }) {
-            // The digits roll; the sign stands after them as in the entry field, one space away.
-            val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
-            digits.forEach { ch -> RollingChar(ch, style, color) }
-            // Exactly as in the entry field: the same weight, the muted ink, one space away.
-            if (sign != null) Text(" $sign", style = style, color = muted, maxLines = 1)
-        }
+        val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
+        Text(
+            buildAnnotatedString {
+                append(digits)
+                if (sign != null) withStyle(SpanStyle(color = muted)) { append(" $sign") }
+            },
+            style = style,
+            color = color,
+            maxLines = 1,
+        )
     }
 }

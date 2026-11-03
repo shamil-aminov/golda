@@ -25,7 +25,7 @@ class BaseCurrencyTest {
     @Test
     fun rublesStayExactlyAsTheyWere() {
         val base = Base(rates, "RUB")
-        assertEquals(Fmt.split(left, "RUB").first + " ₽", base.whole(left))
+        assertEquals(Fmt.whole(left, "RUB") + " ₽", base.whole(left))
         assertEquals(Fmt.approx(perDay / 100.0, "RUB"), base.approx(perDay))
         assertEquals(left, base.minor(left))
         assertEquals("RUB", base.code)
@@ -41,7 +41,7 @@ class BaseCurrencyTest {
         assertEquals(2_019L, usd.minor(left))
 
         val lari = Base(rates, "GEL")
-        assertEquals("52 ₾", lari.whole(left)) // 52,59 ₾
+        assertEquals("53 ₾", lari.whole(left)) // 52,59 ₾, rounded half up
         assertEquals(Fmt.approx(1_849.0 / (31.96 * 1.10), "GEL"), lari.approx(left))
     }
 

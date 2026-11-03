@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.activity.compose.BackHandler
@@ -130,7 +133,7 @@ fun BigNumber(
     value: Long,
     color: Color,
     modifier: Modifier = Modifier,
-    maxSp: Float = 120f,
+    maxSp: Float = BIG_FIGURE_SP,
     alignment: Alignment = Alignment.CenterStart,
     quiet: IntRange = IntRange.EMPTY,
     quietColor: Color = color,
@@ -140,7 +143,15 @@ fun BigNumber(
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.66f)).toSp().value }
         val size = minOf(fit, maxSp).sp
         val style = bigFigure(size)
-        RollingNumber(text, value, style, color = color, quiet = quiet, quietColor = quietColor)
+        // Still digits: the figure changes in place, no rolling.
+        Text(
+            buildAnnotatedString {
+                text.forEachIndexed { i, c -> if (i in quiet) withStyle(SpanStyle(color = quietColor)) { append(c) } else append(c) }
+            },
+            style = style,
+            color = color,
+            maxLines = 1,
+        )
     }
 }
 

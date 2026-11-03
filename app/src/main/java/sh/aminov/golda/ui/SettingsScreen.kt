@@ -285,7 +285,7 @@ private fun SettingRow(
         Column(Modifier.weight(1f)) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp),
+                style = MaterialTheme.typography.titleLarge,
                 color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
             summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = quiet) }
@@ -340,7 +340,7 @@ fun DayGrid(selected: Int?, onPick: (Int) -> Unit) {
                         val on = day == selected
                         Surface(
                             onClick = { onPick(day) },
-                            modifier = Modifier.size(44.dp),
+                            modifier = Modifier.size(48.dp),
                             shape = CircleShape,
                             color = if (on) pickedColor() else MaterialTheme.colorScheme.surfaceContainerHighest,
                             contentColor = if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface,

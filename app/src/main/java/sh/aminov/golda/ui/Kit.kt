@@ -439,7 +439,8 @@ fun <T> ChoiceGroup(
                 checked = option == selected,
                 onCheckedChange = { onSelect(option) },
                 modifier = (if (fill) Modifier.weight(1f) else Modifier.widthIn(min = minWidth))
-                    .height(height)
+                    // At least this tall; taller when a large font needs it.
+                    .heightIn(min = height)
                     .semantics { role = Role.RadioButton },
                 enabled = enabled,
                 shapes = shapes,

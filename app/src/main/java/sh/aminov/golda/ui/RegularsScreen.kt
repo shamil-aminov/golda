@@ -137,7 +137,7 @@ fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Unit, onSa
     ) {
         TonalField(name, { name = it }, Modifier.fillMaxWidth(), placeholder = tr("Название, например Netflix", "Name, like Netflix"))
         VSpace(Gap.l)
-        HeroAmountField(amountText, { amountText = it }, Currencies.symbol(currency), maxSp = 64f)
+        HeroAmountField(amountText, { amountText = it }, Currencies.symbol(currency))
         VSpace(Gap.m)
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             CurrencyPicker(data.currencyChoices(currency), currency, { currency = it })

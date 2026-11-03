@@ -78,6 +78,9 @@ fun ReviewsScreen(
     onBack: () -> Unit,
     onOpen: (Long) -> Unit,
     onReview: (onDone: (String?) -> Unit) -> Unit,
+    /** Without a Gemini key the button leads to Settings instead of failing. */
+    hasKey: Boolean = true,
+    onAddKey: () -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     var working by remember { mutableStateOf(false) }
@@ -94,7 +97,9 @@ fun ReviewsScreen(
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = {
-                    if (!working) {
+                    if (!hasKey) {
+                        onAddKey()
+                    } else if (!working) {
                         working = true
                         error = null
                         onReview { problem -> working = false; error = problem }
@@ -106,7 +111,11 @@ fun ReviewsScreen(
                 elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
             ) {
                 Text(
-                    if (working) tr("Gemini пишет разбор", "Gemini is writing") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
+                    when {
+                        !hasKey -> tr("Добавить ключ Gemini", "Add a Gemini key")
+                        working -> tr("Gemini пишет разбор", "Gemini is writing")
+                        else -> tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                 )
@@ -154,19 +163,27 @@ private fun preview(text: String): String = text.lines()
     .joinToString(" ")
 
 /** One review, as a document: its Markdown with headings, points and bold figures. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewScreen(review: Review, onBack: () -> Unit, onDelete: () -> Unit) {
     BackHandler(onBack = onBack)
-    BottomPage(
-        actions = {
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-            Spacer(Modifier.weight(1f))
-            RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete"), onDelete)
+    val page = MaterialTheme.colorScheme.background
+    // Like the list it opens from: a plain bar with back, and delete at its end.
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {},
+                navigationIcon = { IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
+                actions = { IconButton(onClick = onDelete) { Icon(painterResource(R.drawable.ic_delete), tr("Удалить разбор", "Delete review")) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = page, scrolledContainerColor = page),
+            )
         },
-    ) {
-        Markdown(review.text)
-        VSpace(Gap.l)
-        Text(tr("Gemini, ", "Gemini, ") + written(review), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    ) { padding ->
+        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.l).padding(bottom = Gap.l)) {
+            Markdown(review.text)
+            VSpace(Gap.l)
+            Text(tr("Gemini, ", "Gemini, ") + written(review), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

@@ -77,7 +77,7 @@ object ThemeGen {
                 dark = false,
                 page = oklch(0.965, neutral, h), card = oklch(0.995, neutral * 0.4, h), soft = oklch(0.92, neutral, h),
                 line = oklch(listOf(0.89, 0.87, 0.80)[c], neutral, h),
-                muted = oklch(listOf(0.58, 0.52, 0.42)[c], neutral * 1.5, h), text = oklch(listOf(0.32, 0.25, 0.15)[c], neutral * 1.5, h),
+                muted = oklch(listOf(0.48, 0.46, 0.40)[c], neutral * 1.5, h), text = oklch(listOf(0.32, 0.25, 0.15)[c], neutral * 1.5, h),
                 graphite = oklch(0.86, picked, pickedHue), onGraphite = oklch(0.25, picked * 0.8, pickedHue),
                 gold = if (spec.style == ThemeStyle.MONO) oklch(0.30, 0.0, h) else oklch(0.80, action, actionHue),
                 onGold = if (spec.style == ThemeStyle.MONO) Color.White else oklch(0.25, action * 0.5, actionHue),

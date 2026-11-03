@@ -52,6 +52,10 @@ object Fmt {
     }
 
     /** Integer part and fraction part separately, for the big numbers ("4 210", ",00"). */
+    /** Whole units, rounded half up ("20,43" is 20, half a unit over is −1): never "−0". */
+    fun whole(minor: Long, code: String): String =
+        pattern(0).format(java.math.BigDecimal.valueOf(minor).movePointLeft(Currencies.digits(code)).setScale(0, java.math.RoundingMode.HALF_UP))
+
     fun split(minor: Long, code: String): Pair<String, String> {
         val digits = Currencies.digits(code)
         val text = pattern(digits).format(Currencies.toMajor(minor, code))

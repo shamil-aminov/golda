@@ -1,5 +1,13 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Button
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.selectable
 import android.app.WallpaperManager
 import android.os.Build
 import androidx.activity.compose.BackHandler
@@ -72,7 +80,8 @@ fun ThemeScreen(
     BackHandler(onBack = onBack)
     val context = LocalContext.current
     val systemDark = isSystemInDarkTheme()
-    var spec by remember { mutableStateOf(ThemeSpec.parse(current) ?: ThemeSpec(hue = 85)) }
+    // The generator starts from the theme in use: its own spec, or a preset's hue.
+    var spec by remember { mutableStateOf(ThemeSpec.parse(current) ?: ThemeSpec(hue = Palette.of(current).tones(systemDark).seedHue)) }
     fun apply(next: ThemeSpec) {
         spec = next
         onApply(next.key)
@@ -86,9 +95,11 @@ fun ThemeScreen(
         topBar = {
             CollapsingHeader(tr("Тема", "Theme"), onBack, bar) {
                 when {
-                    custom && current !in saved -> TextButton(onClick = { onSave(current) }, modifier = Modifier.padding(end = Gap.s)) {
-                        Text(tr("Сохранить", "Keep"), style = MaterialTheme.typography.titleMedium)
-                    }
+                    custom && current !in saved -> Button(
+                        onClick = { onSave(current) },
+                        modifier = Modifier.padding(end = Gap.s),
+                        colors = ButtonDefaults.buttonColors(containerColor = actionColor(), contentColor = onActionColor()),
+                    ) { Text(tr("Сохранить", "Keep"), style = MaterialTheme.typography.labelLarge) }
                     current in saved -> IconButton(onClick = { onForget(current) }) {
                         Icon(painterResource(R.drawable.ic_delete), tr("Удалить тему", "Delete theme"))
                     }
@@ -116,15 +127,22 @@ fun ThemeScreen(
             GroupLabel(tr("Своя из одного цвета", "Your own, from one colour"))
             VSpace(Gap.s)
             // Twelve hues to start from, and the slider for anything between them.
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                (0 until 12).forEach { i ->
-                    val hue = i * 30
-                    val on = custom && kotlin.math.abs(spec.hue - hue) < 15
-                    Box(
-                        Modifier.size(24.dp).clip(CircleShape).background(oklch(0.72, 0.14, hue.toDouble()))
-                            .then(if (on) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
-                            .combinedClickable(onClick = { apply(spec.copy(hue = hue)) }),
-                    )
+            // Two rows of six, each a 40 dp target that says which colour it is.
+            (0 until 2).forEach { row ->
+                if (row > 0) VSpace(Gap.s)
+                Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    (0 until 6).forEach { col ->
+                        val hue = (row * 6 + col) * 30
+                        // Round the wheel: 355° is next to 0°.
+                        val distance = minOf((spec.hue - hue).mod(360), (hue - spec.hue).mod(360))
+                        val on = custom && distance < 15
+                        Box(
+                            Modifier.size(40.dp).clip(CircleShape).background(oklch(0.72, 0.14, hue.toDouble()))
+                                .then(if (on) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
+                                .selectable(selected = on, role = Role.RadioButton, onClick = { apply(spec.copy(hue = hue)) })
+                                .semantics { contentDescription = hueName(hue) },
+                        )
+                    }
                 }
             }
             VSpace(Gap.s)
@@ -199,7 +217,11 @@ fun ThemeScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ThemeChip(name: String, t: Tones, on: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp)) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        // Read as one: the theme's name and whether it is the one in use.
+        modifier = Modifier.width(76.dp).semantics(mergeDescendants = true) { selected = on },
+    ) {
         Box(
             Modifier.size(76.dp, 64.dp).clip(RoundedCornerShape(16.dp)).background(t.page)
                 .then(if (on) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(16.dp)) else Modifier)
@@ -218,3 +240,9 @@ private fun ThemeChip(name: String, t: Tones, on: Boolean, onClick: () -> Unit, 
     }
 }
 
+
+/** A hue's name for TalkBack, by the nearest of twelve. */
+private fun hueName(hue: Int): String = listOf(
+    tr("розовый", "pink"), tr("красный", "red"), tr("оранжевый", "orange"), tr("золотой", "gold"), tr("салатовый", "lime"), tr("зелёный", "green"),
+    tr("бирюзовый", "teal"), tr("голубой", "cyan"), tr("синий", "blue"), tr("сиреневый", "periwinkle"), tr("фиолетовый", "violet"), tr("пурпурный", "magenta"),
+)[(hue / 30) % 12]

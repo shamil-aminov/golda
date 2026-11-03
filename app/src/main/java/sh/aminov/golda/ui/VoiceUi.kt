@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -262,7 +265,7 @@ fun GoldaToolbar(
                     .size(PillWidth, ToolbarItemHeight)
                     .background(picked, CircleShape),
             )
-            Row {
+            Row(Modifier.selectableGroup()) {
                 tabs.forEachIndexed { index, tab ->
                     val nearness = (1f - abs(position() - index)).coerceIn(0f, 1f)
                     val press = remember { MutableInteractionSource() }
@@ -294,7 +297,7 @@ fun GoldaToolbar(
     FloatingActionButton(
         onClick = voice.toggle,
         interactionSource = micPress,
-        modifier = Modifier.size(ToolbarHeight).squish(micPress).softShadow(RoundedCornerShape(20.dp)).semantics { contentDescription = label },
+        modifier = Modifier.size(ToolbarHeight).squish(micPress).softShadow(RoundedCornerShape(20.dp)).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
         // A rounded square, so the action reads apart from the round tabs beside it.
         shape = RoundedCornerShape(20.dp),
         containerColor = mic,

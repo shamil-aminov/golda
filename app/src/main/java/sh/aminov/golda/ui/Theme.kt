@@ -84,12 +84,12 @@ fun GoldaTheme(palette: String? = null, content: @Composable () -> Unit) {
 /** Ice blue: the one cool colour, for the way to Gemini's reviews. The gold stays the action. */
 @Composable
 @ReadOnlyComposable
-fun iceColor(): Color = if (isDark()) Color(0xFF234A63) else Color(0xFFCFE7F7)
+fun iceColor(): Color = if (isDark()) oklch(0.40, 0.06, 235.0) else oklch(0.91, 0.045, 235.0)
 
 /** Ink on [iceColor]. */
 @Composable
 @ReadOnlyComposable
-fun onIceColor(): Color = if (isDark()) Color(0xFFD7EEFB) else Color(0xFF0E3B57)
+fun onIceColor(): Color = if (isDark()) oklch(0.94, 0.03, 235.0) else oklch(0.33, 0.07, 235.0)
 
 /** Tabular figures, so columns of amounts line up. */
 val Tnum = TextStyle(fontFeatureSettings = "tnum")

@@ -310,6 +310,8 @@ private fun MainScreen(
                     today = data.today,
                     onBack = { page = null },
                     onOpen = { id -> page = Page.ReviewPage(id, current.from, current.to) },
+                    hasKey = data.settings.hasGeminiKey,
+                    onAddKey = { page = Page.Settings },
                     onReview = { done ->
                         scope.launch {
                             repo.review(period).fold(

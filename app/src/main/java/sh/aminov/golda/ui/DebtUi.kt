@@ -83,7 +83,7 @@ fun graceWarning(data: AppData, state: AccountState, today: LocalDate): String? 
     return when (days) {
         0L -> tr("«${state.account.name}»: льготный период кончается сегодня, погаси $amount", "“${state.account.name}”: the interest-free period ends today; pay $amount")
         else -> tr(
-            "«${state.account.name}»: льготный период кончается через $days ${plural(days, "день", "дня", "дней", "day", "days")} — погаси $amount",
+            "«${state.account.name}»: льготный период кончается через $days ${plural(days, "день", "дня", "дней", "day", "days")}, погаси $amount",
             "“${state.account.name}”: the interest-free period ends in $days ${plural(days, "день", "дня", "дней", "day", "days")}; pay $amount",
         )
     }

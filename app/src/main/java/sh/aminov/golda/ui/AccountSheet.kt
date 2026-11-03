@@ -130,7 +130,7 @@ fun AccountSheet(
             AccountCurrency(data, currency) { currency = it }
             VSpace(Gap.l)
             Caption(if (debt) tr("Сколько должен сейчас", "How much you owe now") else tr("Сколько сейчас", "How much is there now"), Modifier.fillMaxWidth())
-            HeroAmountField(balanceText, { balanceText = it }, Currencies.symbol(currency), maxSp = 64f, onDone = ::save)
+            HeroAmountField(balanceText, { balanceText = it }, Currencies.symbol(currency), onDone = ::save)
         }
 
         if (type == AccountType.SAVINGS || debt) {
@@ -145,7 +145,7 @@ fun AccountSheet(
                 if (debt) {
                     TonalField(
                         paymentText, { paymentText = it }, Modifier.weight(1f),
-                        label = if (type == AccountType.LOAN) tr("Платёж", "Payment") else tr("Мин. платёж", "Min. payment"),
+                        label = if (type == AccountType.LOAN) tr("Платёж", "Payment") else tr("Минимальный платёж", "Minimum payment"),
                         suffix = Currencies.symbol(currency),
                         keyboardType = KeyboardType.Decimal,
                     )

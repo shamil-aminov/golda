@@ -368,7 +368,6 @@ fun EntrySheet(
             onText = { amountText = it },
             symbol = Currencies.symbol(amountCode),
             focusRequester = focus,
-            maxSp = 80f,
             onDone = { save() },
             onSymbolClick = null,
         )
@@ -493,7 +492,7 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
         Caption(if (full.op.type == OpType.ADJUSTMENT) tr("Корректировка после сверки", "Reconciliation adjustment") else tr("Начальный баланс", "Opening balance"))
         VSpace(Gap.xs)
         val text = Fmt.amount(posting.amountMinor, code, signed = true)
-        BigNumber(text, posting.amountMinor, MaterialTheme.colorScheme.onSurface, maxSp = 64f)
+        BigNumber(text, posting.amountMinor, MaterialTheme.colorScheme.onSurface, maxSp = ENTRY_FIGURE_SP)
         VSpace(Gap.xs)
         Text(
             data.accountById[posting.accountId]?.name.orEmpty() + " · " + dayLabel(Ledger.localDate(full.op.timestamp, data.zone), data.today),
@@ -507,7 +506,7 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
 @Composable
 private fun ChargedLine(code: String, text: String, edited: Boolean, open: Boolean, rest: String?, onOpen: (Boolean) -> Unit, onText: (String) -> Unit) {
     SecondAmount(code, text, open, onOpen, onText) {
-        val amount = Fmt.parseMinor(text, code)?.let { Fmt.amount(it, code) } ?: "—"
+        val amount = Fmt.parseMinor(text, code)?.let { Fmt.amount(it, code) } ?: ""
         val style = MaterialTheme.typography.bodyLarge.merge(Tnum)
         val ink = MaterialTheme.colorScheme.onSurfaceVariant
         // The other currencies first, the charge last with ✎ at the very end: the one thing to tap is
@@ -524,7 +523,7 @@ private fun ChargedLine(code: String, text: String, edited: Boolean, open: Boole
 @Composable
 private fun ReceivedLine(code: String, text: String, edited: Boolean, open: Boolean, onOpen: (Boolean) -> Unit, onText: (String) -> Unit) {
     SecondAmount(code, text, open, onOpen, onText) {
-        val amount = Fmt.parseMinor(text, code)?.let { Fmt.amount(it, code) } ?: "—"
+        val amount = Fmt.parseMinor(text, code)?.let { Fmt.amount(it, code) } ?: ""
         Text(
             "→ " + (if (edited) "" else "≈ ") + amount,
             style = MaterialTheme.typography.headlineMedium.merge(Tnum),
@@ -602,7 +601,7 @@ private fun RouteTile(data: AppData, label: String, account: Account?, choices: 
         Tile(Modifier.fillMaxWidth().height(96.dp), container = tileColor(), onClick = { if (System.currentTimeMillis() - dismissedAt > 300) open = !open }, padding = padding) {
             Caption(label)
             Spacer(Modifier.weight(1f))
-            Text(account?.name ?: "—", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(account?.name.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             account?.let { a ->
                 Text(
                     Fmt.amount(data.states[a.id]?.balanceMinor ?: 0, a.currency),
@@ -655,7 +654,8 @@ private fun CategoryTile(icon: Int, label: String, on: Boolean, auto: Boolean, m
         shape = RoundedCornerShape(corner),
         color = container,
         contentColor = ink,
-        border = if (on && auto) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null,
+        // The auto pick's outline in the muted ink: visible on the tile, unlike the pale picked tone.
+        border = if (on && auto) BorderStroke(2.dp, MaterialTheme.colorScheme.onSurfaceVariant) else null,
     ) {
         Column(Modifier.padding(horizontal = Gap.xs), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (filled) ink else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -698,8 +698,9 @@ private fun DateChoices(date: LocalDate, today: LocalDate, onPick: (LocalDate?) 
  */
 @Composable
 private fun AccountCards(accounts: List<Account>, selected: Long?, onPick: (Long) -> Unit) {
+    // Edge to edge: a card scrolls off the screen's edge, not the form's margin.
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        Modifier.bleed(Gap.m).horizontalScroll(rememberScrollState()).padding(horizontal = Gap.m),
         horizontalArrangement = Arrangement.spacedBy(Gap.s),
     ) {
         accounts.forEach { account ->

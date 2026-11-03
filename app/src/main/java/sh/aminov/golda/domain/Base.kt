@@ -26,7 +26,7 @@ class Base(private val rates: Rates, wanted: String) {
     fun approx(rubMinor: Long): String = Fmt.approx(major(rubMinor), code)
 
     /** Whole units for a big number: "1 849 ₽", "20 $". */
-    fun whole(rubMinor: Long): String = Fmt.split(minor(rubMinor), code).first + " " + symbol
+    fun whole(rubMinor: Long): String = Fmt.whole(minor(rubMinor), code) + " " + symbol
 
     companion object {
         /** The main currency of [settings]. */

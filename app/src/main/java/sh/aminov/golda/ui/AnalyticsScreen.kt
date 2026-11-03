@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
@@ -135,9 +137,10 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
     }
     // Each day's spending by category, biggest first: the day bars are stacked in the categories' colours.
     val tones = LocalTones.current
-    // Each category's colour by its rank in this period: the biggest in the theme's hue.
-    val colours = remember(shown, tones) {
-        shown.categories.withIndex().associate { (rank, spend) ->
+    // Each category's colour by its rank in this period's whole spending (not the picked bucket's), so
+    // a filter never repaints a category: the biggest in the theme's hue.
+    val colours = remember(report, tones) {
+        report.categories.withIndex().associate { (rank, spend) ->
             val key = spend.categoryId?.let { data.categoryById[it]?.key }
             key to leitmotifColor(if (key == null) null else rank, tones)
         }
@@ -176,7 +179,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 }
                 VSpace(Gap.m)
                 HeroAmount(data.base.whole(shown.spentRub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL))
-                Text(tr("В среднем ${data.base.approx(report.averagePerDayRub)} в день", "${data.base.approx(report.averagePerDayRub)} a day on average"), style = text, color = quiet)
+                // The average of what is shown: the picked bucket's, or everyday spending's.
+                Text(tr("В среднем ${data.base.approx(shown.averagePerDayRub)} в день", "${data.base.approx(shown.averagePerDayRub)} a day on average"), style = text, color = quiet)
                 VSpace(Gap.l)
                 Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                     listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
@@ -210,12 +214,12 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         } else {
             item(key = "mosaic") {
                 // The categories as a mosaic: each a tile in its colour, as big as its share.
-                Mosaic(
+                val items = remember(shown, colours) {
                     shown.categories.map { spend ->
                         MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, colours[spend.categoryId?.let { data.categoryById[it]?.key }] ?: leitmotifColor(null, tones))
-                    },
-                    Modifier.padding(horizontal = Gap.s),
-                )
+                    }
+                }
+                Mosaic(items, Modifier.padding(horizontal = Gap.s))
             }
             item(key = "chart") {
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
@@ -260,7 +264,7 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
 }
 
 /** A category in the [Mosaic]. */
-private class MosaicItem(val name: String, val amount: String, val rub: Long, val color: Color)
+private data class MosaicItem(val name: String, val amount: String, val rub: Long, val color: Color)
 
 /**
  * The categories as a squarified treemap: the biggest share the biggest tile, in each category's
@@ -272,53 +276,60 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
     val total = items.sumOf { it.rub }.coerceAtLeast(1)
     val gap = 4.dp
     val motion = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
-    var unnamed by remember(items) { mutableStateOf(emptyList<MosaicItem>()) }
-    Column(modifier.fillMaxWidth()) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(260.dp)) {
-            val density = LocalDensity.current
-            val w = with(density) { maxWidth.toPx() }
-            val h = with(density) { maxHeight.toPx() }
-            val tiles = remember(items, w, h) { Treemap.layout(items.map { it.rub }, w, h) }
-            val small = mutableListOf<MosaicItem>()
-            tiles.forEachIndexed { order, tile ->
-                val item = items[tile.index]
-                val tw = with(density) { tile.width.toDp() }
-                val th = with(density) { tile.height.toDp() }
-                val roomy = tw >= 88.dp && th >= 64.dp
-                if (!roomy) small += item
-                val shown = remember(items) { Animatable(0f) }
-                LaunchedEffect(items) { delay(order * 50L); shown.animateTo(1f, motion) }
-                // Ink: the tile's own colour, made deep, so the words belong to it.
-                val ink = lerp(item.color, Color.Black, 0.72f)
-                Box(
-                    Modifier
-                        .offset { IntOffset(tile.x.roundToInt(), tile.y.roundToInt()) }
-                        .size(tw, th)
-                        .padding(gap / 2)
-                        .graphicsLayer { alpha = shown.value; scaleX = 0.92f + 0.08f * shown.value; scaleY = 0.92f + 0.08f * shown.value }
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(item.color)
-                        .padding(12.dp),
-                ) {
-                    if (roomy) {
-                        Column {
-                            Text(item.name, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1)
-                            Text(item.amount, style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontWeight = FontWeight.Bold), color = ink, maxLines = 1)
-                            Text(wholePercent(item.rub.toDouble() / total), style = MaterialTheme.typography.labelLarge, color = ink.copy(alpha = 0.7f), maxLines = 1)
+    val density = LocalDensity.current
+    // Room for three lines, grown with the font scale.
+    val wordsW = 96.dp * density.fontScale
+    val wordsH = 84.dp * density.fontScale
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val w = with(density) { maxWidth.toPx() }
+        val h = with(density) { 260.dp.toPx() }
+        val tiles = remember(items, w, h) { Treemap.layout(items.map { it.rub }, w, h) }
+        val roomy = remember(tiles, density) {
+            tiles.associate { t -> t.index to with(density) { t.width.toDp() >= wordsW && t.height.toDp() >= wordsH } }
+        }
+        Column {
+            Box(Modifier.fillMaxWidth().height(260.dp)) {
+                tiles.forEachIndexed { order, tile ->
+                    val item = items[tile.index]
+                    val shown = remember(item.name) { Animatable(0f) }
+                    LaunchedEffect(item.name) { delay(order * 50L); shown.animateTo(1f, motion) }
+                    // Ink: the tile's own colour, made deep, so the words belong to it.
+                    val ink = lerp(item.color, Color.Black, 0.72f)
+                    Box(
+                        Modifier
+                            .offset { IntOffset(tile.x.roundToInt(), tile.y.roundToInt()) }
+                            .size(with(density) { tile.width.toDp() }, with(density) { tile.height.toDp() })
+                            .padding(gap / 2)
+                            .graphicsLayer { alpha = shown.value; scaleX = 0.92f + 0.08f * shown.value; scaleY = 0.92f + 0.08f * shown.value }
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(item.color)
+                            .semantics(mergeDescendants = true) { contentDescription = "${item.name}, ${item.amount}, ${wholePercent(item.rub.toDouble() / total)}" }
+                            .padding(14.dp),
+                    ) {
+                        if (roomy[tile.index] == true) {
+                            Column {
+                                Text(item.name, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1)
+                                Text(item.amount, style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontWeight = FontWeight.Bold), color = ink, maxLines = 1)
+                                Text(wholePercent(item.rub.toDouble() / total), style = MaterialTheme.typography.labelLarge, color = ink.copy(alpha = 0.9f), maxLines = 1)
+                            }
                         }
                     }
                 }
             }
-            SideEffect { if (unnamed != small) unnamed = small.toList() }
-        }
-        if (unnamed.isNotEmpty()) {
-            VSpace(Gap.s)
-            Text(
-                unnamed.joinToString(" · ") { it.name + " " + it.amount },
-                Modifier.padding(horizontal = Gap.m),
-                style = MaterialTheme.typography.labelLarge.merge(Tnum),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // A legend for the tiles too small for words: a dot of each one's colour, its name and amount.
+            val small = tiles.filter { roomy[it.index] != true }.map { items[it.index] }
+            if (small.isNotEmpty()) {
+                VSpace(Gap.s)
+                Row(Modifier.padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.m)) {
+                    small.forEach { item ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(item.color))
+                            Spacer(Modifier.width(Gap.xs + 2.dp))
+                            Text(item.name + " " + item.amount, style = MaterialTheme.typography.labelLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -353,7 +364,7 @@ private fun LabelAmount(label: String, amount: String) {
 private fun shortDate(date: LocalDate): String =
     date.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale))
 
-private val LABEL = 32.dp
+private val LABEL = 56.dp
 
 /**
  * A range of your own, full screen and edge to edge: close, "Период", "Готово", and the dates picked
@@ -437,8 +448,9 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
     val start = days.indexOfLast { it.second > 0 }.takeIf { it >= 0 } ?: days.lastIndex
     var picked by remember(days) { mutableStateOf(start) }
     // The text's ink, like every figure: full for the picked day, faint for the rest.
+    val card = tileColor()
     val strong = MaterialTheme.colorScheme.onSurface
-    val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+    val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
     val line = MaterialTheme.colorScheme.outline
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
     val density = LocalDensity.current
@@ -491,12 +503,13 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     val sum = parts.sumOf { it.second }
                     if (value > 0 && sum > 0) {
                         // The day's categories stacked in their colours, biggest at the bottom; the picked day full, the rest softer.
-                        val alpha = if (i == picked) 1f else 0.5f
+                        val alpha = 1f
                         clipPath(path) {
                             var y = size.height
                             parts.forEach { (color, rub) ->
                                 val part = h * rub / sum
-                                drawRect(color.copy(alpha = alpha), Offset(left, y - part), Size(barWidth, part))
+                                // Unpicked days a lighter tint of the same colour, not see-through: it stays the category's.
+                                drawRect(if (i == picked) color else lerp(color, card, 0.45f), Offset(left, y - part), Size(barWidth, part))
                                 y -= part
                             }
                         }
@@ -518,7 +531,9 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         kind == PeriodKind.WEEK || days.size <= 7 -> d.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).take(2).replaceFirstChar { it.titlecase(I18n.locale) }
                         d == today -> d.dayOfMonth.toString()
                         // A fixed mark too near today would run into today's.
-                        d.dayOfMonth in listOf(1, 10, 20) && kotlin.math.abs(d.toEpochDay() - today.toEpochDay()) > 2 -> d.dayOfMonth.toString()
+                        // The month's first day says which month began; 10 and 20 only when clear of today.
+                        d.dayOfMonth == 1 -> "1 " + d.month.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).trimEnd('.')
+                        d.dayOfMonth in listOf(10, 20) && kotlin.math.abs(d.toEpochDay() - today.toEpochDay()) > 2 -> d.dayOfMonth.toString()
                         else -> null
                     } ?: return@forEachIndexed
                     // Wider than a bar, centred on it, so "20" is never cut to "2".
