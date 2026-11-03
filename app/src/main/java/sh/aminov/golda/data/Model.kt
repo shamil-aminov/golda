@@ -108,6 +108,20 @@ data class Goal(
     val isMain: Boolean = false,
 )
 
+/**
+ * A review of a period written by Gemini: Markdown, kept so it can be read again. [fromDay] and
+ * [toDay] are epoch days, both included.
+ */
+@Entity(indices = [Index("createdAt")])
+@Serializable
+data class Review(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val fromDay: Long,
+    val toDay: Long,
+    val createdAt: Long,
+    val text: String,
+)
+
 /** A purchase put on hold to think about. */
 @Entity
 @Serializable

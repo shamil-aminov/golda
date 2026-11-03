@@ -48,6 +48,8 @@ import sh.aminov.golda.data.Undo
 import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
+import java.time.LocalDate
+import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.label
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
@@ -55,12 +57,32 @@ import sh.aminov.golda.domain.tr
 private sealed interface Page {
     data object Settings : Page
     data class AccountPage(val id: Long) : Page
+    /** Gemini's reviews, with the period insights had picked for a new one. */
+    data class Reviews(val from: Long, val to: Long) : Page
+    data class ReviewPage(val id: Long, val from: Long, val to: Long) : Page
 }
 
-/** A page survives the activity being recreated (a language switch): Settings as 0, an account by its id. */
-private val PageSaver = Saver<Page?, Long>(
-    save = { page -> when (page) { Page.Settings -> 0L; is Page.AccountPage -> page.id; null -> -1L } },
-    restore = { value -> when { value == 0L -> Page.Settings; value > 0 -> Page.AccountPage(value); else -> null } },
+/** A page survives the activity being recreated (a language switch), written as a short string. */
+private val PageSaver = Saver<Page?, String>(
+    save = { page ->
+        when (page) {
+            Page.Settings -> "s"
+            is Page.AccountPage -> "a:${page.id}"
+            is Page.Reviews -> "rs:${page.from}:${page.to}"
+            is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
+            null -> ""
+        }
+    },
+    restore = { value ->
+        val parts = value.split(':')
+        when (parts.first()) {
+            "s" -> Page.Settings
+            "a" -> parts.getOrNull(1)?.toLongOrNull()?.let { Page.AccountPage(it) }
+            "rs" -> Page.Reviews(parts[1].toLong(), parts[2].toLong())
+            "r" -> Page.ReviewPage(parts[1].toLong(), parts[2].toLong(), parts[3].toLong())
+            else -> null
+        }
+    },
 )
 
 private sealed interface Sheet {
@@ -255,6 +277,32 @@ private fun MainScreen(
                     }
                 },
             )
+            is Page.Reviews -> {
+                val reviews by repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList())
+                val period = Period(LocalDate.ofEpochDay(current.from), LocalDate.ofEpochDay(current.to))
+                ReviewsScreen(
+                    reviews = reviews,
+                    period = period,
+                    today = data.today,
+                    onBack = { page = null },
+                    onOpen = { id -> page = Page.ReviewPage(id, current.from, current.to) },
+                    onReview = { done ->
+                        scope.launch {
+                            repo.review(period).fold(
+                                { id -> done(null); page = Page.ReviewPage(id, current.from, current.to) },
+                                { done(it.message) },
+                            )
+                        }
+                    },
+                )
+            }
+            is Page.ReviewPage -> {
+                val reviews by repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList())
+                val back = { page = Page.Reviews(current.from, current.to) }
+                reviews.firstOrNull { it.id == current.id }?.let { review ->
+                    ReviewScreen(review, onBack = back, onDelete = { back(); scope.launch { repo.deleteReview(review.id) } })
+                }
+            }
             is Page.AccountPage -> AccountScreen(
                 data = data,
                 accountId = current.id,
@@ -318,7 +366,7 @@ private fun MainScreen(
                                 scope.launch { snackbar.showSnackbar(tr("Все счета сверены", "All accounts reconciled")) }
                             },
                         )
-                        else -> AnalyticsScreen(data, padding)
+                        else -> AnalyticsScreen(data, padding) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
                 }
             }

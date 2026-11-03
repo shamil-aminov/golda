@@ -125,6 +125,15 @@ interface GoldaDao {
     @Query("DELETE FROM Category WHERE id = :id")
     suspend fun deleteCategory(id: Long)
 
+    @Query("SELECT * FROM Review ORDER BY createdAt DESC")
+    fun reviews(): Flow<List<Review>>
+
+    @Query("SELECT * FROM Review") suspend fun reviewsAll(): List<Review>
+    @Insert suspend fun insertReview(review: Review): Long
+    @Insert suspend fun insertReviews(items: List<Review>)
+    @Query("DELETE FROM Review WHERE id = :id") suspend fun deleteReview(id: Long)
+    @Query("DELETE FROM Review") suspend fun clearReviews()
+
     @Upsert
     suspend fun upsertRates(rates: List<Rate>)
 
@@ -174,9 +183,9 @@ interface GoldaDao {
 }
 
 @Database(
-    entities = [Account::class, Category::class, Operation::class, Posting::class, Rate::class, Obligation::class, Goal::class, Wish::class],
-    version = 5,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
+    entities = [Account::class, Category::class, Operation::class, Posting::class, Rate::class, Obligation::class, Goal::class, Wish::class, Review::class],
+    version = 6,
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5), AutoMigration(from = 5, to = 6)],
 )
 abstract class GoldaDb : RoomDatabase() {
     abstract fun dao(): GoldaDao

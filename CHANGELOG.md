@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Reviews.** Insights has an ice-blue "Review" button: Gemini reads the
+  period's spending and writes a short Markdown note on where the money went
+  and what could be cut. Past reviews are kept, listed and backed up.
+
 ### Changed
+
+- **Insights** shows the total with the three buckets as filters, categories
+  as bars and the days; the donut is gone.
 
 - **"Safe to spend today" is the spending card's money over a period**, not
   money until payday. The period starts at the card's last top-up and lasts

@@ -94,6 +94,8 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -960,4 +962,14 @@ object Tags {
 
     /** The big facts tile in "Сомневаюсь": the hours of work, when an hourly income is set. */
     const val DECIDE_HOURS = "decide-hours"
+}
+
+/** A round icon button the height of the save button, beside it: back, delete. */
+@Composable
+fun RowScope.RoundAction(icon: Int, description: String, onClick: () -> Unit) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        modifier = Modifier.size(ButtonDefaults.MediumContainerHeight),
+        colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
+    ) { Icon(painterResource(icon), description) }
 }

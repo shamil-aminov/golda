@@ -722,13 +722,3 @@ private fun AccountCards(accounts: List<Account>, selected: Long?, onPick: (Long
         }
     }
 }
-
-/** A round icon button the height of the save button, beside it: back, delete. */
-@Composable
-private fun RowScope.RoundAction(icon: Int, description: String, onClick: () -> Unit) {
-    FilledTonalIconButton(
-        onClick = onClick,
-        modifier = Modifier.size(ButtonDefaults.MediumContainerHeight),
-        colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
-    ) { Icon(painterResource(icon), description) }
-}

@@ -46,6 +46,12 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
+import sh.aminov.golda.data.OpType
+import sh.aminov.golda.domain.Buckets
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Button
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -91,175 +97,104 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 
 /**
- * The period's spending on one screen: the donut carries the total and the split, the legend lists
- * it, the day bars can be scrubbed with a finger, and income and exchange losses close it.
+ * The period's spending on one screen: a header tile with the total, the everyday average, the
+ * buckets (which filter everything under them) and "Разбор"; the categories as bars; the days; and
+ * income and exchange losses in one line.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
+fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -> Unit) {
     val today = data.today
-    var kind by rememberSaveable { mutableStateOf(PeriodKind.WEEK) }
+    var kind by rememberSaveable { mutableStateOf(PeriodKind.MONTH) }
     // Saved like the kind it belongs to (as two epoch days), so the two never disagree after a restart.
     var customDays by rememberSaveable { mutableStateOf<LongArray?>(null) }
     val custom = customDays?.let { (from, to) -> Period(LocalDate.ofEpochDay(from), LocalDate.ofEpochDay(to)) }
     var picking by remember { mutableStateOf(false) }
-    var selectedSlice by remember { mutableStateOf<Int?>(null) }
-    val palette = sliceColors()
+    // A bucket picked narrows the bars and the days to its spending; tapped again, back to all.
+    var filter by rememberSaveable { mutableStateOf<Bucket?>(null) }
     val period = Analytics.period(kind, today, custom)
     val report = remember(data, period) { Analytics.report(data.operations, data.accountById, data.categoryById, period, today, data.zone, data.rates) }
-    fun toggleSlice(slice: Int) { selectedSlice = if (selectedSlice == slice) null else slice }
+    val shown = remember(data, period, filter) {
+        val bucket = filter ?: return@remember report
+        val only = data.operations.filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == bucket }
+        // The day bars count everyday spending only; for another bucket every expense of it is a bar.
+        val asDaily = data.categoryById.mapValues { (_, c) -> c.copy(bucket = Bucket.DAILY) }
+        Analytics.report(only.map { it.copy(op = it.op.copy(bucket = null)) }, data.accountById, asDaily, period, today, data.zone, data.rates)
+    }
+    val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
+    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
 
     // The whole page, not just the content: a short list left the pager without a back swipe here.
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions(), verticalArrangement = Arrangement.spacedBy(Gap.s)) {
         item(key = "period") {
-            Column(Modifier.padding(horizontal = Gap.m)) {
-                // The calendar is a range of your own.
-                val options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM)
-                Row(Modifier.fillMaxWidth()) {
-                    ChoiceGroup(
-                        options = options,
-                        selected = kind,
-                        onSelect = {
-                            if (it == PeriodKind.CUSTOM) picking = true
-                            else { selectedSlice = null; kind = it }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        when (it) {
-                            PeriodKind.WEEK -> ChoiceText(tr("Неделя", "Week"))
-                            PeriodKind.MONTH -> ChoiceText(tr("Месяц", "Month"))
-                            PeriodKind.CUSTOM -> Icon(painterResource(R.drawable.ic_calendar), tr("Свой период", "Custom range"), Modifier.size(20.dp))
-                        }
-                    }
-                }
-                if (kind == PeriodKind.CUSTOM) {
-                    Text(
-                        "${shortDate(period.from)} – ${shortDate(period.to)}",
-                        modifier = Modifier.fillMaxWidth().padding(top = Gap.s),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+            ChoiceGroup(
+                options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM),
+                selected = kind,
+                onSelect = { if (it == PeriodKind.CUSTOM) picking = true else kind = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Gap.m),
+                height = 40.dp,
+            ) {
+                when (it) {
+                    PeriodKind.WEEK -> ChoiceText(tr("Неделя", "Week"))
+                    PeriodKind.MONTH -> ChoiceText(tr("Месяц", "Month"))
+                    PeriodKind.CUSTOM -> Icon(painterResource(R.drawable.ic_calendar), tr("Свой период", "Custom range"), Modifier.size(20.dp))
                 }
             }
         }
-        if (report.categories.isEmpty()) {
+        item(key = "header") {
+            Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${shortDate(period.from)} – ${shortDate(period.to)}", Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
+                    // The one ice-blue thing in the app: the way to Gemini's reviews.
+                    Button(
+                        onClick = { onReviews(period) },
+                        colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
+                        contentPadding = PaddingValues(horizontal = Gap.m),
+                        modifier = Modifier.height(36.dp),
+                    ) { Text(tr("Разбор", "Review"), style = MaterialTheme.typography.labelLarge) }
+                }
+                VSpace(Gap.s)
+                HeroAmount(data.base.whole(shown.spentRub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL))
+                Text(tr("≈ ${data.base.approx(report.averagePerDayRub)} в день на ежедневное", "≈ ${data.base.approx(report.averagePerDayRub)} a day on everyday things"), style = text, color = quiet)
+                VSpace(Gap.m)
+                Row(horizontalArrangement = Arrangement.spacedBy(Gap.xs)) {
+                    listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
+                        BucketChip(bucketLabel(bucket), data.base.whole(rub), filter == bucket, Modifier.weight(1f)) {
+                            filter = if (filter == bucket) null else bucket
+                        }
+                    }
+                }
+            }
+        }
+        if (shown.categories.isEmpty()) {
             item(key = "empty") {
-                Text(
-                    tr("За эти дни трат нет.", "No spending in these days."),
-                    modifier = Modifier.padding(Gap.l),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(tr("За эти дни трат нет.", "No spending in these days."), Modifier.padding(Gap.l), style = text, color = quiet)
             }
         } else {
-            // Up to three categories get their own slice; anything under 4 % and the rest share "Остальное".
-            val own = report.categories.take(TOP_SLICES).filter { report.spentRub > 0 && it.rubMinor * 100 >= report.spentRub * MIN_PERCENT }
-            val rest = report.categories.drop(own.size)
-            val slices = own.map { it.rubMinor } + listOfNotNull(rest.sumOf { it.rubMinor }.takeIf { rest.isNotEmpty() })
-            val sliceColors = own.indices.map { palette[it] } + listOfNotNull(palette.last().takeIf { rest.isNotEmpty() })
-            val focus = selectedSlice?.takeIf { it < slices.size }
-            item(key = "donut") {
-                Donut(
-                    shares = slices.map { it.toFloat() },
-                    colors = sliceColors,
-                    selected = focus,
-                    onTap = ::toggleSlice,
-                    modifier = Modifier.fillMaxWidth().padding(top = Gap.l),
-                ) {
-                    // The period's total by default; a tapped slice shows itself, and a second tap goes back.
-                    Column(Modifier.fillMaxWidth(0.6f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        val label = when {
-                            focus == null -> null
-                            focus < own.size -> categoryName(data, own[focus])
-                            rest.size == 1 -> categoryName(data, rest.single())
-                            else -> tr("Остальное", "Other")
-                        }
-                        val rub = focus?.let { slices[it] } ?: report.spentRub
-                        label?.let { Text(it, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        BigNumber(data.base.approx(rub), data.base.minor(rub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL), maxSp = 56f, alignment = Alignment.Center)
-                        Text(
-                            if (focus == null) tr("≈ ${data.base.approx(report.averagePerDayRub)}/день на ежедневное", "≈ ${data.base.approx(report.averagePerDayRub)}/day on everyday things")
-                            else if (report.spentRub > 0) wholePercent(rub.toDouble() / report.spentRub) else "",
-                            style = MaterialTheme.typography.bodyMedium.merge(Tnum),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+            item(key = "bars") {
+                // Each category a bar as long as its share of the biggest: the chart and the list in one.
+                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+                    val top = shown.categories.first().rubMinor.coerceAtLeast(1)
+                    shown.categories.forEachIndexed { index, spend ->
+                        if (index > 0) VSpace(Gap.s)
+                        CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top)
                     }
-                }
-            }
-            // The period split by bucket: everyday spending apart from rent and one-offs.
-            item(key = "buckets") {
-                Bento(Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
-                        Tile(Modifier.weight(1f).fillMaxHeight()) {
-                            Caption(bucketLabel(bucket))
-                            VSpace(Gap.xs)
-                            Text(data.base.approx(rub), style = MaterialTheme.typography.titleMedium.merge(Tnum), maxLines = 1)
-                        }
-                    }
-                }
-            }
-            item(key = "legend-gap") { VSpace(Gap.l) }
-            report.categories.forEachIndexed { index, spend ->
-                item(key = "cat-${spend.categoryId}") {
-                    val category = spend.categoryId?.let { data.categoryById[it] }
-                    val share = if (report.spentRub > 0) spend.rubMinor.toDouble() / report.spentRub else 0.0
-                    // Every category keeps its own row; the folded ones wear "Остальное"'s dot.
-                    val slice = minOf(index, own.size)
-                    GroupRow(
-                        index, report.categories.size,
-                        Modifier.padding(horizontal = Gap.m).animateItem(placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec()),
-                        onClick = { toggleSlice(slice) },
-                        leading = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                // "The rest" is the tile's own tone in dark: a hairline keeps its dot visible.
-                                val dot = sliceColors.getOrElse(slice) { palette.last() }
-                                Box(
-                                    Modifier.size(12.dp).background(dot, CircleShape)
-                                        .then(if (dot == palette.last()) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, CircleShape) else Modifier),
-                                )
-                                Spacer(Modifier.width(Gap.m))
-                                Icon(painterResource(categoryIcon(category?.key)), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        },
-                        trailing = {
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                Text(data.base.approx(spend.rubMinor), style = MaterialTheme.typography.titleMedium.merge(Tnum))
-                                Text(
-                                    " · " + wholePercent(share),
-                                    style = MaterialTheme.typography.bodyMedium.merge(Tnum),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                    ) { Text(categoryName(data, spend), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
             }
             item(key = "chart") {
-                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    DayBars(report.days, today, kind, data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 }, data.base)
+                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+                    DayBars(shown.days, today, kind, data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter in listOf(null, Bucket.DAILY) }, data.base)
                 }
             }
         }
         item(key = "more") {
-            Bento(Modifier.padding(horizontal = Gap.m).padding(top = Gap.s)) {
-                Tile(Modifier.weight(1f).fillMaxHeight()) {
-                    Caption(tr("Доходы", "Income"))
-                    VSpace(Gap.xs)
-                    Text(data.base.approx(report.incomeRub), style = MaterialTheme.typography.headlineSmall.merge(Tnum), maxLines = 1)
-                }
-                Tile(Modifier.weight(1f).fillMaxHeight()) {
-                    Caption(tr("Потери на обмене", "Lost on exchange"))
-                    VSpace(Gap.xs)
-                    Text(data.base.approx(report.fxLossRub), style = MaterialTheme.typography.headlineSmall.merge(Tnum), maxLines = 1)
-                    Text(
-                        if (report.fxVolumeRub > 0) wholePercent(report.fxLossRub.toDouble() / report.fxVolumeRub) + tr(" против ЦБ", " against the CBR")
-                        else tr("обменов не было", "no exchanges"),
-                        style = MaterialTheme.typography.bodyMedium.merge(Tnum),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+            val loss = if (report.fxVolumeRub > 0) tr(" · обмен −", " · exchange −") + data.base.approx(report.fxLossRub) else ""
+            Text(
+                tr("Доходы ", "Income ") + data.base.approx(report.incomeRub) + loss,
+                Modifier.padding(horizontal = Gap.m + Gap.xs, vertical = Gap.xs),
+                style = text,
+                color = quiet,
+            )
         }
     }
 
@@ -267,9 +202,34 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues) {
         RangeDialog(period, onDismiss = { picking = false }) { from, to ->
             customDays = longArrayOf(from.toEpochDay(), to.toEpochDay())
             kind = PeriodKind.CUSTOM
-            selectedSlice = null
             picking = false
         }
+    }
+}
+
+/** A bucket as a small tile: its name and amount; picked, it is dark and filters what follows. */
+@Composable
+private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
+    val container by animateColorAsState(if (on) pickedColor() else MaterialTheme.colorScheme.surfaceContainerHighest, spec, label = "bucket")
+    val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "bucket-ink")
+    Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp), color = container, contentColor = ink) {
+        Column(Modifier.padding(horizontal = Gap.s, vertical = Gap.s)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(amount, style = MaterialTheme.typography.titleSmall.merge(Tnum), maxLines = 1)
+        }
+    }
+}
+
+/** One category: name, a bar as long as its share of the biggest one, the amount. */
+@Composable
+private fun CategoryBar(name: String, amount: String, fraction: Float) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(name, Modifier.width(96.dp), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(Modifier.weight(1f).height(8.dp)) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.02f, 1f)).background(pickedColor(), RoundedCornerShape(4.dp)))
+        }
+        Text(amount, Modifier.width(88.dp), style = MaterialTheme.typography.bodyLarge.merge(Tnum), textAlign = TextAlign.End, maxLines = 1)
     }
 }
 
@@ -440,60 +400,6 @@ private fun dayShort(date: LocalDate, today: LocalDate): String =
     if (date == today) tr("Сегодня", "Today")
     else date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).replaceFirstChar { it.titlecase(I18n.locale) } + " " + date.dayOfMonth
 
-/** The donut shows this many categories on their own; the rest share one slice. */
-private const val TOP_SLICES = 3
-
-/** Below this share of the period a category folds into "Остальное". */
-private const val MIN_PERCENT = 4
-
 private fun categoryName(data: AppData, spend: CategorySpend): String =
     spend.categoryId?.let { data.categoryById[it]?.label() } ?: tr("Без категории", "No category")
 
-/**
- * A ring of slices with round ends and gaps of one constant length, starting at twelve o'clock.
- * Tapping the ring picks a slice; the others fade.
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun Donut(
-    shares: List<Float>,
-    colors: List<Color>,
-    selected: Int?,
-    onTap: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    center: @Composable () -> Unit,
-) {
-    val total = shares.sum().takeIf { it > 0 } ?: return
-    // The fade follows a tap smoothly instead of snapping.
-    val fadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-    val alphas = shares.indices.map { i ->
-        key(i) { animateFloatAsState(if (selected != null && selected != i) 0.35f else 1f, fadeSpec, label = "slice").value }
-    }
-    Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(
-            Modifier.fillMaxWidth(0.7f).aspectRatio(1f).pointerInput(shares) {
-                detectTapGestures { offset ->
-                    val dx = offset.x - size.width / 2f
-                    val dy = offset.y - size.height / 2f
-                    val stroke = STROKE.toPx()
-                    val radius = size.width / 2f
-                    // Only the ring itself, with a little slack for fingers.
-                    if (hypot(dx, dy) !in (radius - stroke - 12.dp.toPx())..radius) return@detectTapGestures
-                    // Angle clockwise from twelve o'clock, where the first slice starts; the slices as drawn.
-                    val angle = (Math.toDegrees(atan2(dy, dx).toDouble()) + 90 + 360) % 360
-                    var start = 0.0
-                    ringSweeps(shares, stroke, GAP.toPx(), radius - stroke / 2).forEachIndexed { i, sweep ->
-                        if (angle < start + sweep) { onTap(i); return@detectTapGestures }
-                        start += sweep
-                    }
-                }
-            },
-        ) {
-            drawGappedRing(shares, colors.mapIndexed { i, c -> c.copy(alpha = alphas[i]) }, STROKE.toPx(), GAP.toPx())
-        }
-        center()
-    }
-}
-
-private val STROKE = 18.dp
-private val GAP = 6.dp

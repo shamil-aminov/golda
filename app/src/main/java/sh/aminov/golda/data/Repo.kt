@@ -23,6 +23,8 @@ import sh.aminov.golda.domain.Envelopes
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.CategoryMerge
 import sh.aminov.golda.domain.Draft
+import sh.aminov.golda.domain.Period
+import sh.aminov.golda.domain.ReviewPrompt
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.tr
@@ -99,6 +101,33 @@ class Repo(
         val kind = if (full.op.type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE
         val id = suggestCategory(full.op.note, kind) ?: return
         write { dao.operation(operationId)?.takeIf { it.op.categoryId == null }?.let { dao.updateOperation(it.op.copy(categoryId = id)) } }
+    }
+
+    val reviews = dao.reviews()
+
+    suspend fun deleteReview(id: Long) = write { dao.deleteReview(id) }
+
+    /**
+     * Asks Gemini for a review of [period] and keeps it. The figures are worked out here
+     * ([ReviewPrompt]); the reply is stored as it comes, Markdown. Returns the review's id, or what
+     * went wrong in words: no key, no network, Gemini refused.
+     */
+    suspend fun review(period: Period): Result<Long> {
+        val key = settings.geminiKey() ?: return Result.failure(IllegalStateException(tr("Нужен ключ Gemini в настройках", "Add a Gemini key in settings")))
+        val s = settings.flow.first()
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val data = ReviewPrompt.data(
+            period, dao.operationsSince(0), dao.accountsNow().associateBy { it.id }, dao.categoriesNow().associateBy { it.id },
+            ratesNow(), today, zone,
+        )
+        val text = try {
+            Gemini.write(ReviewPrompt.system, data, key, s.geminiModel)
+        } catch (e: GeminiException) {
+            return Result.failure(IllegalStateException(e.message ?: tr("Gemini не ответил", "Gemini did not answer")))
+        }
+        val review = Review(fromDay = period.from.toEpochDay(), toDay = period.to.toEpochDay(), createdAt = System.currentTimeMillis(), text = text)
+        return Result.success(write { dao.insertReview(review) })
     }
 
     /** A category with its bucket changed in settings. */

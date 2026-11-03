@@ -239,6 +239,14 @@ object Gemini {
         runCatching { JSONObject(text).optString("category") }.getOrNull()?.takeIf { it in keys }
     }
 
+    /** Free text for [prompt] under [system] (a review in Markdown). Throws only [GeminiException]. */
+    suspend fun write(system: String, prompt: String, key: String, model: String): String = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+            .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
+        replyText(call(body, key, model)).trim()
+    }
+
     /** One generateContent request; the raw reply body, or [GeminiException]. */
     private fun call(body: JSONObject, key: String, model: String): String {
         val url = URI("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").toURL()
