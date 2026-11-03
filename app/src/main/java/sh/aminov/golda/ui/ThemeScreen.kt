@@ -155,7 +155,7 @@ fun ThemeScreen(
             ChoiceGroup(ThemeStyle.entries, spec.style.takeIf { custom }, { apply(spec.copy(style = it)) }, Modifier.fillMaxWidth()) {
                 ChoiceText(
                     when (it) {
-                        ThemeStyle.CALM -> tr("Спокойная", "Calm")
+                        ThemeStyle.CALM -> tr("Тихая", "Calm")
                         ThemeStyle.VIVID -> tr("Яркая", "Vivid")
                         ThemeStyle.EXPRESSIVE -> tr("Смелая", "Bold")
                         ThemeStyle.MONO -> tr("Моно", "Mono")
