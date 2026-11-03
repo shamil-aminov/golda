@@ -19,12 +19,12 @@
 <p align="center"><i>Русская версия: <a href="README.ru.md">README.ru.md</a></i></p>
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="19%" alt="Home: safe to spend today">
-  <img src="docs/screenshots/entry.png" width="19%" alt="Recording an expense">
-  <img src="docs/screenshots/accounts.png" width="19%" alt="Accounts">
-  <img src="docs/screenshots/insights.png" width="19%" alt="Insights">
+  <img src="docs/screenshots/home.png" width="24%" alt="Home: safe to spend today">
+  <img src="docs/screenshots/insights.png" width="24%" alt="Insights">
+  <img src="docs/screenshots/entry-dark.png" width="24%" alt="A new expense, dark theme">
+  <img src="docs/screenshots/accounts-dark.png" width="24%" alt="Accounts, dark theme">
 </p>
-<p align="center"><sub>Demo data, 0.17. Home, a new expense, accounts, insights. <a href="docs/screenshots/home-dark.png">The Midnight theme</a>.</sub></p>
+<p align="center"><sub>Demo data, 0.17.5. Home and insights in the light theme; a new expense and accounts in Midnight.</sub></p>
 
 ---
 

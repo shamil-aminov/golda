@@ -19,12 +19,12 @@
 <p align="center"><i>English version: <a href="README.md">README.md</a></i></p>
 
 <p align="center">
-  <img src="docs/screenshots/home.png" width="19%" alt="Главная: можно сегодня">
-  <img src="docs/screenshots/entry.png" width="19%" alt="Новый расход">
-  <img src="docs/screenshots/accounts.png" width="19%" alt="Счета">
-  <img src="docs/screenshots/insights.png" width="19%" alt="Аналитика">
+  <img src="docs/screenshots/home.png" width="24%" alt="Главная: можно сегодня">
+  <img src="docs/screenshots/insights.png" width="24%" alt="Аналитика">
+  <img src="docs/screenshots/entry-dark.png" width="24%" alt="Новый расход, тёмная тема">
+  <img src="docs/screenshots/accounts-dark.png" width="24%" alt="Счета, тёмная тема">
 </p>
-<p align="center"><sub>Демо-данные, 0.17. Главная, новый расход, счета, аналитика. <a href="docs/screenshots/home-dark.png">Тема «Полночь»</a>.</sub></p>
+<p align="center"><sub>Демо-данные, 0.17.5. Главная и аналитика в светлой теме, новый расход и счета в теме «Полночь».</sub></p>
 
 ---
 

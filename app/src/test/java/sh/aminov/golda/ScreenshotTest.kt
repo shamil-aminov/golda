@@ -82,6 +82,10 @@ class ScreenshotTest {
 
     @Test fun entry() = shot("entry") { EntrySheet(demo(), EntryRequest(), {}, {}, {}) }
 
+    @Test fun entryDark() = shot("entry_dark", palette = "midnight") { EntrySheet(demo(), EntryRequest(), {}, {}, {}) }
+
+    @Test fun accountsDark() = shot("accounts_dark", palette = "midnight") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
+
     @Test fun settings() = shot("settings") {
         SettingsScreen(demo(), {}, {}, remember { SnackbarHostState() }, {}, {}, {}, {}, {})
     }
