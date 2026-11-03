@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import sh.aminov.golda.domain.ReviewPrompt
 import sh.aminov.golda.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.core.animateFloatAsState
@@ -125,7 +126,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
     val quiet = MaterialTheme.colorScheme.onSurfaceVariant
 
     // The whole page, not just the content: a short list left the pager without a back swipe here.
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions(), verticalArrangement = Arrangement.spacedBy(Gap.s)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions(), verticalArrangement = Arrangement.spacedBy(Gap.m)) {
         item(key = "period") {
             ChoiceGroup(
                 options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM),
@@ -144,7 +145,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         item(key = "header") {
             Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${shortDate(period.from)} – ${shortDate(period.to)}", Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
+                    Text(ReviewPrompt.title(period, today).replaceFirstChar { it.titlecase(I18n.locale) }, Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
                     // The one ice-blue thing in the app: the way to Gemini's reviews.
                     Button(
                         onClick = { onReviews(period) },
@@ -153,11 +154,11 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                         modifier = Modifier.height(36.dp),
                     ) { Text(tr("Разбор", "Review"), style = MaterialTheme.typography.labelLarge) }
                 }
-                VSpace(Gap.s)
-                HeroAmount(data.base.whole(shown.spentRub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL))
-                Text(tr("≈ ${data.base.approx(report.averagePerDayRub)} в день на ежедневное", "≈ ${data.base.approx(report.averagePerDayRub)} a day on everyday things"), style = text, color = quiet)
                 VSpace(Gap.m)
-                Row(horizontalArrangement = Arrangement.spacedBy(Gap.xs)) {
+                HeroAmount(data.base.whole(shown.spentRub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL))
+                Text(tr("В среднем ${data.base.approx(report.averagePerDayRub)} в день", "${data.base.approx(report.averagePerDayRub)} a day on average"), style = text, color = quiet)
+                VSpace(Gap.l)
+                Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                     listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
                         BucketChip(bucketLabel(bucket), data.base.whole(rub), filter == bucket, Modifier.weight(1f)) {
                             filter = if (filter == bucket) null else bucket
@@ -176,7 +177,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
                     val top = shown.categories.first().rubMinor.coerceAtLeast(1)
                     shown.categories.forEachIndexed { index, spend ->
-                        if (index > 0) VSpace(Gap.s)
+                        if (index > 0) VSpace(Gap.m)
                         CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top)
                     }
                 }
@@ -188,13 +189,13 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
             }
         }
         item(key = "more") {
-            val loss = if (report.fxVolumeRub > 0) tr(" · обмен −", " · exchange −") + data.base.approx(report.fxLossRub) else ""
-            Text(
-                tr("Доходы ", "Income ") + data.base.approx(report.incomeRub) + loss,
-                Modifier.padding(horizontal = Gap.m + Gap.xs, vertical = Gap.xs),
-                style = text,
-                color = quiet,
-            )
+            Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+                LabelAmount(tr("Доходы", "Income"), data.base.approx(report.incomeRub))
+                if (report.fxVolumeRub > 0) {
+                    VSpace(Gap.m)
+                    LabelAmount(tr("Потери на обмене", "Lost on exchange"), data.base.approx(report.fxLossRub))
+                }
+            }
         }
     }
 
@@ -221,20 +222,32 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
     }
 }
 
-/** One category: name, a bar as long as its share of the biggest one, the amount. */
+/** One category: its name and amount on a line, and under them a bar as long as its share of the biggest. */
 @Composable
 private fun CategoryBar(name: String, amount: String, fraction: Float) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(name, Modifier.width(96.dp), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Box(Modifier.weight(1f).height(8.dp)) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.02f, 1f)).background(pickedColor(), RoundedCornerShape(4.dp)))
+    Column {
+        LabelAmount(name, amount)
+        VSpace(Gap.xs)
+        Box(Modifier.fillMaxWidth().height(6.dp)) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.01f, 1f)).background(pickedColor(), RoundedCornerShape(3.dp)))
         }
-        Text(amount, Modifier.width(88.dp), style = MaterialTheme.typography.bodyLarge.merge(Tnum), textAlign = TextAlign.End, maxLines = 1)
+    }
+}
+
+/** A name on the left, its amount on the right, both whole. */
+@Composable
+private fun LabelAmount(label: String, amount: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Spacer(Modifier.width(Gap.m))
+        Text(amount, style = MaterialTheme.typography.bodyLarge.merge(Tnum), maxLines = 1)
     }
 }
 
 private fun shortDate(date: LocalDate): String =
-    date.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMM" else "MMM d", I18n.locale))
+    date.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale))
+
+private val LABEL = 32.dp
 
 /**
  * A range of your own, full screen and edge to edge: close, "Период", "Готово", and the dates picked
@@ -288,10 +301,14 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
                 colors = colors,
                 title = null,
                 headline = {
-                    val from = state.selectedStartDateMillis?.let { shortDate(day(it)) } ?: "—"
-                    val to = state.selectedEndDateMillis?.let { shortDate(day(it)) } ?: "—"
+                    val from = state.selectedStartDateMillis?.let { day(it) }
+                    val to = state.selectedEndDateMillis?.let { day(it) }
                     Text(
-                        "$from – $to",
+                        when {
+                            from == null -> tr("Выбери начало", "Pick the start")
+                            to == null -> tr("С ", "From ") + shortDate(from)
+                            else -> ReviewPrompt.span(from, to).replaceFirstChar { it.titlecase(I18n.locale) }
+                        },
                         modifier = Modifier.padding(start = Gap.l, end = Gap.l, top = Gap.m, bottom = Gap.m),
                         style = MaterialTheme.typography.headlineMedium,
                     )
@@ -333,12 +350,10 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     color = MaterialTheme.colorScheme.secondary,
                     contentColor = MaterialTheme.colorScheme.onSecondary,
                 ) {
-                    Text(
-                        "${dayShort(date, today)} · ${base.approx(rub)}",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelLarge.merge(Tnum),
-                        maxLines = 1,
-                    )
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                        Text(dayShort(date, today), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                        Text(base.approx(rub), style = MaterialTheme.typography.labelLarge.merge(Tnum), maxLines = 1)
+                    }
                 }
             }
             VSpace(Gap.s)
@@ -380,10 +395,10 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         d == today || d.dayOfMonth in listOf(1, 10, 20) -> d.dayOfMonth.toString()
                         else -> null
                     } ?: return@forEachIndexed
-                    val w = with(density) { step.toDp() }
+                    // Wider than a bar, centred on it, so "20" is never cut to "2".
                     Text(
                         label,
-                        modifier = Modifier.offset(x = with(density) { (step * i).toDp() }).width(w),
+                        modifier = Modifier.offset(x = with(density) { (step * i + step / 2).toDp() } - LABEL / 2).width(LABEL),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (i == picked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,

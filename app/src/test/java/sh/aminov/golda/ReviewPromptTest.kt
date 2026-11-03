@@ -37,8 +37,12 @@ class ReviewPromptTest {
         assertEquals("октябрь", ReviewPrompt.title(october, today))
         // November so far is still "ноябрь": a month up to today.
         assertEquals("ноябрь", ReviewPrompt.title(Period(LocalDate.of(2026, 11, 1), today), today))
-        val days = ReviewPrompt.title(Period(LocalDate.of(2026, 10, 27), LocalDate.of(2026, 11, 2)), today)
-        assertTrue(days, days.startsWith("27 ") && days.contains(" – 2 "))
+        assertEquals("с 27 октября по 2 ноября", ReviewPrompt.title(Period(LocalDate.of(2026, 10, 27), LocalDate.of(2026, 11, 2)), today))
+        assertEquals("с 5 по 12 октября", ReviewPrompt.title(Period(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 12)), today))
+        // Days up to today are counted, not dated; a review from the list passes a far today to get dates.
+        val month = Period(today.minusDays(29), today)
+        assertEquals("последние 30 дней", ReviewPrompt.title(month, today))
+        assertEquals("с 5 октября по 3 ноября", ReviewPrompt.title(month, LocalDate.MAX))
     }
 
     @Test
@@ -52,7 +56,7 @@ class ReviewPromptTest {
             Period(LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31)), ops,
             mapOf(1L to card), mapOf(1L to food, 2L to subs), Rates(emptyMap(), markup = 0.0), today, zone,
         )
-        assertTrue(text, text.contains("(31 дн.)"))
+        assertTrue(text, text.contains(", 31 дн."))
         assertTrue(text, text.contains("- Еда (каждый день)") && text.contains(", 1 шт."))
         assertTrue(text, text.contains("- Подписки (регулярно)"))
         assertTrue(text, text.contains("| Ашан |") && text.contains("| Netflix |"))

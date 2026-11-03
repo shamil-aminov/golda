@@ -77,7 +77,7 @@ fun ReviewsScreen(
                 modifier = Modifier.weight(1f).heightIn(min = ButtonDefaults.MediumContainerHeight),
             ) {
                 Text(
-                    if (working) tr("Разбираю…", "Reviewing…") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
+                    if (working) tr("Gemini пишет разбор", "Gemini is writing") else tr("Разобрать ", "Review ") + ReviewPrompt.title(period, today),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -104,8 +104,8 @@ fun ReviewsScreen(
             GroupRow(
                 i, reviews.size,
                 onClick = { onOpen(review.id) },
-                supporting = { Text(written(review), maxLines = 1) },
-            ) { Text(ReviewPrompt.title(span, LocalDate.ofEpochDay(review.toDay)).replaceFirstChar { it.uppercase() }, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                supporting = { Text(tr("Написан ", "Written ") + written(review), maxLines = 1) },
+            ) { Text(ReviewPrompt.title(span, LocalDate.MAX).replaceFirstChar { it.uppercase() }) }
         }
     }
 }
@@ -122,8 +122,8 @@ fun ReviewScreen(review: Review, onBack: () -> Unit, onDelete: () -> Unit) {
         },
     ) {
         Markdown(review.text)
-        VSpace(Gap.m)
-        Text("Gemini · " + written(review), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        VSpace(Gap.l)
+        Text(tr("Gemini, ", "Gemini, ") + written(review), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -154,7 +154,7 @@ private fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Compo
 @Composable
 fun Markdown(text: String) {
     val body = MaterialTheme.typography.bodyLarge
-    Column(verticalArrangement = Arrangement.spacedBy(Gap.xs)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Gap.s)) {
         text.lines().forEach { raw ->
             val line = raw.trimEnd()
             when {

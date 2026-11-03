@@ -24,10 +24,10 @@ object ReviewPrompt {
         - 4–7 пунктов с главными наблюдениями: куда ушли деньги, что выросло или выделяется, необычные траты, дни без записей;
         - «### Что можно урезать» — 2–3 пункта, только из того, что видно в данных («Радости», кафе, такси и т. п.);
         - числа бери из данных, ничего не придумывай; суммы в рублях с пробелами между тысячами, «₽» после числа.
-        Не больше 200 слов. Без вступления и без заключения.
+        Не больше 200 слов. Без вступления и без заключения. Без длинных тире, многоточий и сокращений с точкой: пиши словами.
     """.trimIndent()
 
-    private val day = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("ru"))
+    private val day = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("ru"))
 
     /** The period's figures and operations, as plain lines the model reads. */
     fun data(
@@ -48,7 +48,7 @@ object ReviewPrompt {
         val expenses = inPeriod.filter { it.op.type == OpType.EXPENSE }
         val days = period.days.size
         return buildString {
-            appendLine("Период: ${period.from.format(day)} – ${period.to.format(day)} ($days дн.)")
+            appendLine("Период: с ${period.from.format(day)} по ${period.to.format(day)}, $days дн.")
             appendLine("Суммы — сколько это стоило в рублях.")
             appendLine("Расходы всего: ${rub(report.spentRub)}; каждый день ${rub(report.dailyRub)}, регулярно ${rub(report.regularRub)}, крупное ${rub(report.bigRub)}.")
             appendLine("Ежедневное в среднем: ${rub(report.averagePerDayRub)} в день.")
@@ -81,12 +81,30 @@ object ReviewPrompt {
         sh.aminov.golda.data.Bucket.BIG -> "крупное"
     }
 
-    /** "октябрь" for a whole month or its start to today, "27 окт – 2 ноя" otherwise. */
+    /**
+     * The period in words, with no dots or dashes: "октябрь" for a whole month (or its start to
+     * [today]), "последние 30 дней" for days up to [today], "с 5 по 12 октября" or "с 5 октября
+     * по 3 ноября" otherwise. Pass a [today] after the period to always get the dates.
+     */
     fun title(period: Period, today: LocalDate): String {
-        val wholeMonth = period.from.dayOfMonth == 1 && period.from.month == period.to.month &&
+        val wholeMonth = period.from.dayOfMonth == 1 && period.from.month == period.to.month && period.from.year == period.to.year &&
             (period.to == period.from.withDayOfMonth(period.from.lengthOfMonth()) || period.to == today)
         if (wholeMonth) return period.from.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, I18n.locale)
-        val short = DateTimeFormatter.ofPattern(if (I18n.russian) "d MMM" else "MMM d", I18n.locale)
-        return "${period.from.format(short)} – ${period.to.format(short)}"
+        if (period.to == today && period.from.isBefore(today)) {
+            val n = period.days.size.toLong()
+            return tr("последние ", "last ") + n + " " + plural(n, "день", "дня", "дней", "day", "days")
+        }
+        return span(period.from, period.to)
+    }
+
+    /** "с 5 по 12 октября", "с 5 октября по 3 ноября"; English "Oct 5 to 12", "Oct 5 to Nov 3". */
+    fun span(from: LocalDate, to: LocalDate): String {
+        val sameMonth = from.month == to.month && from.year == to.year
+        if (!I18n.russian) {
+            val md = DateTimeFormatter.ofPattern("MMMM d", I18n.locale)
+            return from.format(md) + " to " + if (sameMonth) to.dayOfMonth.toString() else to.format(md)
+        }
+        val dm = DateTimeFormatter.ofPattern("d MMMM", I18n.locale)
+        return "с " + (if (sameMonth) from.dayOfMonth.toString() else from.format(dm)) + " по " + to.format(dm)
     }
 }
