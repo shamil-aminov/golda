@@ -574,11 +574,7 @@ private fun whole(minor: Long, code: String): String = Fmt.whole(minor, code) + 
  */
 @Composable
 private fun PaceCapsule(share: Float, color: Color) {
-    // Fills from empty when the screen opens, then follows the share: a small welcome, once.
-    val fill = remember { Animatable(0f) }
-    val spec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
-    LaunchedEffect(share) { fill.animateTo(share.coerceIn(0f, 1f), spec) }
-    val shown = fill.value.coerceIn(0f, 1f)
+    val shown by animateFloatAsState(share.coerceIn(0f, 1f), MaterialTheme.motionScheme.slowSpatialSpec(), label = "capsule")
     Box(Modifier.fillMaxWidth().height(20.dp).clip(CircleShape).background(color.copy(alpha = 0.22f))) {
         if (shown > 0f) Box(Modifier.fillMaxHeight().fillMaxWidth(shown.coerceAtLeast(0.06f)).clip(CircleShape).background(color))
     }

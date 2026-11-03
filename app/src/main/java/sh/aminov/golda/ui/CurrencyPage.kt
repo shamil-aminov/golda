@@ -78,7 +78,7 @@ fun CurrencyPage(data: AppData, pick: CurrencyPick, onChange: ((Settings) -> Set
 
     val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val title = when (pick) {
-        CurrencyPick.SHOWN -> tr("Показывать суммы в", "Show amounts in")
+        CurrencyPick.SHOWN -> tr("Валюты", "Currencies")
         CurrencyPick.LOCAL -> tr("Местная валюта", "Local currency")
         CurrencyPick.BASE -> tr("Основная валюта", "Main currency")
     }

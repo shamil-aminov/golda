@@ -136,7 +136,7 @@ fun SettingsScreen(
                 tr("Где я", "Where I am"),
                 SettingItem(tr("Местная валюта", "Local currency"), currencyLabel(s.localCurrency) + tr(", для новых трат и голоса", ", for new purchases and voice")) { edit = Edit.Local },
                 SettingItem(tr("Основная валюта", "Main currency"), currencyLabel(s.baseCurrency) + tr(", крупные цифры и итоги", ", big numbers and totals")) { edit = Edit.Base },
-                SettingItem(tr("Показывать суммы в", "Show amounts in"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown },
+                SettingItem(tr("Валюты", "Currencies"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown },
             )
 
             val ratesDay = data.ratesDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }

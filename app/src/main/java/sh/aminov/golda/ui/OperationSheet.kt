@@ -568,27 +568,55 @@ fun CurrencyPicker(choices: List<String>, selected: String, onPick: (String) -> 
     }
 }
 
-/**
- * From and to as the same account cards as everywhere, one row each, labelled; the round swap button
- * at the end of the "Куда" label turns the transfer around.
- */
+/** From and to as two tiles with a round swap button over the gap; a tile opens the list of accounts. */
 @Composable
 private fun RouteBento(data: AppData, from: Account?, to: Account?, onFrom: (Long) -> Unit, onTo: (Long) -> Unit, onSwap: () -> Unit) {
-    val balance = { a: Account -> data.states[a.id]?.let { Fmt.amount(it.balanceMinor, a.currency) } ?: Currencies.symbol(a.currency) }
-    Caption(tr("Откуда", "From"))
-    VSpace(Gap.s)
-    AccountCards(data.accounts, from?.id, onFrom, balance)
-    VSpace(Gap.m)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Caption(tr("Куда", "To"), Modifier.weight(1f))
-        FilledTonalIconButton(
-            onClick = onSwap,
-            modifier = Modifier.size(40.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
-        ) { Icon(painterResource(R.drawable.ic_swap), tr("Поменять местами", "Swap"), Modifier.size(20.dp)) }
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Bento {
+            // The sides facing the swap button keep 32 dp clear, so it never sits on a name.
+            RouteTile(data, tr("Откуда", "From"), from, data.accounts, onFrom, Modifier.weight(1f), PaddingValues(start = Gap.m, top = Gap.m, bottom = Gap.m, end = 32.dp))
+            RouteTile(data, tr("Куда", "To"), to, data.accounts.filter { it.id != from?.id }, onTo, Modifier.weight(1f), PaddingValues(start = 32.dp, top = Gap.m, bottom = Gap.m, end = Gap.m))
+        }
+        // A ring of the sheet's colour cuts the button out of the tiles.
+        Box(Modifier.size(48.dp).background(sheetColor(), CircleShape), contentAlignment = Alignment.Center) {
+            FilledTonalIconButton(
+                onClick = onSwap,
+                modifier = Modifier.size(40.dp),
+                colors = IconButtonDefaults.filledTonalIconButtonColors(containerColor = unpickedColor(), contentColor = MaterialTheme.colorScheme.onSurface),
+            ) { Icon(painterResource(R.drawable.ic_swap), tr("Поменять местами", "Swap"), Modifier.size(20.dp)) }
+        }
     }
-    VSpace(Gap.s)
-    AccountCards(data.accounts.filter { it.id != from?.id }, to?.id, onTo, balance)
+}
+
+@Composable
+private fun RouteTile(data: AppData, label: String, account: Account?, choices: List<Account>, onPick: (Long) -> Unit, modifier: Modifier, padding: PaddingValues) {
+    var open by remember { mutableStateOf(false) }
+    // A tap on the tile while the list is open first dismisses the list (a tap outside it), and the
+    // click would open it again at once: a tap right after a dismissal only closes.
+    var dismissedAt by remember { mutableLongStateOf(0L) }
+    Box(modifier) {
+        Tile(Modifier.fillMaxWidth().height(96.dp), container = tileColor(), onClick = { if (System.currentTimeMillis() - dismissedAt > 300) open = !open }, padding = padding) {
+            Caption(label)
+            Spacer(Modifier.weight(1f))
+            Text(account?.name.orEmpty(), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            account?.let { a ->
+                Text(
+                    Fmt.amount(data.states[a.id]?.balanceMinor ?: 0, a.currency),
+                    style = MaterialTheme.typography.bodyMedium.merge(Tnum),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false; dismissedAt = System.currentTimeMillis() }, properties = KeepKeyboard) {
+            choices.forEach { a ->
+                DropdownMenuItem(
+                    text = { Text("${a.name} · ${Fmt.amount(data.states[a.id]?.balanceMinor ?: 0, a.currency)}") },
+                    onClick = { onPick(a.id); open = false },
+                )
+            }
+        }
+    }
 }
 
 /** Every category as a grid of tiles, four across, the most used first. The picked one grows into a pill. */

@@ -87,7 +87,7 @@ fun Onboarding(
                             0, 2, Modifier.padding(horizontal = Gap.m),
                             onClick = { currencies = CurrencyPick.SHOWN },
                             supporting = { Text(s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) },
-                        ) { Text(tr("Показывать суммы в", "Show amounts in"), style = MaterialTheme.typography.titleMedium) }
+                        ) { Text(tr("Валюты", "Currencies"), style = MaterialTheme.typography.titleMedium) }
                         GroupRow(
                             1, 2, Modifier.padding(horizontal = Gap.m),
                             onClick = { currencies = CurrencyPick.LOCAL },
