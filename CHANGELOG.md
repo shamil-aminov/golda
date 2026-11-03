@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   carries a check, the preset row ends on a gap, and the theme's segmented
   rows sit 8 dp from the edge like Insights'. Category colours keep out of
   the review button's ice blue.
+- **Theme presets stay put.** Picking one off to the side no longer swings
+  the row back; half a chip shows at the edge, so the row plainly scrolls.
+- **Account cards look like cards** in the entry form and the period sheet:
+  a bank card's 1.586 : 1, the name at the top and the balance at the bottom.
 - **Wording.** One name for voice items, "голосовые"; "поправка" for a
   reconciliation's difference; "Карта трат" for the account switch;
   "За 30 дней" on Insights; "Обновляю" while rates update; shorter

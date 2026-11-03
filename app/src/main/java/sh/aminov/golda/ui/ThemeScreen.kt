@@ -118,12 +118,14 @@ fun ThemeScreen(
             val presets = rememberScrollState()
             val activeIndex = (Palette.entries.map { it.key } + saved).indexOf(current)
             BoxWithConstraints(Modifier.bleed(Gap.m)) {
-                // As many whole chips as fit from the 16 dp margin, sized so the screen's edge falls on
-                // the gap after the last one: never a name cut mid-word.
-                val count = ((maxWidth - Gap.m) / (88.dp + Gap.s)).toInt().coerceAtLeast(3)
-                val chip = (maxWidth - Gap.m) / count - Gap.s
+                // Whole chips from the 16 dp margin and half of the next at the edge (4.5 on a 411 dp
+                // screen, 3.5 on a 360 one), so the row plainly goes on.
+                val count = ((maxWidth - Gap.m) / (88.dp + Gap.s)).toInt().coerceAtLeast(2)
+                val chip = (maxWidth - Gap.m - Gap.s * count) / (count + 0.5f)
                 val step = with(androidx.compose.ui.platform.LocalDensity.current) { (chip + Gap.s).roundToPx() }
-                androidx.compose.runtime.LaunchedEffect(activeIndex) { if (activeIndex >= count) presets.animateScrollTo((activeIndex - count + 1) * step) }
+                // Once, on opening: the theme in use brought into view. Keyed on the pick it re-ran on
+                // every tap and swung the row back like a rotary dial; a pick leaves the row where it is.
+                androidx.compose.runtime.LaunchedEffect(Unit) { if (activeIndex >= count) presets.scrollTo((activeIndex - count + 1) * step) }
                 Row(Modifier.horizontalScroll(presets).padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                     Palette.entries.forEach { palette ->
                         ThemeChip(palette.label, palette.tones(systemDark), palette.key == current, chip, onClick = { onApply(palette.key) })
