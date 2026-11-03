@@ -254,7 +254,7 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { confirmWipe = false },
             title = { Text(tr("Стереть всё?", "Erase everything?")) },
-            text = { Text(tr("Счета, операции и настройки удалятся без возможности вернуть.", "Accounts, operations and settings will be gone for good.")) },
+            text = { Text(tr("Счета, операции и настройки удалятся без возможности вернуть", "Accounts, operations and settings will be gone for good")) },
             confirmButton = {
                 TextButton(onClick = { confirmWipe = false; onWipe() }) { Text(tr("Стереть", "Erase"), color = MaterialTheme.colorScheme.error) }
             },

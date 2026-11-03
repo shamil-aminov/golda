@@ -219,7 +219,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         }
         if (shown.categories.isEmpty()) {
             item(key = "empty") {
-                Text(tr("За эти дни трат нет.", "No spending in these days."), Modifier.padding(Gap.l), style = text, color = quiet)
+                Text(tr("За эти дни трат нет", "No spending in these days"), Modifier.padding(Gap.l), style = text, color = quiet)
             }
         } else {
             item(key = "mosaic") {
@@ -437,7 +437,7 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
                             else -> ReviewPrompt.span(from, to).replaceFirstChar { it.titlecase(I18n.locale) }
                         },
                         modifier = Modifier.padding(start = Gap.l, end = Gap.l, top = Gap.m, bottom = Gap.m),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                 },
                 showModeToggle = false,
@@ -558,7 +558,7 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     Text(
                         label,
                         modifier = Modifier.offset(x = with(density) { (step * i + step / 2).toDp() } - LABEL / 2).width(LABEL),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = MaterialTheme.typography.labelSmall, // scale-exempt: a chart's axis, under bars a few dp wide
                         color = if (i == picked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         maxLines = 1,

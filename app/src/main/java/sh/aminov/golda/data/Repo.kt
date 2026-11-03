@@ -443,7 +443,7 @@ class Repo(
             throw e
         } catch (e: Exception) {
             if (file.exists()) VoiceQueue.putAside(context, file)
-            VoiceOutcome.Failed(tr("Запись не получилось разобрать.", "The note could not be processed.") + aside)
+            VoiceOutcome.Failed(tr("Запись не получилось разобрать", "The note could not be processed") + aside)
         }
         refreshVoiceBacklog()
         _voice.emit(outcome)

@@ -526,7 +526,7 @@ private fun ReceivedLine(code: String, text: String, edited: Boolean, open: Bool
         val amount = Fmt.parseMinor(text, code)?.let { Fmt.amount(it, code) } ?: ""
         Text(
             "→ " + (if (edited) "" else "≈ ") + amount,
-            style = MaterialTheme.typography.headlineMedium.merge(Tnum),
+            style = MaterialTheme.typography.titleLarge.merge(Tnum),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }

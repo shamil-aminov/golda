@@ -168,7 +168,7 @@ fun AmountColumn(
         if (secondary != null) {
             Text(
                 (if (approximate) "≈ " else "") + secondary,
-                style = MaterialTheme.typography.bodySmall.merge(Tnum),
+                style = MaterialTheme.typography.bodyMedium.merge(Tnum),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )

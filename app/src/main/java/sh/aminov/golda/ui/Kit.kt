@@ -439,7 +439,7 @@ fun TonalPick(label: String, value: String?, onClick: () -> Unit, modifier: Modi
             if (value == null) {
                 Text(label, Modifier.padding(vertical = Gap.s), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(value, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
             }
         }
