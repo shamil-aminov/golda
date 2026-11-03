@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import sh.aminov.golda.domain.Regulars
+import sh.aminov.golda.data.Obligation
 import sh.aminov.golda.R
 import androidx.compose.ui.res.painterResource
 import androidx.compose.animation.AnimatedContent
@@ -164,6 +166,21 @@ fun HomeScreen(
                 }
             }
         }
+        // A regular payment due in the next two days, so it is no surprise on the card.
+        val due = Regulars.upcoming(data.obligations, today)
+        if (due.isNotEmpty()) {
+            item(key = "upcoming") {
+                Column(Modifier.padding(start = Gap.m, end = Gap.m, top = Gap.m)) {
+                    due.forEachIndexed { i, (payment, days) ->
+                        GroupRow(
+                            i, due.size,
+                            supporting = { Text(Regulars.whenLabel(days)) },
+                            trailing = { AmountColumn(if (payment.amountMinor == 0L) tr("пробный", "trial") else Fmt.amount(payment.amountMinor, payment.currency)) },
+                        ) { Text(payment.name, style = MaterialTheme.typography.titleMedium) }
+                    }
+                }
+            }
+        }
         if (data.visibleOperations.isEmpty()) {
             item(key = "empty") {
                 Text(
@@ -189,8 +206,12 @@ fun AccountsScreen(
     onReconcile: (Long, Long, Boolean) -> Unit,
     reconcileMode: Boolean = false,
     onAllReconciled: () -> Unit = {},
+    onSavePayment: (Obligation) -> Unit = {},
+    onDeletePayment: (Long) -> Unit = {},
 ) {
     val total = data.states.values.sumOf { it.rubMinor }
+    var payment by remember { mutableStateOf<Obligation?>(null) }
+    val suggestions = remember(data) { Regulars.suggest(data.operations, data.accountById, data.categoryById, data.obligations, data.today, data.zone) }
     var reconciling by remember { mutableStateOf<AccountState?>(null) }
     // In reconcile mode, the accounts already checked this round: true when the balance matched.
     var checked by remember(reconcileMode) { mutableStateOf(mapOf<Long, Boolean>()) }
@@ -248,6 +269,15 @@ fun AccountsScreen(
             }
         }
         item(key = "add") { AddRow(count - 1, count, tr("Счёт", "Account"), onAdd) }
+        if (!reconcileMode) regularPayments(data, suggestions) { payment = it }
+    }
+    payment?.let { shown ->
+        PaymentSheet(
+            data, shown,
+            onDismiss = { payment = null },
+            onSave = { saved -> onSavePayment(saved); payment = null },
+            onDelete = { onDeletePayment(shown.id); payment = null },
+        )
     }
     reconciling?.let { state ->
         ReconcileSheet(state, onDismiss = { reconciling = null }) { actual, asSpending ->

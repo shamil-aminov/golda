@@ -60,7 +60,6 @@ private sealed interface Page {
     /** Gemini's reviews, with the period insights had picked for a new one. */
     data class Reviews(val from: Long, val to: Long) : Page
     data class ReviewPage(val id: Long, val from: Long, val to: Long) : Page
-    data object Regulars : Page
 }
 
 /** A page survives the activity being recreated (a language switch), written as a short string. */
@@ -68,7 +67,6 @@ private val PageSaver = Saver<Page?, String>(
     save = { page ->
         when (page) {
             Page.Settings -> "s"
-            Page.Regulars -> "rg"
             is Page.AccountPage -> "a:${page.id}"
             is Page.Reviews -> "rs:${page.from}:${page.to}"
             is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
@@ -79,7 +77,6 @@ private val PageSaver = Saver<Page?, String>(
         val parts = value.split(':')
         when (parts.first()) {
             "s" -> Page.Settings
-            "rg" -> Page.Regulars
             "a" -> parts.getOrNull(1)?.toLongOrNull()?.let { Page.AccountPage(it) }
             "rs" -> Page.Reviews(parts[1].toLong(), parts[2].toLong())
             "r" -> Page.ReviewPage(parts[1].toLong(), parts[2].toLong(), parts[3].toLong())
@@ -279,14 +276,6 @@ private fun MainScreen(
                         snackbar.showSnackbar(tr("Записи удалены", "Notes deleted"))
                     }
                 },
-                onRegulars = { page = Page.Regulars },
-            )
-            Page.Regulars -> RegularsScreen(
-                data = data,
-                payments = data.obligations,
-                onBack = { page = Page.Settings },
-                onSave = { scope.launch { repo.saveObligation(it) } },
-                onDelete = { id -> scope.launch { repo.deleteObligation(id) } },
             )
             is Page.Reviews -> {
                 val reviews by repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -376,6 +365,8 @@ private fun MainScreen(
                                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                                 scope.launch { snackbar.showSnackbar(tr("Все счета сверены", "All accounts reconciled")) }
                             },
+                            onSavePayment = { scope.launch { repo.saveObligation(it) } },
+                            onDeletePayment = { id -> scope.launch { repo.deleteObligation(id) } },
                         )
                         else -> AnalyticsScreen(data, padding) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }

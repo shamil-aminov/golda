@@ -47,6 +47,18 @@ class RegularsTest {
     }
 
     @Test
+    fun upcomingIsTheNextTwoDaysSoonestFirst() {
+        I18n.russian = true
+        val payments = listOf(
+            Obligation(1, "Сервер", 1_000, "RUB", 5),
+            Obligation(2, "Связь", 1_000, "GEL", 3),
+            Obligation(3, "Интернет", 4_300, "GEL", 20),
+        )
+        assertEquals(listOf("Связь" to 0L, "Сервер" to 2L), Regulars.upcoming(payments, today).map { it.first.name to it.second })
+        assertEquals("Спишется послезавтра", Regulars.whenLabel(2))
+    }
+
+    @Test
     fun suggestsRecentRegularSpendingNotInTheList() {
         I18n.russian = true
         val ops = listOf(

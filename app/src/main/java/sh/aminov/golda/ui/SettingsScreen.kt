@@ -95,8 +95,6 @@ fun SettingsScreen(
     voiceBacklog: Int = 0,
     onRetryVoice: () -> Unit = {},
     onDiscardVoice: () -> Unit = {},
-    /** Opens the regular payments. */
-    onRegulars: () -> Unit = {},
 ) {
     var edit by remember { mutableStateOf<Edit?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
@@ -161,23 +159,17 @@ fun SettingsScreen(
             GroupLabel(tr("Бюджет", "Budget"))
             val envelope = data.envelope
             SettingRow(
-                0, 3, tr("Период трат", "Spending period"),
+                0, 2, tr("Период трат", "Spending period"),
                 painter = painterResource(R.drawable.ic_calendar),
                 value = envelope?.account?.name,
                 supporting = envelope?.let { periodLabel(it.start, it.end, data.today) } ?: tr("Нет счёта для трат", "No account to spend from"),
             ) { if (envelope != null) edit = Edit.Period }
             val expenseCategories = data.categories.filter { it.kind == CategoryKind.EXPENSE }
             SettingRow(
-                1, 3, tr("Корзины категорий", "Category buckets"),
+                1, 2, tr("Корзины категорий", "Category buckets"),
                 painter = painterResource(R.drawable.ic_cat_other),
                 supporting = tr("Регулярно: ", "Regular: ") + expenseCategories.filter { Buckets.of(it) == Bucket.REGULAR }.joinToString(", ") { it.label() }.ifBlank { "—" },
             ) { edit = Edit.Buckets }
-            SettingRow(
-                2, 3, tr("Регулярные платежи", "Regular payments"),
-                painter = painterResource(R.drawable.ic_bell),
-                supporting = regularsSummary(data, data.obligations),
-                onClick = onRegulars,
-            )
 
             VSpace(Gap.l)
             GroupLabel(tr("Голос", "Voice"))

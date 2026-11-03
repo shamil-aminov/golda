@@ -85,6 +85,19 @@ object Regulars {
         }
     }
 
+    /** Payments charged in the next [AHEAD] days, soonest first, with the days left. */
+    fun upcoming(payments: List<Obligation>, today: LocalDate): List<Pair<Obligation, Long>> = payments
+        .map { it to ChronoUnit.DAYS.between(today, nextCharge(it, today)) }
+        .filter { it.second <= AHEAD }
+        .sortedBy { it.second }
+
+    /** "Спишется сегодня", "завтра", "послезавтра". */
+    fun whenLabel(days: Long): String = when (days) {
+        0L -> tr("Спишется сегодня", "Charged today")
+        1L -> tr("Спишется завтра", "Charged tomorrow")
+        else -> tr("Спишется послезавтра", "Charged the day after tomorrow")
+    }
+
     /** What the list costs a month in roubles; a currency without a rate counts as nothing. */
     fun monthlyRub(payments: List<Obligation>, rates: Rates): Long =
         payments.sumOf { rates.rubMinor(it.amountMinor, it.currency) ?: 0L }

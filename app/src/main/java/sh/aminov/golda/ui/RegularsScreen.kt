@@ -3,13 +3,14 @@ package sh.aminov.golda.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,78 +32,53 @@ import sh.aminov.golda.data.Obligation
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Regulars
-import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
 
 /**
- * Regular payments: the list with each one's day and amount, under it what looks regular in the
- * spending but is not in the list yet (one tap to add), and at the bottom back and "Добавить".
+ * Regular payments as a block under the accounts: the list with the month's total, "+ Платёж", and
+ * what looks regular in the spending but is not listed yet, one tap to add.
  */
-@Composable
-fun RegularsScreen(
-    data: AppData,
-    payments: List<Obligation>,
-    onBack: () -> Unit,
-    onSave: (Obligation) -> Unit,
-    onDelete: (Long) -> Unit,
-) {
-    BackHandler(onBack = onBack)
-    var editing by remember { mutableStateOf<Obligation?>(null) }
-    val suggestions = remember(data, payments) {
-        Regulars.suggest(data.operations, data.accountById, data.categoryById, payments, data.today, data.zone)
-    }
-    val context = LocalContext.current
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-
-    fun save(payment: Obligation) {
-        onSave(payment)
-        editing = null
-        // A reminder needs notifications: asked once there is something to remind of.
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            ask.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-
-    BottomPage(
-        actions = {
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-            PrimaryAction(tr("Добавить", "Add"), { editing = Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth) })
-        },
-    ) {
-        Text(tr("Регулярные платежи", "Regular payments"), style = MaterialTheme.typography.headlineMedium)
-        VSpace(Gap.s)
-        Text(
-            tr("За ${Regulars.AHEAD} дня до списания напомню и спрошу, нужна ли ещё подписка.", "${Regulars.AHEAD} days before a charge you get a reminder asking if it is still needed."),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, onEdit: (Obligation) -> Unit) {
+    val payments = data.obligations
+    item(key = "regulars-label") {
         VSpace(Gap.l)
-        if (payments.isNotEmpty()) {
-            val total = data.base.approx(Regulars.monthlyRub(payments, data.rates))
-            GroupLabel(tr("В месяц $total", "$total a month"))
-            payments.forEachIndexed { i, payment ->
-                PaymentRow(payment, i, payments.size) { editing = payment }
-            }
-            VSpace(Gap.l)
-        }
-        if (suggestions.isNotEmpty()) {
-            GroupLabel(tr("Похоже на регулярные", "Looks regular"))
-            suggestions.forEachIndexed { i, payment ->
-                PaymentRow(payment, i, suggestions.size, add = true) { editing = payment }
+        GroupLabel(tr("Регулярные платежи", "Regular payments"), Modifier.padding(horizontal = Gap.m)) {
+            if (payments.isNotEmpty()) {
+                val total = data.base.approx(Regulars.monthlyRub(payments, data.rates))
+                Text(
+                    tr("$total в месяц", "$total a month"),
+                    Modifier.padding(end = Gap.m),
+                    style = MaterialTheme.typography.labelLarge.merge(Tnum),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
-
-    editing?.let { payment ->
-        PaymentSheet(data, payment, onDismiss = { editing = null }, onSave = ::save, onDelete = { onDelete(payment.id); editing = null })
+    val count = payments.size + 1
+    payments.forEachIndexed { i, payment ->
+        item(key = "regular-${payment.id}") { PaymentRow(payment, i, count, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
+    }
+    item(key = "regular-add") {
+        AddRow(count - 1, count, tr("Платёж", "Payment"), {
+            onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
+        }, Modifier.padding(horizontal = Gap.m))
+    }
+    if (suggestions.isNotEmpty()) {
+        item(key = "regulars-suggested") {
+            VSpace(Gap.l)
+            GroupLabel(tr("Похоже на регулярные", "Looks regular"), Modifier.padding(horizontal = Gap.m))
+        }
+        suggestions.forEachIndexed { i, payment ->
+            item(key = "suggested-${payment.name}") { PaymentRow(payment, i, suggestions.size, Modifier.padding(horizontal = Gap.m), add = true) { onEdit(payment) } }
+        }
     }
 }
 
 /** A payment: its name, the day it is charged, the amount (or "пробный"); a suggestion has a "+". */
 @Composable
-private fun PaymentRow(payment: Obligation, index: Int, count: Int, add: Boolean = false, onClick: () -> Unit) {
+private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Modifier, add: Boolean = false, onClick: () -> Unit) {
     GroupRow(
-        index, count,
+        index, count, modifier,
         onClick = onClick,
         supporting = { Text(dayOfMonth(payment.dayOfMonth)) },
         trailing = {
@@ -132,7 +108,16 @@ private fun ordinal(day: Int): String = day.toString() + when {
 
 /** One payment: name, amount and currency, the day; 0 is a free trial. */
 @Composable
-private fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Unit, onSave: (Obligation) -> Unit, onDelete: () -> Unit) {
+fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Unit, onSave: (Obligation) -> Unit, onDelete: () -> Unit) {
+    val context = LocalContext.current
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    fun save(saved: Obligation) {
+        onSave(saved)
+        // A reminder needs notifications: asked once there is something to remind of.
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            ask.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
     var name by remember { mutableStateOf(payment.name) }
     var currency by remember { mutableStateOf(payment.currency) }
     var amountText by remember { mutableStateOf(if (payment.amountMinor > 0) Fmt.editable(payment.amountMinor, payment.currency) else "") }
@@ -146,7 +131,7 @@ private fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Un
         actions = {
             if (payment.id != 0L) RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete"), onDelete)
             PrimaryAction(tr("Сохранить", "Save"), {
-                onSave(payment.copy(name = name.trim(), amountMinor = amount ?: 0, currency = currency, dayOfMonth = day ?: 1))
+                save(payment.copy(name = name.trim(), amountMinor = amount ?: 0, currency = currency, dayOfMonth = day ?: 1))
             }, enabled = valid)
         },
     ) {
@@ -166,12 +151,4 @@ private fun PaymentSheet(data: AppData, payment: Obligation, onDismiss: () -> Un
         VSpace(Gap.s)
         UnderLine(tr("Без суммы это пробный период", "No amount is a free trial"))
     }
-}
-
-/** "3 платежа · 2 400 ₽ в месяц", for the settings row. */
-fun regularsSummary(data: AppData, payments: List<Obligation>): String {
-    if (payments.isEmpty()) return tr("Пока нет", "None yet")
-    val n = payments.size.toLong()
-    return "$n " + plural(n, "платёж", "платежа", "платежей", "payment", "payments") + " · " +
-        tr("${data.base.approx(Regulars.monthlyRub(payments, data.rates))} в месяц", "${data.base.approx(Regulars.monthlyRub(payments, data.rates))} a month")
 }
