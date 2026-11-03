@@ -181,6 +181,8 @@ tasks.register<JavaExec>("pitest") {
                 // What Kotlin generates for data classes.
                 "--excludedMethods", "equals,hashCode,toString,component*,copy*,copy\$default",
                 "--targetTests", "sh.aminov.golda.*Test",
+                // Screens and Gemini need Robolectric and say nothing about the domain's logic.
+                "--excludedTestClasses", "sh.aminov.golda.ScreenshotTest,sh.aminov.golda.GeminiEvalTest",
                 "--sourceDirs", sources.path,
                 "--classPathFile", list.path,
                 // The app's own classes reach the unit tests as a jar, which Pitest would not mutate by itself.
