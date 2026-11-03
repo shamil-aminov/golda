@@ -122,7 +122,10 @@ fun HomeScreen(
                 val left = envelope.leftTodayMinor
                 VSpace(Gap.s)
                 HeroAmount(whole(left, code), ink, Modifier.testTag(Tags.HOME_BIG))
-                VSpace(Gap.m)
+                // Measured on the screen, every gap in the tile is the same 28 dp of air: above the
+                // caption, caption to figures, figures to bar, bar to text, under the text. The figures'
+                // line keeps its empty descent under the digits, so the spacer here is that much shorter.
+                VSpace(Gap.m - HeroDescent)
                 // What is still left of today's share; flat and full once it is spent.
                 val share = when {
                     over -> 1f
@@ -162,6 +165,8 @@ fun HomeScreen(
                     val plan = tr("План ${whole(envelope.perDayMinor, code)} в день", "Plan ${whole(envelope.perDayMinor, code)} a day")
                     val fact = envelope.burnMinor?.let { tr("факт ${whole(it, code)}", "actual ${whole(it, code)}") }
                     Text(listOfNotNull(plan, fact).joinToString(" · "), style = text, color = quiet, maxLines = 1)
+                    // The last line's box ends tighter than the caption's begins: 3 dp evens the two.
+                    VSpace(3.dp)
                 }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
@@ -547,6 +552,9 @@ private fun interestLine(minor: Long, currency: String, today: LocalDate): Strin
 /** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
 private fun whole(minor: Long, code: String): String = Fmt.split(minor, code).first + " " + Currencies.symbol(code)
 
+/** The empty band under [HeroAmount]'s digits (the font's descent at 72 sp): spacing after it is that much shorter. */
+val HeroDescent = 10.dp
+
 /**
  * A tile's big amount: written the way every amount in the lists is (the same face, "2 000 ₽"), only
  * bigger, as big as the width allows up to 72 sp. No smaller sign, no trimmed line box.
@@ -557,8 +565,16 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         // Tabular figures run about 0.6 em wide; keep a little air at the edge.
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
         val size = minOf(fit, 72f).sp
+        // The sign is the same size in the same ink, only quieter: the digits are read first.
+        val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
+        val shown = buildAnnotatedString {
+            if (sign == null) append(text) else {
+                append(text.dropLast(sign.length))
+                withStyle(SpanStyle(color = color.copy(alpha = 0.55f))) { append(sign) }
+            }
+        }
         Text(
-            text,
+            shown,
             style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontSize = size, lineHeight = size * 1.15f),
             color = color,
             maxLines = 1,

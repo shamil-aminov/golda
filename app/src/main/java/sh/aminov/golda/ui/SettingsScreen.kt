@@ -1,6 +1,12 @@
 package sh.aminov.golda.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import sh.aminov.golda.data.AppLanguage
@@ -113,95 +119,64 @@ fun SettingsScreen(
         topBar = { CollapsingHeader(tr("Настройки", "Settings"), onBack, bar) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.xl),
-        ) {
-            GroupLabel(tr("Где я", "Where I am"))
-            SettingRow(
-                0, 3, tr("Местная валюта", "Local currency"),
-                painter = painterResource(R.drawable.ic_location),
-                value = currencyLabel(s.localCurrency),
-                supporting = tr("Для новых трат и голоса", "For new purchases and voice"),
-            ) { edit = Edit.Local }
-            SettingRow(
-                1, 3, tr("Основная валюта", "Main currency"),
-                painter = painterResource(R.drawable.ic_coins),
-                value = currencyLabel(s.baseCurrency),
-                supporting = tr("Крупные цифры и итоги", "Big numbers and totals"),
-            ) { edit = Edit.Base }
-            SettingRow(2, 3, tr("Показывать суммы в", "Show amounts in"), painter = painterResource(R.drawable.ic_eye), value = s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown }
+        // Android's own settings: no cards, a header with a hairline over each section, rows of
+        // plain text with the value under the title.
+        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(bottom = Gap.xl)) {
+            Section(tr("Где я", "Where I am"))
+            SettingRow(tr("Местная валюта", "Local currency"), currencyLabel(s.localCurrency) + tr(", для новых трат и голоса", ", for new purchases and voice")) { edit = Edit.Local }
+            SettingRow(tr("Основная валюта", "Main currency"), currencyLabel(s.baseCurrency) + tr(", крупные цифры и итоги", ", big numbers and totals")) { edit = Edit.Base }
+            SettingRow(tr("Показывать суммы в", "Show amounts in"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown }
 
-            VSpace(Gap.l)
             val ratesDay = data.ratesDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            GroupLabel(
-                tr("Курс", "Rates"),
-                supporting = data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) },
-                trailing = { IconButton(onClick = onRefreshRates) { Icon(painterResource(R.drawable.ic_refresh), tr("Обновить курсы", "Update rates"), tint = MaterialTheme.colorScheme.onSurfaceVariant) } },
+            Section(
+                tr("Курс", "Rates") + (data.ratesDate?.let { tr(" ЦБ на ", ", CBR of ") + (ratesDay?.let(::fullDate) ?: it) } ?: ""),
+                trailing = {
+                    IconButton(onClick = onRefreshRates) {
+                        Icon(painterResource(R.drawable.ic_refresh), tr("Обновить курсы", "Update rates"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
             )
+            SettingRow(tr("Наценка к ЦБ", "Markup over the CBR"), Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup }
             val foreign = s.displayCurrencies.filter { it != "RUB" }.filter { data.rates.official(it) != null && data.rates.display(it) != null }
-            val rateCount = 1 + foreign.size
-            SettingRow(0, rateCount, tr("Наценка к ЦБ", "Markup over the CBR"), painter = painterResource(R.drawable.ic_percent), value = Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup }
-            foreign.forEachIndexed { i, code ->
-                // The row says the currency itself; an empty glyph slot keeps the text in line with the markup's.
-                GroupRow(
-                    i + 1, rateCount,
-                    leading = { GlyphSpace() },
-                    trailing = { Value(tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2)) },
-                ) {
-                    Text("1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽", style = MaterialTheme.typography.titleMedium.merge(Tnum), maxLines = 1)
-                }
+            foreign.forEach { code ->
+                SettingRow(
+                    "1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽",
+                    tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2),
+                )
             }
 
-            VSpace(Gap.l)
-            GroupLabel(tr("Голос", "Voice"))
+            Section(tr("Голос", "Voice"))
             val defaultModel = Settings().geminiModel
-            val voiceRows = if (voiceBacklog > 0) 3 else 2
-            SettingRow(0, voiceRows, tr("Ключ Gemini", "Gemini key"), painter = painterResource(R.drawable.ic_key), value = if (s.hasGeminiKey) tr("сохранён", "saved") else tr("нет", "none")) { edit = Edit.Key }
-            SettingRow(1, voiceRows, tr("Модель", "Model"), painter = painterResource(R.drawable.ic_chip), supporting = s.geminiModel + if (s.geminiModel == defaultModel) tr(" · по умолчанию", " · default") else "") { edit = Edit.Model }
+            SettingRow(tr("Ключ Gemini", "Gemini key"), if (s.hasGeminiKey) tr("Сохранён", "Saved") else tr("Нет", "None")) { edit = Edit.Key }
+            SettingRow(tr("Модель", "Model"), s.geminiModel + if (s.geminiModel == defaultModel) tr(", по умолчанию", ", default") else "") { edit = Edit.Model }
             // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
             if (voiceBacklog > 0) {
-                SettingRow(
-                    2, 3, tr("Не разобрано", "Not worked out"),
-                    painter = painterResource(R.drawable.ic_mic),
-                    value = voiceBacklog.toString(),
-                    supporting = tr("Записи ещё не превратились в операции", "Notes not booked yet"),
-                ) { edit = Edit.Notes }
+                SettingRow(tr("Не разобрано: $voiceBacklog", "Not worked out: $voiceBacklog"), tr("Записи ещё не превратились в операции", "Notes not booked yet")) { edit = Edit.Notes }
             }
 
-            VSpace(Gap.l)
-            GroupLabel(tr("Данные", "Data"))
-            SettingRow(0, 2, tr("Сохранить копию", "Save a backup"), painter = painterResource(R.drawable.ic_upload), supporting = tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
+            Section(tr("Данные", "Data"))
+            SettingRow(tr("Сохранить копию", "Save a backup"), tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
                 exporter.launch("golda-${LocalDate.now()}.json")
             }
-            SettingRow(1, 2, tr("Восстановить", "Restore"), painter = painterResource(R.drawable.ic_download)) {
+            SettingRow(tr("Восстановить", "Restore"), tr("Заменить всё содержимым файла", "Replace everything with a file")) {
                 importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
             }
+
             val reminder: (Boolean) -> Unit = { on ->
                 onChange { it.copy(reconcileReminder = on) }
                 ReconcileSchedule.apply(context, on)
             }
-            VSpace(Gap.l)
-            GroupLabel(tr("Напоминания", "Reminders"))
-            GroupRow(
-                0, 1,
-                onClick = { reminder(!s.reconcileReminder) },
-                leading = { RowIcon(painter = painterResource(R.drawable.ic_bell)) },
-                supporting = { Text(tr("По воскресеньям в 19:00", "Sundays at 19:00")) },
-                trailing = { CheckSwitch(s.reconcileReminder, reminder) },
-            ) { Text(tr("Напоминать о сверке", "Reconcile reminder")) }
+            Section(tr("Напоминания", "Reminders"))
+            SettingRow(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), trailing = { CheckSwitch(s.reconcileReminder, reminder) }) {
+                reminder(!s.reconcileReminder)
+            }
 
-            VSpace(Gap.l)
-            GroupLabel(tr("Язык", "Language"))
-            SettingRow(0, 1, tr("Язык приложения", "App language"), painter = painterResource(R.drawable.ic_translate), value = languageName(currentLanguage())) { edit = Edit.Language }
+            Section(tr("Язык", "Language"))
+            SettingRow(tr("Язык приложения", "App language"), languageName(currentLanguage())) { edit = Edit.Language }
 
-            // The one irreversible thing stands apart, last: a plain row that only says it in the
-            // error colour; the confirmation carries the alarm.
-            VSpace(Gap.xl)
-            GroupRow(
-                0, 1,
-                onClick = { confirmWipe = true },
-                leading = { Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error) },
-            ) { Text(tr("Стереть всё", "Erase everything"), color = MaterialTheme.colorScheme.error) }
+            // The one irreversible thing stands apart, last, in the error colour; the confirmation carries the alarm.
+            Section("")
+            SettingRow(tr("Стереть всё", "Erase everything"), tr("Счета, операции и настройки", "Accounts, operations and settings"), danger = true) { confirmWipe = true }
         }
     }
 
@@ -269,50 +244,56 @@ private fun fullDate(date: LocalDate): String = date.format(DateTimeFormatter.of
 /** "15-го" / "day 15". */
 private fun dayOfMonth(day: Int): String = tr("$day-го", "day $day")
 
-/** One setting: a plain glyph, the name, and its value at the end in quiet ink. */
+/**
+ * A section's header the Android way: its name small and semibold, then a hairline to the edge.
+ * An empty name is the line alone, to set a row apart.
+ */
 @Composable
-private fun SettingRow(
-    index: Int,
-    count: Int,
-    title: String,
-    icon: ImageVector? = null,
-    painter: Painter? = null,
-    leading: (@Composable () -> Unit)? = null,
-    value: String? = null,
-    supporting: String? = null,
-    onClick: () -> Unit,
-) {
-    GroupRow(
-        index, count,
-        onClick = onClick,
-        leading = leading ?: when {
-            icon != null -> ({ RowIcon(icon) })
-            painter != null -> ({ RowIcon(painter = painter) })
-            else -> null
-        },
-        supporting = supporting?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-        trailing = value?.let { { Value(it) } },
-    ) { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-}
-
-@Composable
-private fun Value(text: String) {
-    Text(text, style = MaterialTheme.typography.bodyLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-}
-
-/** A settings row's glyph: 24 dp, quiet ink, no circle. */
-@Composable
-private fun RowIcon(icon: ImageVector? = null, painter: Painter? = null) {
-    val tint = MaterialTheme.colorScheme.onSurfaceVariant
-    when {
-        icon != null -> Icon(icon, null, Modifier.size(24.dp), tint = tint)
-        painter != null -> Icon(painter, null, Modifier.size(24.dp), tint = tint)
+private fun Section(title: String, trailing: (@Composable () -> Unit)? = null) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = Gap.l, end = if (trailing != null) Gap.s else Gap.l, top = Gap.l).heightIn(min = 32.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (title.isNotEmpty()) {
+            Text(title, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            Spacer(Modifier.width(Gap.s))
+        }
+        HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outlineVariant)
+        trailing?.invoke()
     }
 }
 
-/** Where a glyph would be, for a row in a group of rows that have one. */
+/** One setting: the title in large plain text, what it is set to under it; a switch at the end if it has one. */
 @Composable
-private fun GlyphSpace() = Spacer(Modifier.size(24.dp))
+private fun SettingRow(
+    title: String,
+    summary: String? = null,
+    danger: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(
+        Modifier.fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = Gap.l, vertical = Gap.m),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge.copy(fontSize = 20.sp, lineHeight = 26.sp).merge(Tnum),
+                color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+            )
+            summary?.let { Text(it, style = MaterialTheme.typography.bodyMedium.merge(Tnum), color = quiet) }
+        }
+        trailing?.let {
+            Spacer(Modifier.width(Gap.m))
+            it()
+        }
+    }
+}
+
 
 /** A small sheet with one choice; picking usually closes it, [done] adds a "Готово" for several. */
 @Composable
