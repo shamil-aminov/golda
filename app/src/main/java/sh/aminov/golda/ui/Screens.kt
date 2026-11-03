@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.animation.core.animateFloatAsState
@@ -291,7 +292,7 @@ fun AccountsScreen(
                 )
             }
         }
-        item(key = "add") { AddRow(count - 1, count, tr("Счёт", "Account"), onAdd) }
+        item(key = "add") { AddRow(count - 1, count, tr("Добавить счёт", "Add an account"), onAdd) }
         if (!reconcileMode) regularPayments(data, suggestions) { payment = it }
     }
     payment?.let { shown ->
@@ -310,15 +311,25 @@ fun AccountsScreen(
     }
 }
 
-/** The last row of a list that adds one more: "+ Счёт", "+ Платёж". */
+/**
+ * The last row of a list that adds one more: "Добавить счёт", "Добавить платёж". Words, no glyph,
+ * set off from the rows above by a hairline.
+ */
 @Composable
 fun AddRow(index: Int, count: Int, text: String, onClick: () -> Unit, modifier: Modifier = Modifier.padding(horizontal = Gap.m)) {
+    val line = MaterialTheme.colorScheme.outlineVariant
     GroupRow(
-        index, count, modifier,
+        index, count,
+        modifier.drawWithContent {
+            drawContent()
+            // The hairline sits inside the card, 24 dp in from each edge, like the text.
+            if (index > 0) {
+                val inset = 16.dp.toPx()
+                drawLine(line, androidx.compose.ui.geometry.Offset(inset, 0f), androidx.compose.ui.geometry.Offset(size.width - inset, 0f), strokeWidth = 1.dp.toPx())
+            }
+        },
         onClick = onClick,
-        // A bare "+" glyph, the same everywhere.
-        leading = { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-    ) { Text(text, style = MaterialTheme.typography.titleMedium) }
+    ) { Text(text, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
 
 /**

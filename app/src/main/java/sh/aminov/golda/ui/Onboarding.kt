@@ -97,7 +97,7 @@ fun Onboarding(
                                 trailing = { AmountColumn(Fmt.amount(state.balanceMinor, account.currency)) },
                             ) { Text(account.name, style = MaterialTheme.typography.titleMedium) }
                         }
-                        AddRow(count - 1, count, tr("Счёт", "Account"), { adding = true }, Modifier)
+                        AddRow(count - 1, count, tr("Добавить счёт", "Add an account"), { adding = true }, Modifier)
                         }
                     }
                 }

@@ -448,7 +448,6 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
     val start = days.indexOfLast { it.second > 0 }.takeIf { it >= 0 } ?: days.lastIndex
     var picked by remember(days) { mutableStateOf(start) }
     // The text's ink, like every figure: full for the picked day, faint for the rest.
-    val card = tileColor()
     val strong = MaterialTheme.colorScheme.onSurface
     val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
     val line = MaterialTheme.colorScheme.outline
@@ -503,19 +502,19 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     val sum = parts.sumOf { it.second }
                     if (value > 0 && sum > 0) {
                         // The day's categories stacked in their colours, biggest at the bottom; the picked day full, the rest softer.
-                        val alpha = 1f
                         clipPath(path) {
                             var y = size.height
                             parts.forEach { (color, rub) ->
                                 val part = h * rub / sum
-                                // Unpicked days a lighter tint of the same colour, not see-through: it stays the category's.
-                                drawRect(if (i == picked) color else lerp(color, card, 0.45f), Offset(left, y - part), Size(barWidth, part))
+                                drawRect(color, Offset(left, y - part), Size(barWidth, part))
                                 y -= part
                             }
                         }
                     } else {
-                        drawPath(path, if (i == picked) strong else normal)
+                        drawPath(path, normal)
                     }
+                    // Every day in its full colours; the picked one gets a dot under it, its date and sum are in the pill.
+                    if (i == picked) drawCircle(strong, radius = 3.dp.toPx(), center = Offset(left + barWidth / 2, size.height + 6.dp.toPx()))
                 }
                 budget?.let {
                     val y = size.height - size.height * it / top

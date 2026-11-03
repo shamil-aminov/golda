@@ -58,7 +58,7 @@ fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, 
         item(key = "regular-${payment.id}") { PaymentRow(payment, i, count, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
     }
     item(key = "regular-add") {
-        AddRow(count - 1, count, tr("Платёж", "Payment"), {
+        AddRow(count - 1, count, tr("Добавить платёж", "Add a payment"), {
             onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
         }, Modifier.padding(horizontal = Gap.m))
     }
