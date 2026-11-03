@@ -26,7 +26,6 @@ import sh.aminov.golda.ui.GoldaRoot
 import sh.aminov.golda.ui.GoldaTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import sh.aminov.golda.ui.Palette
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -103,7 +102,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val settings by repo.settings.flow.collectAsStateWithLifecycle(initialValue = null)
-            GoldaTheme(Palette.of(settings?.palette)) { GoldaRoot(repo, voiceRequests, tabRequests) }
+            GoldaTheme(settings?.palette) { GoldaRoot(repo, voiceRequests, tabRequests) }
         }
     }
 

@@ -1,5 +1,8 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -142,8 +145,7 @@ fun HomeScreen(
                     envelope.lasts(today) -> Pace.LASTS
                     else -> Pace.SHORT
                 }
-                // Wavy while there is money for today, Material Expressive's live line; flat once it is spent.
-                WavyBar(share, ink = paceColor(pace), hero = true, flat = over)
+                PaceCapsule(share, paceColor(pace))
                 VSpace(Gap.m)
                 // Looking ahead from today: the days still to get through, and the days the money lasts
                 // at the pace it really goes. Worked out again every day. A tap changes the period.
@@ -559,6 +561,18 @@ private fun interestLine(minor: Long, currency: String, today: LocalDate): Strin
 
 /** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
 private fun whole(minor: Long, code: String): String = Fmt.split(minor, code).first + " " + Currencies.symbol(code)
+
+/**
+ * Today's share as a chunky capsule: the pace's colour filling a pale track of the same colour,
+ * gliding to a new value with a little give.
+ */
+@Composable
+private fun PaceCapsule(share: Float, color: Color) {
+    val shown by animateFloatAsState(share.coerceIn(0f, 1f), MaterialTheme.motionScheme.slowSpatialSpec(), label = "capsule")
+    Box(Modifier.fillMaxWidth().height(20.dp).clip(CircleShape).background(color.copy(alpha = 0.22f))) {
+        if (shown > 0f) Box(Modifier.fillMaxHeight().fillMaxWidth(shown.coerceAtLeast(0.06f)).clip(CircleShape).background(color))
+    }
+}
 
 /** One character of a big figure: a new one slides up into place and the old one out above it. */
 @Composable

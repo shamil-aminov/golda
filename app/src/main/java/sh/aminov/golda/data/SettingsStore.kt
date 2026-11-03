@@ -33,6 +33,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val geminiKey = stringPreferencesKey("geminiKey")
         val reconcileReminder = booleanPreferencesKey("reconcileReminder")
         val palette = stringPreferencesKey("palette")
+        val savedThemes = stringPreferencesKey("savedThemes")
         val reconciledAt = stringPreferencesKey("reconciledAt")
     }
 
@@ -70,6 +71,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             hasGeminiKey = this[K.geminiKey] != null,
             reconcileReminder = this[K.reconcileReminder] ?: d.reconcileReminder,
             palette = this[K.palette] ?: d.palette,
+            savedThemes = this[K.savedThemes]?.split('|')?.filter { it.isNotBlank() } ?: d.savedThemes,
             reconciledAt = this[K.reconciledAt].orEmpty().split(',').mapNotNull { pair ->
                 pair.split(':').takeIf { it.size == 2 }?.let { (id, at) -> id.toLongOrNull()?.let { key -> at.toLongOrNull()?.let { key to it } } }
             }.toMap(),
@@ -89,6 +91,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         this[K.geminiModel] = s.geminiModel
         this[K.reconcileReminder] = s.reconcileReminder
         this[K.palette] = s.palette
+        this[K.savedThemes] = s.savedThemes.joinToString("|")
         this[K.reconciledAt] = s.reconciledAt.entries.joinToString(",") { "${it.key}:${it.value}" }
     }
 }

@@ -134,14 +134,15 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
         Analytics.report(only.map { it.copy(op = it.op.copy(bucket = null)) }, data.accountById, asDaily, period, today, data.zone, data.rates)
     }
     // Each day's spending by category, biggest first: the day bars are stacked in the categories' colours.
-    val stacks = remember(data, period, filter) {
+    val tones = LocalTones.current
+    val stacks = remember(data, period, filter, tones) {
         val want = filter ?: Bucket.DAILY
         data.operations
             .filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == want }
             .groupBy { Ledger.localDate(it.op.timestamp, data.zone) }
             .mapValues { (_, ops) ->
                 ops.groupBy { it.op.categoryId?.let(data.categoryById::get)?.key }
-                    .map { (key, list) -> categoryColor(key) to -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } } }
+                    .map { (key, list) -> categoryColor(key, tones) to -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } } }
                     .filter { it.second > 0 }
                     .sortedByDescending { it.second }
             }
@@ -464,7 +465,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         detectHorizontalDragGestures(onDragStart = { picked = index(it.x) }) { change, _ -> picked = index(change.position.x) }
                     },
             ) {
-                val barWidth = step * 0.62f
+                // Bars wider than the gaps between them: a day reads as a block, not a line.
+                val barWidth = step * 0.8f
                 val radius = minOf(barWidth / 2, 12.dp.toPx())
                 days.forEachIndexed { i, (day, value) ->
                     val h = if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()

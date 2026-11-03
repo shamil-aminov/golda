@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Themes.** Settings → Тема: nine ready palettes and a generator that
+  builds a whole theme from one colour (a hue slider, the wallpaper's colour,
+  or a surprise), a style (calm, vivid, bold, mono), light or dark, and a
+  contrast; generated themes can be kept. Category and pace colours keep
+  their hues and take the theme's depth.
+- **Insights mosaic.** Categories as tiles sized by their share.
 - **Gemini tags.** Purchases and income get a precise word from Gemini
   ("кафе", "такси", "подписка"), finer than the category. It shows in the
   operation's card, goes into the export and into reviews. Old records are

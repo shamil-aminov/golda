@@ -33,4 +33,6 @@ data class Settings(
     val reconciledAt: Map<Long, Long> = emptyMap(),
     /** The colour theme picked in Settings (see ui.Palette); "golda" follows the system's light or dark. */
     val palette: String = "golda",
+    /** Generated themes kept by the user, as ThemeSpec keys. */
+    val savedThemes: List<String> = emptyList(),
 )

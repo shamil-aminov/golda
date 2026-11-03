@@ -57,8 +57,8 @@ private fun ColorScheme.goldOnlyByName(): ColorScheme = copy(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaTheme(palette: Palette = Palette.GOLDA, content: @Composable () -> Unit) {
-    val tones = palette.tones(isSystemInDarkTheme())
+fun GoldaTheme(palette: String? = null, content: @Composable () -> Unit) {
+    val tones = tonesFor(palette, isSystemInDarkTheme())
     val base = colorSchemeOf(tones)
     // The bars' icons follow the theme, not the system: dark icons on a light theme and back.
     val view = LocalView.current
@@ -71,7 +71,7 @@ fun GoldaTheme(palette: Palette = Palette.GOLDA, content: @Composable () -> Unit
             }
         }
     }
-    CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary)) {
+    CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary), LocalTones provides tones) {
         MaterialExpressiveTheme(
             colorScheme = base.goldOnlyByName(),
             motionScheme = MotionScheme.expressive(),
@@ -90,39 +90,6 @@ fun iceColor(): Color = if (isDark()) Color(0xFF234A63) else Color(0xFFCFE7F7)
 @Composable
 @ReadOnlyComposable
 fun onIceColor(): Color = if (isDark()) Color(0xFFD7EEFB) else Color(0xFF0E3B57)
-
-/** How the money is doing, on the home bar only: calm green, ochre, muted red. */
-enum class Pace { LASTS, SHORT, OVER }
-
-@Composable
-@ReadOnlyComposable
-fun paceColor(pace: Pace): Color {
-    val dark = isDark()
-    return when (pace) {
-        Pace.LASTS -> if (dark) Color(0xFF8FC48D) else Color(0xFF7FB77E)
-        Pace.SHORT -> if (dark) Color(0xFFE0A86C) else Color(0xFFD69A5A)
-        Pace.OVER -> if (dark) Color(0xFFE59383) else Color(0xFFD9806F)
-    }
-}
-
-/**
- * A pastel of its own for each category, so "Еда" is the same colour wherever it is drawn. Calm
- * tones that read on light and dark alike; no colour is used to warn here.
- */
-fun categoryColor(key: String?): Color = when (key) {
-    "food" -> Color(0xFF8CC084)
-    "transport" -> Color(0xFFC9A0DC)
-    "household" -> Color(0xFF6FBDAE)
-    "treats" -> Color(0xFFE39AB4)
-    "housing" -> Color(0xFF7FA6D6)
-    "telecom" -> Color(0xFF8E9BDB)
-    "subscriptions" -> Color(0xFFAE97DD)
-    "loans" -> Color(0xFFD98E83)
-    "shopping" -> Color(0xFFEBA07E)
-    "travel" -> Color(0xFF69BFD4)
-    "health" -> Color(0xFF8ACFA2)
-    else -> Color(0xFFB4B2AA)
-}
 
 /** Tabular figures, so columns of amounts line up. */
 val Tnum = TextStyle(fontFeatureSettings = "tnum")

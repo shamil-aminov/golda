@@ -68,6 +68,7 @@ private sealed interface Page {
     /** Gemini's reviews, with the period insights had picked for a new one. */
     data class Reviews(val from: Long, val to: Long) : Page
     data class ReviewPage(val id: Long, val from: Long, val to: Long) : Page
+    data object Theme : Page
 }
 
 /** A page survives the activity being recreated (a language switch), written as a short string. */
@@ -75,6 +76,7 @@ private val PageSaver = Saver<Page?, String>(
     save = { page ->
         when (page) {
             Page.Settings -> "s"
+            Page.Theme -> "th"
             is Page.AccountPage -> "a:${page.id}"
             is Page.Reviews -> "rs:${page.from}:${page.to}"
             is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
@@ -85,6 +87,7 @@ private val PageSaver = Saver<Page?, String>(
         val parts = value.split(':')
         when (parts.first()) {
             "s" -> Page.Settings
+            "th" -> Page.Theme
             "a" -> parts.getOrNull(1)?.toLongOrNull()?.let { Page.AccountPage(it) }
             "rs" -> Page.Reviews(parts[1].toLong(), parts[2].toLong())
             "r" -> Page.ReviewPage(parts[1].toLong(), parts[2].toLong(), parts[3].toLong())
@@ -288,6 +291,15 @@ private fun MainScreen(
                         snackbar.showSnackbar(tr("Записи удалены", "Notes deleted"))
                     }
                 },
+                onTheme = { page = Page.Theme },
+            )
+            Page.Theme -> ThemeScreen(
+                current = data.settings.palette,
+                saved = data.settings.savedThemes,
+                onBack = { page = Page.Settings },
+                onApply = { key -> change { it.copy(palette = key) } },
+                onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
+                onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )
             is Page.Reviews -> {
                 val reviews by repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList())

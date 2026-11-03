@@ -34,6 +34,9 @@ class Tones(
     val onError: Color,
     val errorSoft: Color,
     val onErrorSoft: Color,
+    /** Lightness and chroma (OKLCH) of the colours that inform: categories and the pace bar. */
+    val infoL: Float = if (dark) 0.68f else 0.80f,
+    val infoC: Float = 0.09f,
 )
 
 internal val GoldaLight = Tones(
