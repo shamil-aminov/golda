@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.foundation.selection.selectableGroup
@@ -273,7 +274,7 @@ fun GoldaToolbar(
                         onClick = { onSelect(index) },
                         interactionSource = press,
                         // Wider and taller than the 40 dp default: the bar is used with a thumb, often on the move.
-                        modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press).semantics {
+                        modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press).clip(CircleShape).semantics {
                             role = Role.Tab
                             this.selected = index == selected
                         },
@@ -314,7 +315,7 @@ fun GoldaToolbar(
 }
 
 private val ToolbarItemWidth = 72.dp
-private val PillWidth = 58.dp
+private val PillWidth = ToolbarItemWidth
 private val ToolbarItemHeight = 48.dp
 private val ToolbarHeight = 64.dp
 

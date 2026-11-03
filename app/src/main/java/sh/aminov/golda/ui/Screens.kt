@@ -277,9 +277,15 @@ fun AccountsScreen(
             }
         }
         // One list: one bank, one account, so there is nothing to group.
-        val count = data.accounts.size + 1
-        // A label over the accounts too, like the dates on Home and the payments below.
-        item(key = "gap") { if (!reconcileMode) GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) }
+        val count = data.accounts.size
+        // A label over the accounts too, like the dates on Home; adding one is the group's action, in its header.
+        item(key = "gap") {
+            if (!reconcileMode) {
+                GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
+                    HeaderAction(tr("Добавить", "Add"), onAdd)
+                }
+            }
+        }
         data.accounts.forEachIndexed { i, account ->
             item(key = account.id) {
                 val state = data.states.getValue(account.id)
@@ -292,7 +298,6 @@ fun AccountsScreen(
                 )
             }
         }
-        item(key = "add") { AddRow(count - 1, count, tr("Добавить счёт", "Add an account"), onAdd) }
         if (!reconcileMode) regularPayments(data, suggestions) { payment = it }
     }
     payment?.let { shown ->

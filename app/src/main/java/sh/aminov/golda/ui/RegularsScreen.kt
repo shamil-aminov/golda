@@ -42,25 +42,21 @@ fun LazyListScope.regularPayments(data: AppData, suggestions: List<Obligation>, 
     val payments = data.obligations
     item(key = "regulars-label") {
         VSpace(Gap.l)
-        GroupLabel(tr("Регулярные платежи", "Regular payments"), Modifier.padding(horizontal = Gap.m)) {
-            if (payments.isNotEmpty()) {
-                val total = data.base.approx(Regulars.monthlyRub(payments, data.rates))
-                Text(
-                    tr("$total в месяц", "$total a month"),
-                    style = MaterialTheme.typography.labelLarge.merge(Tnum),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        // The month's total under the name; adding is the group's action, in its header.
+        val total = payments.takeIf { it.isNotEmpty() }?.let { data.base.approx(Regulars.monthlyRub(it, data.rates)) }
+        GroupLabel(
+            tr("Регулярные платежи", "Regular payments"),
+            Modifier.padding(horizontal = Gap.m),
+            supporting = total?.let { tr("$it в месяц", "$it a month") },
+        ) {
+            HeaderAction(tr("Добавить", "Add")) {
+                onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
             }
         }
     }
-    val count = payments.size + 1
+    val count = payments.size
     payments.forEachIndexed { i, payment ->
         item(key = "regular-${payment.id}") { PaymentRow(payment, i, count, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
-    }
-    item(key = "regular-add") {
-        AddRow(count - 1, count, tr("Добавить платёж", "Add a payment"), {
-            onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
-        }, Modifier.padding(horizontal = Gap.m))
     }
     if (suggestions.isNotEmpty()) {
         item(key = "regulars-suggested") {

@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.graphics.graphicsLayer
@@ -1019,6 +1020,25 @@ fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLarge
  */
 const val BIG_FIGURE_SP = 94f
 const val ENTRY_FIGURE_SP = 58f
+
+/** A group's action in its header: "+ Добавить" as a small pill, its target 48 dp. */
+@Composable
+fun HeaderAction(text: String, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = tileColor(),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.minimumInteractiveComponentSize(),
+    ) {
+        Row(Modifier.padding(start = 10.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.ic_add), null, Modifier.size(18.dp))
+            Spacer(Modifier.width(Gap.xs))
+            Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        }
+    }
+}
 
 /** Vertical space from the spacing scale. */
 @Composable

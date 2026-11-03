@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import androidx.compose.ui.semantics.selected
@@ -220,10 +221,10 @@ private fun ThemeChip(name: String, t: Tones, on: Boolean, onClick: () -> Unit, 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         // Read as one: the theme's name and whether it is the one in use.
-        modifier = Modifier.width(76.dp).semantics(mergeDescendants = true) { selected = on },
+        modifier = Modifier.width(88.dp).semantics(mergeDescendants = true) { selected = on },
     ) {
         Box(
-            Modifier.size(76.dp, 64.dp).clip(RoundedCornerShape(16.dp)).background(t.page)
+            Modifier.size(88.dp, 64.dp).clip(RoundedCornerShape(16.dp)).background(t.page)
                 .then(if (on) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, RoundedCornerShape(16.dp)) else Modifier)
                 .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .padding(8.dp),
@@ -236,7 +237,7 @@ private fun ThemeChip(name: String, t: Tones, on: Boolean, onClick: () -> Unit, 
             }
         }
         VSpace(Gap.xs)
-        Text(name, style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1)
+        Text(name, style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal), maxLines = 1, textAlign = TextAlign.Center)
     }
 }
 
