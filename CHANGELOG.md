@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.5] — 2026-11-03
+
+### Changed
+
+- **"Хватит на N дней" follows everyday spending.** A purchase in "Крупные"
+  still lowers what's on the card, but no longer counts as the pace: one big
+  buy early in the period made the money look like it runs out weeks sooner.
+
 ## [0.17.4] — 2026-11-03
 
 ### Changed
@@ -388,7 +396,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.4...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.5...HEAD
+[0.17.5]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.5
 [0.17.4]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.4
 [0.17.3]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.3
 [0.17.2]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.2

@@ -106,6 +106,30 @@ class BudgetTest {
     }
 
     @Test
+    fun aBigPurchaseLowersTheBalanceButNotThePace() {
+        val clothes = Category(2, "clothes", "Одежда", "", CategoryKind.EXPENSE)
+        val categories = listOf(groceries, clothes).associateBy { it.id }
+        topUp(today.minusDays(6))
+        // 7 days at 50 ₾, and one 300 ₾ purchase on the first.
+        (0..6L).forEach { spend(today.minusDays(it), 5_000) }
+        ops += OperationFull(
+            Operation(ops.size + 1L, OpType.EXPENSE, at(today.minusDays(6)), categoryId = clothes.id),
+            listOf(Posting(0, ops.size + 1L, tbc.id, -30_000, -30_000)),
+        )
+        val e = Envelopes.current(accounts, ops, Settings(), today, zone, categories)!!
+        assertEquals(180_000L - 35_000 - 30_000, e.balanceMinor)
+        assertEquals(65_000L, e.spentMinor)
+        assertEquals(5_000L, e.burnMinor)
+        assertEquals(23L, e.runwayDays) // 1 150 ₾ at 50 a day
+        // Marked big on the operation itself, a grocery run is left out too.
+        ops += OperationFull(
+            Operation(ops.size + 1L, OpType.EXPENSE, at(today), categoryId = groceries.id, bucket = Bucket.BIG),
+            listOf(Posting(0, ops.size + 1L, tbc.id, -7_000, -7_000)),
+        )
+        assertEquals(5_000L, Envelopes.current(accounts, ops, Settings(), today, zone, categories)!!.burnMinor)
+    }
+
+    @Test
     fun noBurnBeforeAnythingIsSpent() {
         topUp(today)
         val e = envelope()

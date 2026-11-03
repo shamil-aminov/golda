@@ -2,6 +2,8 @@ package sh.aminov.golda.domain
 
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
+import sh.aminov.golda.data.Bucket
+import sh.aminov.golda.data.Category
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import java.time.LocalDate
@@ -28,7 +30,10 @@ data class Envelope(
     /** What may go a day from today to [end]: the money as of this morning over the days left. */
     val perDayMinor: Long,
     val leftTodayMinor: Long,
-    /** What actually goes a day since [start]; null while nothing has gone. */
+    /**
+     * What actually goes a day since [start], big purchases aside: they already left the balance, and
+     * one early in the period would otherwise count again as a pace. Null while nothing has gone.
+     */
     val burnMinor: Long?,
     /** Days the card lasts at [burnMinor]; null with no burn yet. */
     val runwayDays: Long?,
@@ -100,30 +105,50 @@ object Envelopes {
         return start to end
     }
 
-    fun of(account: Account, start: LocalDate, end: LocalDate, operations: List<OperationFull>, today: LocalDate, zone: ZoneId): Envelope {
+    fun of(
+        account: Account,
+        start: LocalDate,
+        end: LocalDate,
+        operations: List<OperationFull>,
+        today: LocalDate,
+        zone: ZoneId,
+        categories: Map<Long, Category> = emptyMap(),
+    ): Envelope {
+        class Move(val day: LocalDate, val type: OpType, val amount: Long, val big: Boolean)
         val own = operations.flatMap { full ->
-            full.postings.filter { it.accountId == account.id }.map { Triple(Ledger.localDate(full.op.timestamp, zone), full.op.type, it.amountMinor) }
+            val big = full.op.type == OpType.EXPENSE && Buckets.of(full.op, categories) == Bucket.BIG
+            full.postings.filter { it.accountId == account.id }.map { Move(Ledger.localDate(full.op.timestamp, zone), full.op.type, it.amountMinor, big) }
         }
-        val balance = own.sumOf { it.third }
+        val balance = own.sumOf { it.amount }
         // Spending is what left the card for good: expenses and reconciliations down. Money moved to
         // another account of yours (cash from an ATM) is not spent yet.
-        fun spent(from: LocalDate) = -own
-            .filter { (day, type, amount) -> !day.isBefore(from) && !day.isAfter(today) && amount < 0 && (type == OpType.EXPENSE || type == OpType.ADJUSTMENT) }
-            .sumOf { it.third }
+        fun spent(from: LocalDate, withBig: Boolean = true) = -own
+            .filter { !it.day.isBefore(from) && !it.day.isAfter(today) && it.amount < 0 && (it.type == OpType.EXPENSE || it.type == OpType.ADJUSTMENT) }
+            .filter { withBig || !it.big }
+            .sumOf { it.amount }
         val spentSince = spent(start)
         val spentToday = spent(today)
         val daysLeft = (ChronoUnit.DAYS.between(today, end) + 1).coerceAtLeast(1)
         val perDay = ((balance + spentToday) / daysLeft).coerceAtLeast(0)
         val elapsed = (ChronoUnit.DAYS.between(start, today) + 1).coerceAtLeast(1)
-        val burn = (spentSince / elapsed).takeIf { spentSince > 0 && it > 0 }
+        // The pace is everyday life; a big purchase is already off the balance the pace divides.
+        val usual = spent(start, withBig = false)
+        val burn = (usual / elapsed).takeIf { usual > 0 && it > 0 }
         val runway = burn?.let { balance.coerceAtLeast(0) / it }
         return Envelope(account, start, end, balance, spentSince, spentToday, daysLeft, perDay, perDay - spentToday, burn, runway)
     }
 
     /** The envelope as the app shows it: the card and the period worked out from [settings]. */
-    fun current(accounts: List<Account>, operations: List<OperationFull>, settings: Settings, today: LocalDate, zone: ZoneId): Envelope? {
+    fun current(
+        accounts: List<Account>,
+        operations: List<OperationFull>,
+        settings: Settings,
+        today: LocalDate,
+        zone: ZoneId,
+        categories: Map<Long, Category> = emptyMap(),
+    ): Envelope? {
         val account = account(accounts, operations, settings) ?: return null
         val (start, end) = period(account.id, operations, settings, today, zone)
-        return of(account, start, end, operations, today, zone)
+        return of(account, start, end, operations, today, zone, categories)
     }
 }

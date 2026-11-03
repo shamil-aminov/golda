@@ -53,7 +53,7 @@ class AppData(
     val allObligations: List<Obligation> = obligations + Debts.obligations(states.values)
 
     /** The spending card's money for the period, as of [today]; null with no account to spend from. */
-    val envelope: Envelope? by lazy { Envelopes.current(accounts, operations, settings, today, zone) }
+    val envelope: Envelope? by lazy { Envelopes.current(accounts, operations, settings, today, zone, categoryById) }
 
     /** [minor] of [code] in every shown currency but [code], at the display rate: "≈ 410 ₽ · 4,6 $". */
     fun othersOf(minor: Long, code: String): String =
