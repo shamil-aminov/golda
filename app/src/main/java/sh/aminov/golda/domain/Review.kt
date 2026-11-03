@@ -30,6 +30,13 @@ object ReviewPrompt {
         - одна строка о главном: на что ушли деньги и чем период отличается от прошлого;
         - «### Что заметно» — 3–5 закономерностей. Каждая с цифрами из данных: когда, на что, сколько, как часто. Ищи привычки по времени и дням недели, серии мелких трат, которые складываются в заметную сумму, всплески после пополнения, категории, которые выросли против прошлого периода, необычные траты. Если данных мало, так и скажи и не выдумывай закономерностей;
         - «### Что попробовать» — 1–2 конкретных эксперимента на следующий период, привязанных к найденному, с ожидаемой экономией в рублях. Не общие советы вроде «трать меньше на кафе».
+        Как записаны данные, учитывай это и не делай выводов из того, что объясняется самой записью:
+        - время у траты — когда её записали, не обязательно когда купили; несколько трат в одну минуту внесены пачкой задним числом; «—» вместо времени значит, что известен только день. Ночное время записи само по себе не значит ночной покупки;
+        - одно и то же называется по-разному: руками пишут общими словами («еда», «продукты», «пицца»), из банковской выписки приходят названия магазинов и сервисов (Glovo, Wolt). Смена названий не значит смены привычки: не пиши «впервые», «перешёл на», «начал», если поменялись только названия;
+        - одна запись может быть несколькими покупками («продукты и прочее»), поэтому число записей не равно числу покупок;
+        - «перевод» — деньги между людьми, а не покупка для себя и не зарплата; метку «зарплата» у переводов не учитывай;
+        - «Не записано» — разница, найденная при сверке с банком: сумма забытых трат, а не одна покупка;
+        - до даты начала учёта трат просто не записано: это не нулевые траты.
         Числа бери только из данных, сам ничего не досчитывай, кроме простых долей и разниц. Суммы в рублях с пробелами между тысячами, «₽» после числа. До 350 слов. Без вступления и без заключения. Без длинных тире, многоточий и сокращений с точкой: пиши словами.
     """.trimIndent()
 
@@ -94,16 +101,23 @@ object ReviewPrompt {
         val expenses = inPeriod.filter { it.op.type == OpType.EXPENSE }
         fun cost(full: OperationFull) = -full.postings.sumOf { it.rubMinor }
         fun at(full: OperationFull) = Instant.ofEpochMilli(full.op.timestamp).atZone(zone).toLocalDateTime()
+        // The app's own "now" has seconds in it; a day picked by hand or a bank statement's line is a
+        // whole minute, its time made up. Those say nothing about the time of day.
+        fun timed(full: OperationFull) = full.op.timestamp % 60_000 != 0L
         val days = period.days.size
+        val start = operations.minOfOrNull { it.op.timestamp }?.let { Ledger.localDate(it, zone) }
         return buildString {
             appendLine("Период: с ${period.from.format(day)} по ${period.to.format(day)}, $days дн.")
+            start?.let { appendLine("Учёт ведётся с ${it.format(day)}; до этого трат просто не записано.") }
             appendLine("Суммы — сколько это стоило в рублях.")
             appendLine("Расходы всего: ${rub(report.spentRub)}; ежедневные ${rub(report.dailyRub)}, регулярные ${rub(report.regularRub)}, крупные ${rub(report.bigRub)}.")
             appendLine("Ежедневное в среднем: ${rub(report.dailyPerDayRub)} в день.")
             appendLine("Доходы: ${rub(report.incomeRub)}. Потери на обмене против ЦБ: ${rub(report.fxLossRub)}.")
             appendLine()
             appendLine("Прошлый такой же период, с ${before.from.format(day)} по ${before.to.format(day)}:")
-            if (previous.spentRub > 0) {
+            if (start != null && start.isAfter(before.to)) {
+                appendLine("Это было до начала учёта, сравнивать не с чем.")
+            } else if (previous.spentRub > 0) {
                 appendLine("Расходы всего: ${rub(previous.spentRub)} (сейчас ${change(report.spentRub, previous.spentRub)}); ежедневные ${rub(previous.dailyRub)} (сейчас ${change(report.dailyRub, previous.dailyRub)}).")
             } else {
                 appendLine("Трат не записано, сравнивать не с чем.")
@@ -137,8 +151,9 @@ object ReviewPrompt {
                 if (n > 0) appendLine("- ${weekdays[w - 1]}: ${rub(those.sumOf(::cost) / n)}, ${those.size} шт. за $n дн.")
             }
             appendLine()
-            appendLine("По времени суток:")
-            expenses.groupBy { partOfDay(at(it).hour) }.toSortedMap().forEach { (part, list) ->
+            val timedExpenses = expenses.filter(::timed)
+            appendLine("По времени суток, только траты с настоящим временем записи (${timedExpenses.size} из ${expenses.size}):")
+            timedExpenses.groupBy { partOfDay(at(it).hour) }.toSortedMap().forEach { (part, list) ->
                 appendLine("- ${part.drop(2)}: ${rub(list.sumOf(::cost))}, ${list.size} шт.")
             }
             appendLine()
@@ -169,7 +184,8 @@ object ReviewPrompt {
                 val note = full.op.note.ifBlank { "—" }
                 val tag = full.op.tag?.let { " ($it)" }.orEmpty()
                 val time = at(full)
-                appendLine("${time.toLocalDate()} | ${weekdays[time.dayOfWeek.value - 1]} | ${"%02d:%02d".format(time.hour, time.minute)} | ${name(full.op.categoryId)}$tag | ${bucketWord(Buckets.of(full.op, categories))} | $note | ${rub(cost(full))}$said | $account")
+                val clock = if (timed(full)) "%02d:%02d".format(time.hour, time.minute) else "—"
+                appendLine("${time.toLocalDate()} | ${weekdays[time.dayOfWeek.value - 1]} | $clock | ${name(full.op.categoryId)}$tag | ${bucketWord(Buckets.of(full.op, categories))} | $note | ${rub(cost(full))}$said | $account")
             }
         }.trim()
     }

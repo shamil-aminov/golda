@@ -65,7 +65,8 @@ class ReviewPromptTest {
 
     @Test
     fun dataComparesWithThePeriodBeforeAndShowsHabits() {
-        fun at(day: Int, hour: Int) = LocalDate.of(2026, 10, day).atTime(hour, 30).toInstant(zone).toEpochMilli()
+        // Recorded on the spot: the app's "now" has seconds.
+        fun at(day: Int, hour: Int) = LocalDate.of(2026, 10, day).atTime(hour, 30, 7).toInstant(zone).toEpochMilli()
         val ops = listOf(
             // October 1 to 7: three coffees in the evening, one big shop on a Saturday.
             spend(1, at(2, 19), 1, 30_000, "Кофе"),
@@ -97,7 +98,7 @@ class ReviewPromptTest {
 
     @Test
     fun dataEdgesOfTheHabits() {
-        fun at(day: Int, hour: Int, minute: Int = 0) = LocalDate.of(2026, 10, day).atTime(hour, minute).toInstant(zone).toEpochMilli()
+        fun at(day: Int, hour: Int, minute: Int = 0) = LocalDate.of(2026, 10, day).atTime(hour, minute, 7).toInstant(zone).toEpochMilli()
         fun tagged(id: Long, time: Long, rub: Long, note: String, tag: String?) =
             OperationFull(Operation(id, OpType.EXPENSE, time, 1L, note = note, tag = tag), listOf(Posting(operationId = id, accountId = 1, amountMinor = -rub, rubMinor = -rub)))
         val ops = listOf(
@@ -135,6 +136,27 @@ class ReviewPromptTest {
         // Nothing before to compare with.
         assertTrue(text, text.contains("сравнивать не с чем"))
         assertTrue(text, text.contains("было 0 ₽, раньше не было"))
+    }
+
+    @Test
+    fun aDayWithoutATimeAndTheStartOfRecords() {
+        val ops = listOf(
+            // Recorded at 01:27 and 7 seconds: a real time. A bank line at 12:03 sharp: only its day is known.
+            spend(1, LocalDate.of(2026, 10, 22).atTime(1, 27, 7).toInstant(zone).toEpochMilli(), 1, 3_321, "продукты"),
+            spend(2, LocalDate.of(2026, 10, 27).atTime(12, 3).toInstant(zone).toEpochMilli(), 1, 1_139, "Интернет"),
+        )
+        val text = ReviewPrompt.data(
+            Period(LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 31)), ops,
+            mapOf(1L to card), mapOf(1L to food), Rates(emptyMap(), markup = 0.0), today, zone,
+        )
+        assertTrue(text, text.contains("2026-10-22 | чт | 01:27 |"))
+        assertTrue(text, text.contains("2026-10-27 | вт | — |"))
+        assertTrue(text, text.contains("(1 из 2)"))
+        assertFalse(text, text.contains("день, 12–18"))
+        // Records begin on October 22: the twelve days before are not "nothing spent".
+        assertTrue(text, text.contains("Учёт ведётся с 22 октября 2026"))
+        assertTrue(text, text.contains("до начала учёта, сравнивать не с чем"))
+        assertTrue(ReviewPrompt.system.contains("смена названий") || ReviewPrompt.system.contains("Смена названий"))
     }
 
     @Test

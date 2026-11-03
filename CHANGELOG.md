@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.9] — 2026-11-03
+
+### Fixed
+
+- **Reviews read the records the way they were made.** A review saw
+  "a sudden switch to delivery" where only the names changed (hand-typed "еда"
+  before, Glovo and Wolt from a bank statement after), "night spending" where
+  the night was when it was written down, and "three payments in three minutes"
+  that were a statement's lines. Now:
+  - Gemini is told that a time is when a spending was recorded, that names
+    differ between hand-typed and bank lines, that one record can be several
+    purchases, that "перевод" is money between people (not salary), that "Не
+    записано" is what reconciling found, and that before the first record
+    nothing was recorded rather than nothing spent;
+  - a record without a real time (a day picked by hand, a bank line) shows
+    "—" for its time and stays out of the time-of-day figures;
+  - the data says when records begin, and a period before that is not
+    compared as empty.
+
 ## [0.17.8] — 2026-11-03
 
 ### Changed
@@ -428,7 +447,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.8...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.9...HEAD
+[0.17.9]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.9
 [0.17.8]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.8
 [0.17.7]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.7
 [0.17.6]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.6

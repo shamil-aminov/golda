@@ -51,8 +51,8 @@ android {
         applicationId = "sh.aminov.golda"
         minSdk = 26
         targetSdk = 37
-        versionCode = 28
-        versionName = "0.17.8"
+        versionCode = 29
+        versionName = "0.17.9"
 
         // Scenario tests run in an application with in-memory data and refuse to start anywhere but
         // an emulator; see CONTRIBUTING.md before running them.
