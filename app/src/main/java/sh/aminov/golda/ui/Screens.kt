@@ -98,16 +98,12 @@ fun HomeScreen(
             // Spent past today's share, or nothing left on the card at all.
             val over = envelope != null && (envelope.leftTodayMinor < 0 || envelope.balanceMinor <= 0)
             val scheme = MaterialTheme.colorScheme
-            val ink = if (over) scheme.onErrorContainer else scheme.onPrimaryFixed
-            val quiet = if (over) scheme.onErrorContainer else scheme.onPrimaryFixedVariant
+            val ink = scheme.onSurface
+            val quiet = scheme.onSurfaceVariant
             // Two kinds of type on the tile and no more: the big number, and one style in one colour for
             // every word around it.
             val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
-            HeroTile(
-                Modifier.padding(horizontal = Gap.m),
-                container = if (over) scheme.errorContainer else Color.Transparent,
-                content = ink,
-            ) {
+            HeroTile(Modifier.padding(horizontal = Gap.s), content = ink) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("Можно сегодня", "Safe to spend today"), Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
                     IconButton(onClick = onSettings, modifier = Modifier.overhang()) {
@@ -132,8 +128,14 @@ fun HomeScreen(
                     envelope.perDayMinor > 0 -> (left.toFloat() / envelope.perDayMinor).coerceIn(0f, 1f)
                     else -> 0f
                 }
-                // The same ink as the number over it: the two say one thing.
-                WavyBar(share, ink = ink, hero = true, flat = over || share >= 1f)
+                // The one colour on the screen: how it goes. Green while the money lasts the period,
+                // ochre when it runs out sooner, muted red once today is overspent.
+                val pace = when {
+                    over -> Pace.OVER
+                    envelope.lasts(today) -> Pace.LASTS
+                    else -> Pace.SHORT
+                }
+                WavyBar(share, ink = paceColor(pace), hero = true, flat = over || share >= 1f)
                 VSpace(Gap.m)
                 // Looking ahead from today: the days still to get through, and the days the money lasts
                 // at the pace it really goes. Worked out again every day. A tap changes the period.
@@ -236,7 +238,7 @@ fun AccountsScreen(
             // Like Home's tile: the big number, and one style in one colour for every word around it.
             val text = MaterialTheme.typography.bodyLarge.merge(Tnum)
             val quiet = scheme.onPrimaryFixedVariant
-            HeroTile(Modifier.padding(horizontal = Gap.m)) {
+            HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 Text(tr("Всего", "Total"), style = text, color = quiet, maxLines = 1)
                 VSpace(Gap.s)
                 HeroAmount(data.base.whole(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
@@ -419,7 +421,7 @@ fun AccountScreen(
                 val ink = if (free) scheme.onPrimaryFixed else scheme.onSurface
                 val quiet = if (free) scheme.onPrimaryFixedVariant else scheme.onSurfaceVariant
                 HeroTile(
-                    Modifier.padding(horizontal = Gap.m),
+                    Modifier.padding(horizontal = Gap.s),
                     container = Color.Transparent,
                     content = ink,
                 ) {

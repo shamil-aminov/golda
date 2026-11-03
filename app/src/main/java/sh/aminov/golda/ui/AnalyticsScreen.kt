@@ -127,23 +127,8 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
 
     // The whole page, not just the content: a short list left the pager without a back swipe here.
     LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions(), verticalArrangement = Arrangement.spacedBy(Gap.m)) {
-        item(key = "period") {
-            ChoiceGroup(
-                options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM),
-                selected = kind,
-                onSelect = { if (it == PeriodKind.CUSTOM) picking = true else kind = it },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Gap.m),
-                height = 40.dp,
-            ) {
-                when (it) {
-                    PeriodKind.WEEK -> ChoiceText(tr("Неделя", "Week"))
-                    PeriodKind.MONTH -> ChoiceText(tr("Месяц", "Month"))
-                    PeriodKind.CUSTOM -> Icon(painterResource(R.drawable.ic_calendar), tr("Свой период", "Custom range"), Modifier.size(20.dp))
-                }
-            }
-        }
         item(key = "header") {
-            Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.m)) {
+            HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(ReviewPrompt.title(period, today).replaceFirstChar { it.titlecase(I18n.locale) }, Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
                     // The one ice-blue thing in the app: the way to Gemini's reviews.
@@ -167,6 +152,21 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 }
             }
         }
+        item(key = "period") {
+            ChoiceGroup(
+                options = listOf(PeriodKind.WEEK, PeriodKind.MONTH, PeriodKind.CUSTOM),
+                selected = kind,
+                onSelect = { if (it == PeriodKind.CUSTOM) picking = true else kind = it },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = Gap.m),
+                height = 40.dp,
+            ) {
+                when (it) {
+                    PeriodKind.WEEK -> ChoiceText(tr("Неделя", "Week"))
+                    PeriodKind.MONTH -> ChoiceText(tr("Месяц", "Month"))
+                    PeriodKind.CUSTOM -> Icon(painterResource(R.drawable.ic_calendar), tr("Свой период", "Custom range"), Modifier.size(20.dp))
+                }
+            }
+        }
         if (shown.categories.isEmpty()) {
             item(key = "empty") {
                 Text(tr("За эти дни трат нет.", "No spending in these days."), Modifier.padding(Gap.l), style = text, color = quiet)
@@ -178,7 +178,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                     val top = shown.categories.first().rubMinor.coerceAtLeast(1)
                     shown.categories.forEachIndexed { index, spend ->
                         if (index > 0) VSpace(Gap.m)
-                        CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top)
+                        CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top, categoryColor(spend.categoryId?.let { data.categoryById[it]?.key }))
                     }
                 }
             }
@@ -224,13 +224,13 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
 
 /** One category: its name and amount on a line, and under them a bar as long as its share of the biggest. */
 @Composable
-private fun CategoryBar(name: String, amount: String, fraction: Float) {
+private fun CategoryBar(name: String, amount: String, fraction: Float, color: Color) {
     Column {
         LabelAmount(name, amount)
         VSpace(Gap.xs)
         Box(Modifier.fillMaxWidth().height(6.dp)) {
-            // The ink of the amount beside it: a bar is that number drawn.
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.01f, 1f)).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(3.dp)))
+            // The category's own pastel: the same colour wherever it is drawn.
+            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.01f, 1f)).background(color, RoundedCornerShape(3.dp)))
         }
     }
 }

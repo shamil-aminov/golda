@@ -218,8 +218,8 @@ fun circleColor(): Color = MaterialTheme.colorScheme.surface
 @Composable
 fun HeroTile(
     modifier: Modifier = Modifier,
-    // Flat by default, like Android's settings: the page carries it; a colour only to warn.
-    container: Color = Color.Transparent,
+    // The one card on a tab: the top block, set off the flat page under it.
+    container: Color = tileColor(),
     content: Color = MaterialTheme.colorScheme.onPrimaryFixed,
     onClick: (() -> Unit)? = null,
     body: @Composable ColumnScope.() -> Unit,
@@ -233,7 +233,7 @@ fun HeroTile(
         }
     } else {
         Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            // 16 at the sides lines the text up with the rows' under it; 24 above and below.
+            // Placed 8 from the screen's edge, 16 inside: the text 24 from the edge, like every row's.
             Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
         }
     }
@@ -246,7 +246,8 @@ fun Tile(
     container: Color = Color.Transparent,
     content: Color = MaterialTheme.colorScheme.onSurface,
     onClick: (() -> Unit)? = null,
-    padding: PaddingValues = PaddingValues(Gap.m),
+    // Flat, 8 inside the page's 16: text 24 from the edge. A tile with a colour passes its own.
+    padding: PaddingValues = PaddingValues(horizontal = Gap.s, vertical = Gap.m),
     body: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = MaterialTheme.shapes.extraLarge
@@ -273,7 +274,7 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(start = Gap.m, end = Gap.m)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
@@ -321,7 +322,8 @@ fun GroupRow(
     val flat = container == Color.Transparent
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
-    val spaced = modifier.padding(bottom = if (index < count - 1 && !flat) GroupGap else 0.dp)
+    // A flat row reaches 8 dp into the page's margin, so its 16 of padding puts the text 24 from the edge.
+    val spaced = (if (flat) modifier.bleed(Gap.s) else modifier).padding(bottom = if (index < count - 1 && !flat) GroupGap else 0.dp)
     if (onClick != null) {
         SegmentedListItem(
             onClick = onClick,
@@ -971,6 +973,14 @@ fun androidx.compose.ui.graphics.drawscope.DrawScope.drawGappedRing(
 fun Modifier.overhang(nudge: Dp = 12.dp): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
     layout(placeable.width - nudge.roundToPx(), 0) { placeable.place(0, -placeable.height / 2) }
+}
+
+/** Wider than the space given by [x] at each side, and drawn from [x] further left. */
+fun Modifier.bleed(x: Dp): Modifier = layout { measurable, constraints ->
+    val px = x.roundToPx()
+    val wider = if (constraints.hasBoundedWidth) constraints.copy(minWidth = constraints.minWidth + 2 * px, maxWidth = constraints.maxWidth + 2 * px) else constraints
+    val placeable = measurable.measure(wider)
+    layout(placeable.width - 2 * px, placeable.height) { placeable.place(-px, 0) }
 }
 
 /** Vertical space from the spacing scale. */

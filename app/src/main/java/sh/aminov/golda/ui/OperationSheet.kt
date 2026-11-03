@@ -599,7 +599,7 @@ private fun RouteTile(data: AppData, label: String, account: Account?, choices: 
     // click would open it again at once: a tap right after a dismissal only closes.
     var dismissedAt by remember { mutableLongStateOf(0L) }
     Box(modifier) {
-        Tile(Modifier.fillMaxWidth().height(96.dp), onClick = { if (System.currentTimeMillis() - dismissedAt > 300) open = !open }, padding = padding) {
+        Tile(Modifier.fillMaxWidth().height(96.dp), container = tileColor(), onClick = { if (System.currentTimeMillis() - dismissedAt > 300) open = !open }, padding = padding) {
             Caption(label)
             Spacer(Modifier.weight(1f))
             Text(account?.name ?: "—", style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)

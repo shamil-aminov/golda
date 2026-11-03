@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.ui.semantics.selected
@@ -221,8 +223,9 @@ fun GoldaToolbar(
 ) {
     val scheme = MaterialTheme.colorScheme
     // The one action to take: gold, like every main action.
-    val mic = actionColor()
-    val onMic = onActionColor()
+    // Ice blue, like Разбор: the app's one action colour on the island.
+    val mic = iceColor()
+    val onMic = onIceColor()
     val label = when (voice.state) {
         VoiceState.Idle -> tr("Сказать", "Say it")
         VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
@@ -233,7 +236,8 @@ fun GoldaToolbar(
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
     HorizontalFloatingToolbar(
         expanded = true,
-        modifier = Modifier.softShadow(CircleShape),
+        // No shadow: a hairline sets it off the page, as quiet as the flat screens under it.
+        modifier = Modifier.border(1.dp, scheme.outlineVariant, CircleShape),
         colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
             // A card in light; in dark a step up, or it melts into the cards it floats over.
             toolbarContainerColor = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
@@ -280,8 +284,9 @@ fun GoldaToolbar(
     // Round like the bar beside it, and as tall, so the main action is also the easiest target.
     FloatingActionButton(
         onClick = voice.toggle,
-        modifier = Modifier.size(ToolbarHeight).softShadow(CircleShape).semantics { contentDescription = label },
-        shape = CircleShape,
+        modifier = Modifier.size(ToolbarHeight).semantics { contentDescription = label },
+        // A rounded square, so the action reads apart from the round tabs beside it.
+        shape = RoundedCornerShape(20.dp),
         containerColor = mic,
         contentColor = onMic,
         elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
