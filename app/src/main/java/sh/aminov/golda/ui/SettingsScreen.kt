@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -107,11 +108,13 @@ fun SettingsScreen(
     BackHandler(onBack = onBack)
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
-      Box(Modifier.fillMaxSize()) {
         Column(
-            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = DockClearance),
+            Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.xl),
         ) {
-            VSpace(Gap.l)
+            // A page with nothing to do on it: back is the plain arrow at the top, as everywhere.
+            IconButton(onClick = onBack, modifier = Modifier.offset(x = -Gap.s)) {
+                Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back"))
+            }
             Text(tr("Настройки", "Settings"), style = MaterialTheme.typography.headlineMedium)
             VSpace(Gap.l)
             GroupLabel(tr("Где я", "Where I am"))
@@ -201,8 +204,6 @@ fun SettingsScreen(
                 leading = { Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error) },
             ) { Text(tr("Стереть всё", "Erase everything"), color = MaterialTheme.colorScheme.error) }
         }
-        PageDock(Modifier.align(Alignment.BottomCenter), start = { DockButton(R.drawable.ic_back, tr("Назад", "Back"), onBack) })
-      }
     }
 
     when (edit) {

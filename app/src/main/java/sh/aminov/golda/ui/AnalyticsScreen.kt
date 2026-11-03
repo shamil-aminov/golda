@@ -229,7 +229,8 @@ private fun CategoryBar(name: String, amount: String, fraction: Float) {
         LabelAmount(name, amount)
         VSpace(Gap.xs)
         Box(Modifier.fillMaxWidth().height(6.dp)) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.01f, 1f)).background(pickedColor(), RoundedCornerShape(3.dp)))
+            // The ink of the amount beside it: a bar is that number drawn.
+            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0.01f, 1f)).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(3.dp)))
         }
     }
 }
@@ -329,8 +330,9 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
     if (days.isEmpty()) return
     val start = days.indexOfFirst { it.first == today }.takeIf { it >= 0 } ?: days.lastIndex
     var picked by remember(days) { mutableStateOf(start) }
-    val strong = MaterialTheme.colorScheme.secondary
-    val normal = MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)
+    // The text's ink, like every figure: full for the picked day, faint for the rest.
+    val strong = MaterialTheme.colorScheme.onSurface
+    val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
     val line = MaterialTheme.colorScheme.outline
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
     val density = LocalDensity.current
@@ -347,8 +349,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                 Surface(
                     modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.onSizeChanged { pillWidth = it.width },
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface,
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                         Text(dayShort(date, today), style = MaterialTheme.typography.labelLarge, maxLines = 1)
@@ -400,7 +402,7 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         label,
                         modifier = Modifier.offset(x = with(density) { (step * i + step / 2).toDp() } - LABEL / 2).width(LABEL),
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (i == picked) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (i == picked) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                     )

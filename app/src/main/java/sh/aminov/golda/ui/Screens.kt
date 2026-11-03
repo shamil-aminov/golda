@@ -386,9 +386,18 @@ fun AccountScreen(
     var reconciling by remember { mutableStateOf(false) }
     val operations = data.visibleOperations.filter { full -> full.postings.any { it.accountId == accountId } }
     BackHandler(onBack = onBack)
-    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
-      Box(Modifier.fillMaxSize()) {
-        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + DockClearance)) {
+    Scaffold(
+        // Like the expense form: back, then the page's action as the wide button.
+        bottomBar = {
+            // On the page's own colour, so the list ends above it, as the form's does.
+            Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
+                RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
+                TonalAction(tr("Изменить счёт", "Edit account"), onEditAccount)
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbar) },
+    ) { padding ->
+        LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l)) {
             item(key = "title") {
                 Text(
                     account.name,
@@ -454,13 +463,6 @@ fun AccountScreen(
             }
             operationItems(data, operations, accountId, onEditOperation)
         }
-        // Editing is this page's action: it takes the mic's place; back its mirror.
-        PageDock(
-            Modifier.align(Alignment.BottomCenter),
-            start = { DockButton(R.drawable.ic_back, tr("Назад", "Back"), onBack) },
-            end = { DockButton(R.drawable.ic_edit, tr("Изменить", "Edit"), onEditAccount) },
-        )
-      }
     }
     if (reconciling) ReconcileSheet(state, onDismiss = { reconciling = false }) { actual, asSpending -> reconciling = false; onReconcile(actual, asSpending) }
 }

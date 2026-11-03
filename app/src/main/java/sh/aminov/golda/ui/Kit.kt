@@ -104,6 +104,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.shadow.Shadow
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -965,49 +967,11 @@ object Tags {
     const val DECIDE_HOURS = "decide-hours"
 }
 
-/** Room left under a page's content for [PageDock], so the last row scrolls clear of it. */
-val DockClearance = 96.dp
-
 /**
- * Where the tab bar's island stands, measured from it, so a page's buttons land on the same spots:
- * the mic's place at the right end, its mirror at the left.
+ * A soft shadow all round, centred under the thing rather than dropped below it: the floating
+ * island and its mic.
  */
-/** How high the island's buttons sit over the gesture bar (the tab Scaffold's 16 plus the toolbar's own 8). */
-private val DockLift = 24.dp
-
-object Dock {
-    var width by mutableStateOf(329.dp)
-}
-
-/**
- * A page's buttons, floating over it with nothing behind them, on the tab bar's line: back at the
- * left end (where back is on every platform), the page's own action, if any, where the mic is.
- */
-@Composable
-fun PageDock(modifier: Modifier = Modifier, start: @Composable () -> Unit, end: (@Composable () -> Unit)? = null) {
-    Box(modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = DockLift), contentAlignment = Alignment.Center) {
-        Row(Modifier.width(Dock.width), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            start()
-            end?.invoke()
-        }
-    }
-}
-
-/** A round button of a [PageDock]: the mic's size, the island's colour and shadow. */
-@Composable
-fun DockButton(icon: Int, description: String, onClick: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(64.dp),
-        shape = CircleShape,
-        color = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
-        contentColor = scheme.onSurface,
-        shadowElevation = 3.dp,
-    ) {
-        Box(contentAlignment = Alignment.Center) { Icon(painterResource(icon), description, Modifier.size(26.dp)) }
-    }
-}
+fun Modifier.softShadow(shape: Shape): Modifier = dropShadow(shape, Shadow(radius = 24.dp, color = Color.Black, alpha = 0.14f))
 
 /** A round icon button the height of the save button, beside it: back, delete. */
 @Composable

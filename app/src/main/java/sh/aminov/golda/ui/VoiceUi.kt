@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.ui.semantics.selected
 import androidx.compose.foundation.layout.Row
 import kotlin.math.roundToInt
@@ -62,8 +64,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -228,34 +228,18 @@ fun GoldaToolbar(
         VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
         VoiceState.Thinking -> tr("Разбираю", "Working it out")
     }
-    val density = LocalDensity.current
+    // The bar and the mic side by side, each with a soft shadow all round: Material's elevation
+    // drops the shadow below them.
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
     HorizontalFloatingToolbar(
         expanded = true,
-        // Its width places the pages' buttons on the same spots.
-        modifier = modifier.onSizeChanged { Dock.width = with(density) { it.width.toDp() } },
+        modifier = Modifier.softShadow(CircleShape),
         colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
             // A card in light; in dark a step up, or it melts into the cards it floats over.
             toolbarContainerColor = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
             toolbarContentColor = scheme.onSurfaceVariant,
-            fabContainerColor = mic,
-            fabContentColor = onMic,
         ),
-        floatingActionButton = {
-            // Round like the bar beside it, and as tall, so the main action is also the easiest target.
-            FloatingActionButton(
-                onClick = voice.toggle,
-                modifier = Modifier.size(ToolbarHeight).semantics { contentDescription = label },
-                shape = CircleShape,
-                containerColor = mic,
-                contentColor = onMic,
-            ) {
-                when (voice.state) {
-                    VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = onMic)
-                    VoiceState.Recording -> Listening(voice.level, fill = onMic, ink = mic)
-                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(32.dp))
-                }
-            }
-        },
+        expandedShadowElevation = 0.dp,
     ) {
         // One pill rides under the tabs at the pager's exact position, so it follows the finger during
         // a swipe and glides on a tap. Each icon takes the pill's ink and fills as the pill reaches it.
@@ -290,8 +274,24 @@ fun GoldaToolbar(
                 }
             }
         }
-        VerticalDivider(Modifier.height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
+        VerticalDivider(Modifier.align(Alignment.CenterVertically).height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
         IconButton(onClick = onAdd, Modifier.size(ToolbarItemWidth, ToolbarItemHeight)) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp)) }
+    }
+    // Round like the bar beside it, and as tall, so the main action is also the easiest target.
+    FloatingActionButton(
+        onClick = voice.toggle,
+        modifier = Modifier.size(ToolbarHeight).softShadow(CircleShape).semantics { contentDescription = label },
+        shape = CircleShape,
+        containerColor = mic,
+        contentColor = onMic,
+        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
+    ) {
+        when (voice.state) {
+            VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = onMic)
+            VoiceState.Recording -> Listening(voice.level, fill = onMic, ink = mic)
+            VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(32.dp))
+        }
+    }
     }
 }
 

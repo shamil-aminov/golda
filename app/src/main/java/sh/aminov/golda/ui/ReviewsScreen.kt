@@ -133,26 +133,18 @@ private fun written(review: Review): String =
     Instant.ofEpochMilli(review.createdAt).atZone(ZoneId.systemDefault()).toLocalDate()
         .format(DateTimeFormatter.ofPattern("d MMMM", sh.aminov.golda.domain.I18n.locale))
 
-/**
- * A full page with no top bar: content from under the status bar, and [actions] floating at the
- * bottom over it with nothing behind them, back first, as on the forms.
- */
+/** A full page with no top bar: content from under the status bar, actions under it, as on the forms. */
 @Composable
 fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Composable () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = sheetColor()) {
-        Box(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).windowInsetsPadding(WindowInsets.navigationBars)) {
+        Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)) {
                 Spacer(Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
                 VSpace(Gap.l)
                 content()
-                VSpace(DockClearance)
+                VSpace(Gap.l)
             }
-            Row(
-                Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(Gap.m),
-                horizontalArrangement = Arrangement.spacedBy(Gap.s),
-                verticalAlignment = Alignment.CenterVertically,
-                content = actions,
-            )
+            Row(Modifier.fillMaxWidth().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically, content = actions)
         }
     }
 }
