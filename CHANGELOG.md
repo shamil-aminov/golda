@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Gemini evals**, run by hand with a key: 32 spoken-style phrases through
+  the app's own prompt and reply reading, every field scored.
 - **Screenshot tests** (Roborazzi) of home, accounts, insights, a new
   expense and settings, light, dark and the clear theme; and the agreed
   design rules as tests.

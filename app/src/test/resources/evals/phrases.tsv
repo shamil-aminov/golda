@@ -1,0 +1,37 @@
+# What a person says, and what Gemini must extract. One phrase may hold several items: the
+# expected items are on the following lines starting with "+". Columns (tab-separated):
+# phrase	intent	amount	currency	account	to	to_amount	category
+# "-" means the field must be empty, "*" means any value is fine. Accounts are named in GeminiEvalTest:
+# 1 Карта ₽, 2 Накопительный, 3 Доллары, 4 TBC, 5 Наличные, 6 Кредитка. The local currency is GEL.
+шаурма 15 лари	expense	15	GEL	*	-	-	food
+кофе 8	expense	8	*	*	-	-	food
+такси 12 лари	expense	12	GEL	*	-	-	transport
+продукты 64 лари 20 тетри	expense	64.2	GEL	*	-	-	food
+вода 70 тетри	expense	0.7	GEL	*	-	-	food
+аптека 45 лари наличкой	expense	45	GEL	5	-	-	health
+куртка 125 лари с кредитки	expense	125	GEL	6	-	-	shopping
+подписка на музыку 699 рублей	expense	699	RUB	*	-	-	subscriptions
+мобильный интернет 35 лари	expense	35	GEL	*	-	-	telecom
+аренда 900 лари	expense	900	GEL	*	-	-	housing
+метро один лари	expense	1	GEL	*	-	-	transport
+музей 20 лари	expense	20	GEL	*	-	-	treats
+полторы тысячи рублей на подарок маме	expense	1500	RUB	*	-	-	*
+кофе 8 и круассан 6	expense	8	*	*	-	-	food
++	expense	6	*	*	-	-	food
+обед 18 лари, ой, нет, 16	expense	16	GEL	*	-	-	food
+бензин 80 бат	expense	80	THB	*	-	-	transport
+билеты на самолёт 240 долларов	expense	240	USD	*	-	-	travel
+с долларовой карты 12 долларов за ужин	expense	12	USD	3	-	-	food
+вчера потратил 30 лари на продукты	expense	30	GEL	*	-	-	food
+пришла зарплата 158400 рублей	income	158400	RUB	*	-	-	salary
+проценты по вкладу 2548 рублей	income	2548	RUB	2	-	-	interest
+мама подарила 100 долларов	income	100	USD	*	-	-	gift
+вернули долг 50 лари	income	50	GEL	*	-	-	*
+перевёл с карты на накопительный 40 тысяч	transfer	40000	RUB	1	2	*	*
+перевёл с рублёвой карты на долларовую 110400 рублей, пришло 1200 долларов	transfer	110400	RUB	1	3	1200	*
+поменял 900 долларов на 2412 лари на тиби	transfer	900	USD	3	4	2412	*
+снял в банкомате 100 долларов, выдали 265 лари	transfer	100	USD	3	5	265	*
+закинул 300 лари с тиби в наличку	transfer	300	GEL	4	5	*	*
+погасил кредитку 15 тысяч рублей с карты	transfer	15000	RUB	1	6	*	*
+какая сегодня погода	unknown	-	*	*	-	-	*
+ммм ну это	unknown	-	*	*	-	-	*

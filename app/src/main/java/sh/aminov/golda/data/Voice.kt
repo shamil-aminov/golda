@@ -221,6 +221,23 @@ object Gemini {
     }
 
     /**
+     * The same request as [parse] with the words typed instead of spoken: what the evals send, so they
+     * test exactly the prompt, schema and reading the app uses, without recordings.
+     */
+    suspend fun parseText(text: String, system: String, key: String, model: String): VoiceResult = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+            .put("contents", JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", text)))))
+            .put(
+                "generationConfig",
+                JSONObject()
+                    .put("responseMimeType", "application/json")
+                    .put("responseSchema", JSONObject(VoicePrompt.schema)),
+            )
+        readReply(call(body, key, model))
+    }
+
+    /**
      * The category key for a purchase typed by hand ("наушники" → shopping), or null when the reply
      * names none of [categories]. Throws only [GeminiException], like [parse].
      */

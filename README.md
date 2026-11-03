@@ -191,6 +191,12 @@ with a fixed made-up life abroad and compare them with the images in
 owner agreed on (no full stops in one-sentence texts, no ellipses, type from
 the scale) are tests too.
 
+Evals of what Gemini makes of speech run by hand, with your key: 32 phrases
+in `app/src/test/resources/evals/phrases.tsv` (and any recordings in
+`evals/voice/`) go through the app's own prompt and reply reading, and every
+field is scored. `GEMINI_API_KEY=… ./gradlew testDebugUnitTest --tests "*GeminiEvalTest"`;
+the report is in `app/build/evals.txt`.
+
 Debug builds can fill the app with a made-up demo, which **erases everything
 in the app first**. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to run it
 next to a real install safely.
