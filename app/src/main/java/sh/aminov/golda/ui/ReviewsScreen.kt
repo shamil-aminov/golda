@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
@@ -66,6 +67,7 @@ fun ReviewsScreen(
     var error by remember { mutableStateOf<String?>(null) }
     BottomPage(
         actions = {
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
             Button(
                 onClick = {
                     working = true
@@ -83,7 +85,6 @@ fun ReviewsScreen(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
         },
     ) {
         Text(tr("Разборы", "Reviews"), style = MaterialTheme.typography.headlineMedium)
@@ -117,9 +118,9 @@ fun ReviewScreen(review: Review, onBack: () -> Unit, onDelete: () -> Unit) {
     BackHandler(onBack = onBack)
     BottomPage(
         actions = {
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
             Spacer(Modifier.weight(1f))
             RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete"), onDelete)
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
         },
     ) {
         Markdown(review.text)
@@ -134,7 +135,7 @@ private fun written(review: Review): String =
 
 /**
  * A full page with no top bar: content from under the status bar, and [actions] floating at the
- * bottom over it with nothing behind them, back the rightmost.
+ * bottom over it with nothing behind them, back first, as on the forms.
  */
 @Composable
 fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Composable () -> Unit) {
@@ -146,7 +147,12 @@ fun BottomPage(actions: @Composable RowScope.() -> Unit, content: @Composable ()
                 content()
                 VSpace(DockClearance)
             }
-            BackDock(Modifier.fillMaxWidth().align(Alignment.BottomCenter), content = actions)
+            Row(
+                Modifier.fillMaxWidth().align(Alignment.BottomCenter).navigationBarsPadding().padding(Gap.m),
+                horizontalArrangement = Arrangement.spacedBy(Gap.s),
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions,
+            )
         }
     }
 }

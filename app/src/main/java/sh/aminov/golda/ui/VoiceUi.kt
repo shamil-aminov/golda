@@ -62,6 +62,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -226,9 +228,11 @@ fun GoldaToolbar(
         VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
         VoiceState.Thinking -> tr("Разбираю", "Working it out")
     }
+    val density = LocalDensity.current
     HorizontalFloatingToolbar(
         expanded = true,
-        modifier = modifier,
+        // Its width places the pages' buttons on the same spots.
+        modifier = modifier.onSizeChanged { Dock.width = with(density) { it.width.toDp() } },
         colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
             // A card in light; in dark a step up, or it melts into the cards it floats over.
             toolbarContainerColor = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,

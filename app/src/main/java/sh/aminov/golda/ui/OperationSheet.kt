@@ -316,11 +316,11 @@ fun EntrySheet(
     FormPage(
         onClose = onDismiss,
         topBar = false,
-        // The way back sits by the save button, on the right like every page's, not in a bar across the top.
+        // Back first, by the save button, as on every page; not in a bar across the top.
         actions = {
+            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
             if (editing != null) RoundAction(R.drawable.ic_delete, tr("Удалить", "Delete")) { onDelete(editing) }
             PrimaryAction(if (op == null) tr("Записать", "Save") else tr("Сохранить", "Save"), ::save, valid)
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onDismiss)
         },
     ) {
         // The header: the type.

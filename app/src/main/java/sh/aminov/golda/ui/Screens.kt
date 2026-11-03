@@ -454,11 +454,12 @@ fun AccountScreen(
             }
             operationItems(data, operations, accountId, onEditOperation)
         }
-        // Back and edit float at the bottom right, by the thumb, where the mic is on the tabs.
-        BackDock(Modifier.align(Alignment.BottomEnd)) {
-            RoundAction(R.drawable.ic_edit, tr("Изменить", "Edit"), onEditAccount)
-            RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack)
-        }
+        // Editing is this page's action: it takes the mic's place; back its mirror.
+        PageDock(
+            Modifier.align(Alignment.BottomCenter),
+            start = { DockButton(R.drawable.ic_back, tr("Назад", "Back"), onBack) },
+            end = { DockButton(R.drawable.ic_edit, tr("Изменить", "Edit"), onEditAccount) },
+        )
       }
     }
     if (reconciling) ReconcileSheet(state, onDismiss = { reconciling = false }) { actual, asSpending -> reconciling = false; onReconcile(actual, asSpending) }

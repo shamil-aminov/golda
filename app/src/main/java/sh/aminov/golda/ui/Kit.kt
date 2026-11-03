@@ -965,16 +965,48 @@ object Tags {
     const val DECIDE_HOURS = "decide-hours"
 }
 
-/** Room left under a page's content for [BackDock], so the last row scrolls clear of it. */
+/** Room left under a page's content for [PageDock], so the last row scrolls clear of it. */
 val DockClearance = 96.dp
 
 /**
- * The way back on a page: round buttons floating at the bottom right, by the thumb, with nothing
- * behind them, like the tab bar's island. Back is always the rightmost.
+ * Where the tab bar's island stands, measured from it, so a page's buttons land on the same spots:
+ * the mic's place at the right end, its mirror at the left.
+ */
+/** How high the island's buttons sit over the gesture bar (the tab Scaffold's 16 plus the toolbar's own 8). */
+private val DockLift = 24.dp
+
+object Dock {
+    var width by mutableStateOf(329.dp)
+}
+
+/**
+ * A page's buttons, floating over it with nothing behind them, on the tab bar's line: back at the
+ * left end (where back is on every platform), the page's own action, if any, where the mic is.
  */
 @Composable
-fun BackDock(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
-    Row(modifier.navigationBarsPadding().padding(Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically, content = content)
+fun PageDock(modifier: Modifier = Modifier, start: @Composable () -> Unit, end: (@Composable () -> Unit)? = null) {
+    Box(modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = DockLift), contentAlignment = Alignment.Center) {
+        Row(Modifier.width(Dock.width), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            start()
+            end?.invoke()
+        }
+    }
+}
+
+/** A round button of a [PageDock]: the mic's size, the island's colour and shadow. */
+@Composable
+fun DockButton(icon: Int, description: String, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(64.dp),
+        shape = CircleShape,
+        color = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
+        contentColor = scheme.onSurface,
+        shadowElevation = 3.dp,
+    ) {
+        Box(contentAlignment = Alignment.Center) { Icon(painterResource(icon), description, Modifier.size(26.dp)) }
+    }
 }
 
 /** A round icon button the height of the save button, beside it: back, delete. */

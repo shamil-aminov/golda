@@ -201,8 +201,7 @@ fun SettingsScreen(
                 leading = { Icon(painterResource(R.drawable.ic_delete), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.error) },
             ) { Text(tr("Стереть всё", "Erase everything"), color = MaterialTheme.colorScheme.error) }
         }
-        // Back floats at the bottom right, by the thumb, where the mic is on the tabs.
-        BackDock(Modifier.align(Alignment.BottomEnd)) { RoundAction(R.drawable.ic_back, tr("Назад", "Back"), onBack) }
+        PageDock(Modifier.align(Alignment.BottomCenter), start = { DockButton(R.drawable.ic_back, tr("Назад", "Back"), onBack) })
       }
     }
 
