@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.17.1] — 2026-11-03
+
 ### Added
 
 - **Deeper reviews.** Reviews have their own model, gemini-3.8-flash by
@@ -328,7 +330,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.1
 [0.17.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.0
 [0.16.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.16.0
 [0.15.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.15.0
