@@ -85,9 +85,11 @@ loud is the moment you notice you are spending.
   the talks under them are kept and backed up.
 - **Reconcile** any account against the bank, with a Sunday reminder.
 - **Backup** everything to one JSON file and restore from it.
-- **Themes.** Eleven ready palettes, two of them made for colour-vision
-  deficiency, and a generator that builds a whole light or dark theme from one
-  colour, a style and a contrast. Category colours follow the theme.
+- **Themes.** Twenty-two ready themes, from calm to bold, each with a light and
+  a dark half, one switch for light, dark or the system's, and a generator that
+  builds a whole theme from one colour, a style and a contrast. "Ясная" is made
+  for colour-vision deficiency; every theme keeps text at 7:1 contrast. Category
+  colours follow the theme.
 - **Russian and English.** Material 3 Expressive, one card per group, one
   accent for the one action to take.
 

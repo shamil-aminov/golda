@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
@@ -66,25 +68,29 @@ import sh.aminov.golda.domain.tr
 fun themeLabel(key: String?): String = if (ThemeSpec.parse(key) != null) tr("Своя", "Custom") else Palette.of(key).label
 
 /**
- * The theme page. Ready palettes and kept themes in a row at the top; under them a generator that
- * needs one colour and three choices (style, light or dark, contrast) and builds the rest. Every
- * change is applied at once, so the page itself is the preview; the colour slider applies when let go.
+ * The theme page. Light or dark on top, for every theme; then the ready themes, calm and bold, and
+ * the kept ones; under them a generator that needs one colour and two choices (style, contrast) and
+ * builds the rest. Every change is applied at once, so the page itself is the preview; the colour
+ * slider applies when let go.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ThemeScreen(
     current: String,
+    mode: String,
     saved: List<String>,
     onBack: () -> Unit,
     onApply: (String) -> Unit,
+    onMode: (String) -> Unit,
     onSave: (String) -> Unit,
     onForget: (String) -> Unit,
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
-    val systemDark = isSystemInDarkTheme()
+    // The chips show the half the app is in now, so a pick looks the way it will.
+    val dark = isDarkMode(mode, isSystemInDarkTheme())
     // The generator starts from the theme in use: its own spec, or a preset's hue.
-    var spec by remember { mutableStateOf(ThemeSpec.parse(current) ?: ThemeSpec(hue = Palette.of(current).tones(systemDark).seedHue)) }
+    var spec by remember { mutableStateOf(ThemeSpec.parse(current) ?: ThemeSpec(hue = Palette.of(current).tones(dark).seedHue)) }
     fun apply(next: ThemeSpec) {
         spec = next
         onApply(next.key)
@@ -111,34 +117,45 @@ fun ThemeScreen(
         },
     ) { padding ->
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l)) {
-            GroupLabel(tr("Готовые", "Presets"))
+            // One switch for every theme, ready or own: each has a light and a dark half.
+            GroupLabel(tr("Светлая или тёмная", "Light or dark"))
             VSpace(Gap.s)
-            // The presets and the kept themes, each a swatch strip; a long press forgets a kept one.
-            // Edge to edge, and the theme in use scrolled into view.
-            val presets = rememberScrollState()
-            val activeIndex = (Palette.entries.map { it.key } + saved).indexOf(current)
-            BoxWithConstraints(Modifier.bleed(Gap.m)) {
-                // Whole chips from the 16 dp margin and half of the next at the edge (4.5 on a 411 dp
-                // screen, 3.5 on a 360 one), so the row plainly goes on.
-                val count = ((maxWidth - Gap.m) / (88.dp + Gap.s)).toInt().coerceAtLeast(2)
-                val chip = (maxWidth - Gap.m - Gap.s * count) / (count + 0.5f)
-                val step = with(androidx.compose.ui.platform.LocalDensity.current) { (chip + Gap.s).roundToPx() }
-                // Once, on opening: the theme in use brought into view. Keyed on the pick it re-ran on
-                // every tap and swung the row back like a rotary dial; a pick leaves the row where it is.
-                androidx.compose.runtime.LaunchedEffect(Unit) { if (activeIndex >= count) presets.scrollTo((activeIndex - count + 1) * step) }
-                Row(Modifier.horizontalScroll(presets).padding(horizontal = Gap.m), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                    Palette.entries.forEach { palette ->
-                        ThemeChip(palette.label, palette.tones(systemDark), palette.key == current, chip, onClick = { onApply(palette.key) })
+            // Segmented rows on a page reach the cards' edge, 8 from the screen, as on Insights.
+            ChoiceGroup(ThemeMode.entries, ThemeMode.entries.firstOrNull { it.name == mode } ?: ThemeMode.SYSTEM, { onMode(it.name) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
+                ChoiceText(
+                    when (it) {
+                        ThemeMode.SYSTEM -> tr("Как система", "System")
+                        ThemeMode.LIGHT -> tr("Светлая", "Light")
+                        ThemeMode.DARK -> tr("Тёмная", "Dark")
+                    },
+                )
+            }
+            // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val chip = (maxWidth - Gap.s * 3) / 4
+                @Composable
+                fun Grid(label: String, items: List<Triple<String, String, Tones>>, onLong: ((String) -> Unit)? = null) {
+                    VSpace(Gap.l)
+                    GroupLabel(label)
+                    VSpace(Gap.s)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalArrangement = Arrangement.spacedBy(Gap.s)) {
+                        items.forEach { (key, name, tones) ->
+                            ThemeChip(name, tones, key == current, chip, onClick = {
+                                ThemeSpec.parse(key)?.let { spec = it }
+                                onApply(key)
+                            }, onLongClick = onLong?.let { { it(key) } })
+                        }
                     }
-                    saved.forEachIndexed { i, key ->
-                        ThemeChip(tr("Своя ", "Custom ") + (i + 1), tonesFor(key, systemDark), key == current, chip, onClick = {
-                            ThemeSpec.parse(key)?.let { spec = it }
-                            onApply(key)
-                        }, onLongClick = { onForget(key) })
+                }
+                Column {
+                    Grid(tr("Спокойные", "Calm"), Palette.entries.filter { !it.bold }.map { Triple(it.key, it.label, it.tones(dark)) })
+                    Grid(tr("Смелые", "Bold"), Palette.entries.filter { it.bold }.map { Triple(it.key, it.label, it.tones(dark)) })
+                    // A long press forgets a kept one.
+                    if (saved.isNotEmpty()) {
+                        Grid(tr("Сохранённые", "Kept"), saved.mapIndexed { i, key -> Triple(key, tr("Своя ", "Custom ") + (i + 1), tonesFor(key, dark)) }, onForget)
                     }
                 }
             }
-
             VSpace(Gap.l)
             GroupLabel(tr("Своя из одного цвета", "Your own, from one colour"))
             VSpace(Gap.s)
@@ -192,9 +209,9 @@ fun ThemeScreen(
                     } else {
                         null
                     }
-                    seed?.let { apply(ThemeSpec.of(Color(it)).copy(mode = spec.mode, contrast = spec.contrast)) }
+                    seed?.let { apply(ThemeSpec.of(Color(it)).copy(contrast = spec.contrast)) }
                 })
-                TonalAction(tr("Случайная", "Surprise me"), { apply(ThemeSpec.random().copy(mode = spec.mode, contrast = spec.contrast)) })
+                TonalAction(tr("Случайная", "Surprise me"), { apply(ThemeSpec.random().copy(contrast = spec.contrast)) })
             }
 
             VSpace(Gap.l)
@@ -208,18 +225,6 @@ fun ThemeScreen(
                         ThemeStyle.VIVID -> tr("Яркая", "Vivid")
                         ThemeStyle.EXPRESSIVE -> tr("Смелая", "Bold")
                         ThemeStyle.MONO -> tr("Моно", "Mono")
-                    },
-                )
-            }
-            VSpace(Gap.l)
-            GroupLabel(tr("Светлая или тёмная", "Light or dark"))
-            VSpace(Gap.s)
-            ChoiceGroup(ThemeMode.entries, spec.mode, { apply(spec.copy(mode = it)) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
-                ChoiceText(
-                    when (it) {
-                        ThemeMode.SYSTEM -> tr("Как система", "System")
-                        ThemeMode.LIGHT -> tr("Светлая", "Light")
-                        ThemeMode.DARK -> tr("Тёмная", "Dark")
                     },
                 )
             }

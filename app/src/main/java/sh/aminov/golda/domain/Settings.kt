@@ -33,8 +33,10 @@ data class Settings(
     val reconcileReminder: Boolean = true,
     /** When each account was last checked against the bank (account id to epoch millis), matches included. */
     val reconciledAt: Map<Long, Long> = emptyMap(),
-    /** The colour theme picked in Settings (see ui.Palette); "golda" follows the system's light or dark. */
+    /** The colour theme picked in Settings (see ui.Palette), or a generated one. */
     val palette: String = "golda",
+    /** Light or dark for every theme: "SYSTEM" follows the phone, "LIGHT" and "DARK" stay put. */
+    val themeMode: String = "SYSTEM",
     /** The folder a weekly backup goes to (a document tree the person picked); null: none. */
     val autoBackupFolder: String? = null,
     /** When the last weekly backup was written, epoch millis; 0: never. */

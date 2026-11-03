@@ -34,6 +34,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val geminiKey = stringPreferencesKey("geminiKey")
         val reconcileReminder = booleanPreferencesKey("reconcileReminder")
         val palette = stringPreferencesKey("palette")
+        val themeMode = stringPreferencesKey("themeMode")
         val autoBackupFolder = stringPreferencesKey("autoBackupFolder")
         val lastAutoBackup = longPreferencesKey("lastAutoBackup")
         val savedThemes = stringPreferencesKey("savedThemes")
@@ -75,6 +76,8 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             hasGeminiKey = this[K.geminiKey] != null,
             reconcileReminder = this[K.reconcileReminder] ?: d.reconcileReminder,
             palette = this[K.palette] ?: d.palette,
+            // Before the mode was one setting, some themes were dark (or light) only: keep them so.
+            themeMode = this[K.themeMode] ?: legacyThemeMode(this[K.palette]),
             autoBackupFolder = this[K.autoBackupFolder],
             lastAutoBackup = this[K.lastAutoBackup] ?: d.lastAutoBackup,
             savedThemes = this[K.savedThemes]?.split('|')?.filter { it.isNotBlank() } ?: d.savedThemes,
@@ -98,9 +101,19 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         this[K.reviewModel] = s.reviewModel
         this[K.reconcileReminder] = s.reconcileReminder
         this[K.palette] = s.palette
+        this[K.themeMode] = s.themeMode
         if (s.autoBackupFolder != null) this[K.autoBackupFolder] = s.autoBackupFolder else remove(K.autoBackupFolder)
         this[K.lastAutoBackup] = s.lastAutoBackup
         this[K.savedThemes] = s.savedThemes.joinToString("|")
         this[K.reconciledAt] = s.reconciledAt.entries.joinToString(",") { "${it.key}:${it.value}" }
     }
+}
+
+/** The mode a theme picked before 0.19.0 had: the dark-only presets dark, a generated theme its own. */
+internal fun legacyThemeMode(palette: String?): String = when {
+    palette == null -> "SYSTEM"
+    palette in setOf("midnight", "espresso", "forest", "graphite", "clear-night") -> "DARK"
+    palette in setOf("beach", "sakura", "mint", "lavender", "clear") -> "LIGHT"
+    palette.startsWith("custom:") -> palette.split(':').getOrNull(3)?.takeIf { it in setOf("LIGHT", "DARK") } ?: "SYSTEM"
+    else -> "SYSTEM"
 }

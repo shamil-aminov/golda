@@ -67,9 +67,9 @@ class ScreenshotTest {
         I18n.russian = true
     }
 
-    private fun shot(name: String, palette: String = "golda", content: @Composable () -> Unit) {
+    private fun shot(name: String, palette: String = "golda", mode: String = "SYSTEM", content: @Composable () -> Unit) {
         // The page's own background, as the app's scaffold gives it: a screen alone is transparent.
-        compose.setContent { GoldaTheme(palette) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
+        compose.setContent { GoldaTheme(palette, mode) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
         compose.onRoot().captureRoboImage(
             "src/test/screenshots/$name.png",
             roborazziOptions = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.002f)),
@@ -78,7 +78,7 @@ class ScreenshotTest {
 
     @Test fun home() = shot("home") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {}) }
 
-    @Test fun homeDark() = shot("home_dark", palette = "midnight") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {}) }
+    @Test fun homeDark() = shot("home_dark", palette = "midnight", mode = "DARK") { HomeScreen(demo(), PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {}) }
 
     @Test fun accounts() = shot("accounts") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
 
@@ -88,9 +88,9 @@ class ScreenshotTest {
 
     @Test fun entry() = shot("entry") { EntrySheet(demo(), EntryRequest(), {}, {}, {}) }
 
-    @Test fun entryDark() = shot("entry_dark", palette = "midnight") { EntrySheet(demo(), EntryRequest(), {}, {}, {}) }
+    @Test fun entryDark() = shot("entry_dark", palette = "midnight", mode = "DARK") { EntrySheet(demo(), EntryRequest(), {}, {}, {}) }
 
-    @Test fun accountsDark() = shot("accounts_dark", palette = "midnight") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
+    @Test fun accountsDark() = shot("accounts_dark", palette = "midnight", mode = "DARK") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
 
     @Test fun settings() = shot("settings") {
         SettingsScreen(demo(), {}, {}, remember { SnackbarHostState() }, {}, {}, {}, {}, {})

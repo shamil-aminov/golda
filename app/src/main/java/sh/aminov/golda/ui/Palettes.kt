@@ -4,36 +4,55 @@ import androidx.compose.ui.graphics.Color
 import sh.aminov.golda.domain.tr
 
 /**
- * The colour themes to pick from in Settings. Golda follows the system's light or dark; every other
- * one is light or dark of its own. Each is a full set of [Tones]: page, cards, controls, what is
- * picked, the action colour and the inks, so a pick repaints the whole app.
+ * The colour themes to pick from in Settings, each light and dark: the app's one mode setting (or the
+ * phone's) decides which half is drawn. The calm ones first, then the bold ones: bold in colour, never
+ * in readability, every half keeps its inks as legible as the calm ones (see ThemeGenTest). The
+ * hand-drawn halves are the first themes'; their other halves and the new themes come from
+ * [ThemeGen.recipe] in the same hues.
  */
-enum class Palette(val key: String, private val ru: String, private val en: String, val light: Tones?, val dark: Tones?) {
-    GOLDA("golda", "Golda", "Golda", GoldaLight, GoldaDark),
-    BEACH("beach", "Пляж", "Beach", beach(), null),
-    SAKURA("sakura", "Сакура", "Sakura", sakura(), null),
-    MINT("mint", "Мята", "Mint", mint(), null),
-    LAVENDER("lavender", "Лаванда", "Lavender", lavender(), null),
-    MIDNIGHT("midnight", "Полночь", "Midnight", null, midnight()),
-    ESPRESSO("espresso", "Эспрессо", "Espresso", null, espresso()),
-    FOREST("forest", "Лес", "Forest", null, forest()),
-    GRAPHITE("graphite", "Графит", "Graphite", null, graphite()),
-    CLEAR("clear", "Ясная", "Clear", clear(), null),
-    CLEAR_NIGHT("clear-night", "Ясная ночь", "Clear night", null, clearNight()),
+enum class Palette(val key: String, private val ru: String, private val en: String, val bold: Boolean, light: () -> Tones, dark: () -> Tones) {
+    GOLDA("golda", "Golda", "Golda", false, { GoldaLight }, { GoldaDark }),
+    CLEAR("clear", "Ясная", "Clear", false, ::clear, ::clearNight),
+    GRAPHITE("graphite", "Графит", "Graphite", false, { recipe(false, 90.0, 0.0, 250.0, 0.0, 85.0, 0.14) }, ::graphite),
+    BEACH("beach", "Пляж", "Beach", false, ::beach, { recipe(true, 70.0, 0.02, 185.0, 0.05, 185.0, 0.11) }),
+    SAKURA("sakura", "Сакура", "Sakura", false, ::sakura, { recipe(true, 355.0, 0.025, 355.0, 0.06, 355.0, 0.12) }),
+    MINT("mint", "Мята", "Mint", false, ::mint, { recipe(true, 160.0, 0.02, 155.0, 0.05, 155.0, 0.13) }),
+    LAVENDER("lavender", "Лаванда", "Lavender", false, ::lavender, { recipe(true, 290.0, 0.03, 290.0, 0.06, 290.0, 0.12) }),
+    MIDNIGHT("midnight", "Полночь", "Midnight", false, { recipe(false, 250.0, 0.015, 255.0, 0.05, 255.0, 0.12) }, ::midnight),
+    ESPRESSO("espresso", "Эспрессо", "Espresso", false, { recipe(false, 60.0, 0.02, 55.0, 0.05, 80.0, 0.13) }, ::espresso),
+    FOREST("forest", "Лес", "Forest", false, { recipe(false, 150.0, 0.018, 150.0, 0.05, 150.0, 0.12) }, ::forest),
+    OCEAN("ocean", "Океан", "Ocean", false, { recipe(false, 225.0, 0.02, 210.0, 0.05, 200.0, 0.12) }, { recipe(true, 225.0, 0.025, 210.0, 0.05, 200.0, 0.12) }),
+    DESERT("desert", "Пустыня", "Desert", false, { recipe(false, 70.0, 0.025, 50.0, 0.05, 40.0, 0.13) }, { recipe(true, 60.0, 0.025, 50.0, 0.05, 45.0, 0.13) }),
+
+    // The bold ones: tinted pages and a second colour against the first.
+    SUNSET("sunset", "Закат", "Sunset", true, { recipe(false, 45.0, 0.045, 20.0, 0.08, 350.0, 0.17, 0.12) }, { recipe(true, 15.0, 0.045, 20.0, 0.08, 350.0, 0.17, 0.12) }),
+    LAVA("lava", "Лава", "Lava", true, { recipe(false, 30.0, 0.04, 25.0, 0.09, 50.0, 0.19, 0.12) }, { recipe(true, 30.0, 0.05, 25.0, 0.09, 50.0, 0.19, 0.12) }),
+    TROPIC("tropic", "Тропики", "Tropics", true, { recipe(false, 175.0, 0.04, 175.0, 0.08, 55.0, 0.18, 0.12) }, { recipe(true, 180.0, 0.045, 175.0, 0.08, 55.0, 0.18, 0.12) }),
+    AURORA("aurora", "Аврора", "Aurora", true, { recipe(false, 190.0, 0.035, 300.0, 0.08, 150.0, 0.18, 0.12) }, { recipe(true, 200.0, 0.045, 300.0, 0.08, 150.0, 0.18, 0.12) }),
+    CANDY("candy", "Леденец", "Candy", true, { recipe(false, 345.0, 0.045, 220.0, 0.08, 220.0, 0.15, 0.12) }, { recipe(true, 340.0, 0.045, 220.0, 0.08, 220.0, 0.15, 0.12) }),
+    CYBER("cyber", "Кибер", "Cyber", true, { recipe(false, 330.0, 0.05, 200.0, 0.09, 195.0, 0.16, 0.13) }, { recipe(true, 320.0, 0.06, 200.0, 0.09, 195.0, 0.16, 0.13) }),
+    NEON("neon", "Неон", "Neon", true, { recipe(false, 300.0, 0.03, 300.0, 0.09, 135.0, 0.22, 0.13) }, { recipe(true, 300.0, 0.04, 300.0, 0.09, 135.0, 0.22, 0.13) }),
+    ACID("acid", "Кислота", "Acid", true, { recipe(false, 125.0, 0.05, 125.0, 0.1, 345.0, 0.2, 0.13) }, { recipe(true, 125.0, 0.05, 125.0, 0.1, 345.0, 0.2, 0.13) }),
+    INDIGO("indigo", "Индиго", "Indigo", true, { recipe(false, 295.0, 0.06, 295.0, 0.1, 95.0, 0.17, 0.13) }, { recipe(true, 295.0, 0.07, 295.0, 0.1, 95.0, 0.17, 0.13) }),
+    TERMINAL("terminal", "Терминал", "Terminal", true, { recipe(false, 95.0, 0.04, 145.0, 0.08, 145.0, 0.2, 0.12) }, { recipe(true, 145.0, 0.03, 145.0, 0.08, 145.0, 0.2, 0.12) }),
     ;
+
+    val light: Tones by lazy(light)
+    val dark: Tones by lazy(dark)
 
     val label: String get() = tr(ru, en)
 
-    /** The tones for the system's [systemDark]: a fixed theme ignores it. */
-    fun tones(systemDark: Boolean): Tones = when {
-        light != null && dark != null -> if (systemDark) dark else light
-        else -> light ?: dark!!
-    }
+    /** The half for the app's mode. */
+    fun tones(dark: Boolean): Tones = if (dark) this.dark else light
 
     companion object {
-        fun of(key: String?): Palette = entries.firstOrNull { it.key == key } ?: GOLDA
+        /** By its key; "clear-night", once a theme of its own, is Ясная's dark half now. */
+        fun of(key: String?): Palette = if (key == "clear-night") CLEAR else entries.firstOrNull { it.key == key } ?: GOLDA
     }
 }
+
+private fun recipe(dark: Boolean, pageHue: Double, pageC: Double, pickedHue: Double, pickedC: Double, actionHue: Double, actionC: Double, infoC: Double = 0.10) =
+    ThemeGen.recipe(dark, pageHue, pageC, pickedHue, pickedC, actionHue, actionC, infoC)
 
 private fun lightSet(page: Long, card: Long, soft: Long, line: Long, muted: Long, text: Long, picked: Long, onPicked: Long, action: Long, onAction: Long, clear: Boolean = false) = Tones(
     dark = false, clearColours = clear,

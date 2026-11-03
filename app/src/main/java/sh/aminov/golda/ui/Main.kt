@@ -340,9 +340,11 @@ private fun MainScreen(
             )
             Page.Theme -> ThemeScreen(
                 current = data.settings.palette,
+                mode = data.settings.themeMode,
                 saved = data.settings.savedThemes,
                 onBack = { page = Page.Settings },
                 onApply = { key -> change { it.copy(palette = key) } },
+                onMode = { mode -> change { it.copy(themeMode = mode) } },
                 onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )

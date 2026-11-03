@@ -102,7 +102,7 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             val settings by repo.settings.flow.collectAsStateWithLifecycle(initialValue = null)
-            GoldaTheme(settings?.palette) { GoldaRoot(repo, voiceRequests, tabRequests) }
+            GoldaTheme(settings?.palette, settings?.themeMode) { GoldaRoot(repo, voiceRequests, tabRequests) }
         }
     }
 

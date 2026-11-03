@@ -45,9 +45,19 @@ data class ThemeSpec(val hue: Int, val style: ThemeStyle = ThemeStyle.CALM, val 
     }
 }
 
-/** The tones for a palette setting: a preset by key, or a generated theme. */
-fun tonesFor(key: String?, systemDark: Boolean): Tones =
-    ThemeSpec.parse(key)?.let { ThemeGen.tones(it, systemDark) } ?: Palette.of(key).tones(systemDark)
+/**
+ * The tones for a palette setting in light or [dark]: a preset by key, or a generated theme. The
+ * mode is the app's one setting now; a generated theme's own mode, from before, is not looked at.
+ */
+fun tonesFor(key: String?, dark: Boolean): Tones =
+    ThemeSpec.parse(key)?.let { ThemeGen.tones(it.copy(mode = ThemeMode.SYSTEM), dark) } ?: Palette.of(key).tones(dark)
+
+/** Whether the app is dark for a theme mode setting ("SYSTEM", "LIGHT", "DARK") and the phone's own. */
+fun isDarkMode(mode: String?, systemDark: Boolean): Boolean = when (mode) {
+    ThemeMode.LIGHT.name -> false
+    ThemeMode.DARK.name -> true
+    else -> systemDark
+}
 
 /**
  * Builds a full set of [Tones] from a [ThemeSpec] in OKLCH, where lightness and chroma mean the
@@ -55,6 +65,41 @@ fun tonesFor(key: String?, systemDark: Boolean): Tones =
  * the action the hue itself. Expressive turns the action a third of the way round the wheel.
  */
 object ThemeGen {
+    /**
+     * One half of a preset from a few numbers, the generator's way: the page and its inks a tint of
+     * [pageHue] at [pageC] chroma, the picked state [pickedHue], the action [actionHue]. Lightness is
+     * fixed per role, so any hues stay readable: a bold theme is bold in chroma, never in contrast.
+     */
+    fun recipe(
+        dark: Boolean,
+        pageHue: Double, pageC: Double,
+        pickedHue: Double, pickedC: Double,
+        actionHue: Double, actionC: Double,
+        infoC: Double = 0.10,
+    ): Tones = if (!dark) {
+        Tones(
+            dark = false,
+            page = oklch(0.96, pageC, pageHue), card = oklch(0.995, pageC * 0.35, pageHue), soft = oklch(0.915, pageC * 1.1, pageHue),
+            line = oklch(0.86, pageC, pageHue),
+            muted = oklch(0.45, (pageC * 1.5).coerceAtMost(0.05), pageHue), text = oklch(0.22, (pageC * 1.2).coerceAtMost(0.04), pageHue),
+            graphite = oklch(0.86, pickedC, pickedHue), onGraphite = oklch(0.24, pickedC * 0.8, pickedHue),
+            gold = oklch(0.78, actionC, actionHue), onGold = oklch(0.22, actionC * 0.45, actionHue),
+            error = Color(0xFFDC2626), onError = Color(0xFFFFFFFF), errorSoft = Color(0xFFFEE2E2), onErrorSoft = Color(0xFF991B1B),
+            infoL = 0.80f, infoC = infoC.toFloat(), seedHue = actionHue.toInt().mod(360),
+        )
+    } else {
+        Tones(
+            dark = true,
+            page = oklch(0.19, pageC * 0.9, pageHue), card = oklch(0.24, pageC * 0.9, pageHue), soft = oklch(0.30, pageC, pageHue),
+            line = oklch(0.37, pageC, pageHue),
+            muted = oklch(0.74, (pageC * 0.8).coerceAtMost(0.04), pageHue), text = oklch(0.95, (pageC * 0.4).coerceAtMost(0.015), pageHue),
+            graphite = oklch(0.37, pickedC * 0.9, pickedHue), onGraphite = oklch(0.95, pickedC * 0.3, pickedHue),
+            gold = oklch(0.76, actionC, actionHue), onGold = oklch(0.19, actionC * 0.45, actionHue),
+            error = Color(0xFFF87171), onError = Color(0xFF450A0A), errorSoft = Color(0xFF4C1D1D), onErrorSoft = Color(0xFFFECACA),
+            infoL = 0.68f, infoC = infoC.toFloat(), seedHue = actionHue.toInt().mod(360),
+        )
+    }
+
     fun tones(spec: ThemeSpec, systemDark: Boolean): Tones {
         val dark = when (spec.mode) {
             ThemeMode.SYSTEM -> systemDark

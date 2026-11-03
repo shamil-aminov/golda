@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-11-03
+
+### Added
+
+- **Twenty-two themes, each light and dark.** The ready themes were half
+  themes: ten of eleven were light only or dark only, so "light or dark" did
+  nothing to them. Every one now has both halves, "Ясная" and "Ясная ночь" are
+  one theme, and twelve are new: Океан and Пустыня among the calm ones; Закат,
+  Лава, Тропики, Аврора, Леденец, Кибер, Неон, Кислота, Индиго and Терминал,
+  bold ones with tinted pages and a second colour against the first. A test
+  holds every half to 7:1 for text and 4.5:1 for labels.
+
+### Changed
+
+- **Light or dark is one switch, on top of the theme page, for every theme.**
+  It used to sit in the generator and touched only a generated theme. Style and
+  contrast stay with the generator. The ready themes are a grid of four, calm
+  and bold apart, instead of one row to scroll.
+- A theme picked before keeps how it looked: a dark-only one opens dark, a
+  light-only one light; the switch changes it.
+
 ## [0.18.0] — 2026-11-03
 
 ### Changed
@@ -462,7 +483,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.19.0
 [0.18.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.18.0
 [0.17.9]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.9
 [0.17.8]: https://github.com/shamil-aminov/golda/releases/tag/v0.17.8
