@@ -1,5 +1,9 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import sh.aminov.golda.domain.Treemap
 import sh.aminov.golda.domain.Ledger
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -195,15 +199,14 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onReviews: (Period) -
                 Text(tr("За эти дни трат нет.", "No spending in these days."), Modifier.padding(Gap.l), style = text, color = quiet)
             }
         } else {
-            item(key = "bars") {
-                // Each category a bar as long as its share of the biggest: the chart and the list in one.
-                Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
-                    val top = shown.categories.first().rubMinor.coerceAtLeast(1)
-                    shown.categories.forEachIndexed { index, spend ->
-                        if (index > 0) VSpace(Gap.l)
-                        CategoryBar(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor.toFloat() / top, categoryColor(spend.categoryId?.let { data.categoryById[it]?.key }), index)
-                    }
-                }
+            item(key = "mosaic") {
+                // The categories as a mosaic: each a tile in its colour, as big as its share.
+                Mosaic(
+                    shown.categories.map { spend ->
+                        MosaicItem(categoryName(data, spend), data.base.whole(spend.rubMinor), spend.rubMinor, categoryColor(spend.categoryId?.let { data.categoryById[it]?.key }))
+                    },
+                    Modifier.padding(horizontal = Gap.s),
+                )
             }
             item(key = "chart") {
                 Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
@@ -243,6 +246,70 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)
             VSpace(2.dp)
             Text(amount, style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontWeight = FontWeight.SemiBold), maxLines = 1)
+        }
+    }
+}
+
+/** A category in the [Mosaic]. */
+private class MosaicItem(val name: String, val amount: String, val rub: Long, val color: Color)
+
+/**
+ * The categories as a squarified treemap: the biggest share the biggest tile, in each category's
+ * own colour, its name, amount and share written on it when it has room. Tiles too small to carry
+ * words are named in one quiet line under the mosaic. They settle in one after another.
+ */
+@Composable
+private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier) {
+    val total = items.sumOf { it.rub }.coerceAtLeast(1)
+    val gap = 4.dp
+    val motion = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    var unnamed by remember(items) { mutableStateOf(emptyList<MosaicItem>()) }
+    Column(modifier.fillMaxWidth()) {
+        BoxWithConstraints(Modifier.fillMaxWidth().height(260.dp)) {
+            val density = LocalDensity.current
+            val w = with(density) { maxWidth.toPx() }
+            val h = with(density) { maxHeight.toPx() }
+            val tiles = remember(items, w, h) { Treemap.layout(items.map { it.rub }, w, h) }
+            val small = mutableListOf<MosaicItem>()
+            tiles.forEachIndexed { order, tile ->
+                val item = items[tile.index]
+                val tw = with(density) { tile.width.toDp() }
+                val th = with(density) { tile.height.toDp() }
+                val roomy = tw >= 88.dp && th >= 64.dp
+                if (!roomy) small += item
+                val shown = remember(items) { Animatable(0f) }
+                LaunchedEffect(items) { delay(order * 50L); shown.animateTo(1f, motion) }
+                // Ink: the tile's own colour, made deep, so the words belong to it.
+                val ink = lerp(item.color, Color.Black, 0.72f)
+                Box(
+                    Modifier
+                        .offset { IntOffset(tile.x.roundToInt(), tile.y.roundToInt()) }
+                        .size(tw, th)
+                        .padding(gap / 2)
+                        .graphicsLayer { alpha = shown.value; scaleX = 0.92f + 0.08f * shown.value; scaleY = 0.92f + 0.08f * shown.value }
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(item.color)
+                        .padding(12.dp),
+                ) {
+                    if (roomy) {
+                        Column {
+                            Text(item.name, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1)
+                            Text(item.amount, style = MaterialTheme.typography.titleMedium.merge(Tnum).copy(fontWeight = FontWeight.Bold), color = ink, maxLines = 1)
+                            Text(wholePercent(item.rub.toDouble() / total), style = MaterialTheme.typography.labelLarge, color = ink.copy(alpha = 0.7f), maxLines = 1)
+                        }
+                    }
+                }
+            }
+            SideEffect { if (unnamed != small) unnamed = small.toList() }
+        }
+        if (unnamed.isNotEmpty()) {
+            VSpace(Gap.s)
+            Text(
+                unnamed.joinToString(" · ") { it.name + " " + it.amount },
+                Modifier.padding(horizontal = Gap.m),
+                style = MaterialTheme.typography.labelLarge.merge(Tnum),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

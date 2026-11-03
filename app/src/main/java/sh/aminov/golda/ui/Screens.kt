@@ -595,7 +595,8 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
             // The digits roll; the sign stands after them as in the entry field, one space away.
             val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
             digits.forEach { ch -> RollingChar(ch, style, color) }
-            if (sign != null) Text(" $sign", style = style.copy(fontWeight = FontWeight.SemiBold), color = muted, maxLines = 1)
+            // Exactly as in the entry field: the same weight, the muted ink, one space away.
+            if (sign != null) Text(" $sign", style = style, color = muted, maxLines = 1)
         }
     }
 }
