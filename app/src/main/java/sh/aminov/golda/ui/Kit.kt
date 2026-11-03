@@ -875,12 +875,14 @@ fun HeroAmountField(
                     Box(Modifier.width(IntrinsicSize.Max).alignByBaseline()) { field() }
                     if (text.isEmpty()) Text(placeholder, Modifier.alignByBaseline(), style = big, color = placeholderColor, maxLines = 1)
                     Box(Modifier.alignByBaseline()) {
-                        Text(
-                            " " + symbol,
-                            style = big,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = if (onSymbolClick != null) Modifier.clip(MaterialTheme.shapes.large).clickable(onClick = onSymbolClick) else Modifier,
-                        )
+                        Row(
+                            if (onSymbolClick != null) Modifier.clip(MaterialTheme.shapes.large).clickable(onClick = onSymbolClick) else Modifier,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(" " + symbol, Modifier.alignByBaseline(), style = big, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // A picker, not a label: a small chevron says the symbol opens a choice.
+                            if (onSymbolClick != null) Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         symbolMenu?.invoke()
                     }
                 }

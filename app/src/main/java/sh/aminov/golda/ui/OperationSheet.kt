@@ -1,5 +1,7 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.material3.Tab
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
@@ -208,6 +210,7 @@ fun EntrySheet(
     var pickingDate by remember { mutableStateOf(false) }
     // The row whose choice is open in a sheet.
     var choosing by remember { mutableStateOf<Choosing?>(null) }
+    var currencyMenu by remember { mutableStateOf(false) }
 
     // An expense and an income are typed in a currency of their own (the account's or another);
     // a transfer in its source account's.
@@ -273,7 +276,7 @@ fun EntrySheet(
 
     fun save() {
         if (!valid) return
-        if (offersMonthly && monthly) onRegular(Obligation(name = note.trim(), amountMinor = amount!!, currency = amountCode, dayOfMonth = date.dayOfMonth))
+        if (offersMonthly && monthly) onRegular(Obligation(name = note.trim(), amountMinor = amount, currency = amountCode, dayOfMonth = date.dayOfMonth))
         onSave(draft())
     }
 
@@ -404,7 +407,26 @@ fun EntrySheet(
             symbol = Currencies.symbol(amountCode),
             focusRequester = focus,
             onDone = { save() },
-            onSymbolClick = null,
+            // The currency is the sum's own: picked on its symbol, not in a row of pills.
+            onSymbolClick = if (priced && currencyChoices.size > 1) ({ currencyMenu = true }) else null,
+            symbolMenu = {
+                DropdownMenu(expanded = currencyMenu, onDismissRequest = { currencyMenu = false }) {
+                    currencyChoices.forEach { code ->
+                        DropdownMenuItem(
+                            text = { Text(currencyLabel(code)) },
+                            onClick = {
+                                purchaseCurrency = code
+                                secondEdited = false
+                                currencyMenu = false
+                                // A currency picked means a sum comes next.
+                                focus.requestFocus()
+                                keyboard?.show()
+                            },
+                            trailingIcon = if (code == purchaseCurrency) ({ Icon(painterResource(R.drawable.ic_check), null) }) else null,
+                        )
+                    }
+                }
+            },
         )
         VSpace(Gap.xs)
 
@@ -451,17 +473,8 @@ fun EntrySheet(
                 }
                 else -> {
                     // Everything on the first level: currency, card and date are buttons, not menus.
-                    if (priced) {
-                        VSpace(Gap.s)
-                        CurrencyPicker(
-                            currencyChoices, purchaseCurrency,
-                            // A currency picked means a sum comes next: typing goes to the amount, wherever it was.
-                            { purchaseCurrency = it; secondEdited = false; focus.requestFocus(); keyboard?.show() },
-                            Modifier.align(Alignment.CenterHorizontally),
-                        )
-                    }
-                    // The note, then one card of rows, as in Settings: what it is, where it comes from,
-                    // when. Each row opens its choice in a sheet; the app fills them in meanwhile.
+                    // The note; what it is (the bucket's tabs over its categories, on the first level);
+                    // then where from and when, as rows.
                     VSpace(Gap.l)
                     TonalField(
                         note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp),
@@ -469,22 +482,46 @@ fun EntrySheet(
                         onDone = { if (valid) save() },
                     )
                     VSpace(Gap.m)
-                    val category = categoryId?.let { data.categoryById[it] }
-                    val rows = 3 + if (offersMonthly) 1 else 0
+                    // The bucket is a filter of the categories under it, not a mode: quiet secondary tabs.
+                    if (type == OpType.EXPENSE) {
+                        val buckets = listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG)
+                        SecondaryTabRow(
+                            selectedTabIndex = buckets.indexOf(bucket),
+                            modifier = Modifier.bleed(Gap.s),
+                            containerColor = Color.Transparent,
+                            contentColor = MaterialTheme.colorScheme.onSurface,
+                            divider = {},
+                        ) {
+                            buckets.forEach { b ->
+                                Tab(
+                                    selected = b == bucket,
+                                    onClick = {
+                                        bucketAuto = false
+                                        bucket = b
+                                        // A category of another bucket does not belong any more.
+                                        if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != b) { categoryId = null }
+                                    },
+                                    text = { Text(bucketLabel(b), style = MaterialTheme.typography.labelLarge, maxLines = 1) },
+                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        VSpace(Gap.s)
+                    }
+                    // The four of the bucket (or of income). While the app picks, the tile is outlined.
+                    CategoryGrid(
+                        data = data,
+                        kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
+                        bucket = if (type == OpType.EXPENSE) bucket else null,
+                        selected = categoryId,
+                        auto = categoryAuto,
+                        onPick = { categoryId = if (categoryId == it && !categoryAuto) null else it; categoryAuto = false },
+                    )
+                    VSpace(Gap.l)
+                    // Where it comes from and when: rows that open their choice, changed seldom.
+                    val rows = 2 + if (offersMonthly) 1 else 0
                     GroupRow(
                         0, rows,
-                        onClick = { choosing = Choosing.CATEGORY },
-                        leading = { GlyphCircle(categoryIcon(category?.key)) },
-                        supporting = when {
-                            thinking -> ({ Text(tr("Подбираю", "Finding one")) })
-                            type == OpType.EXPENSE -> ({ Text(bucketLabel(bucket)) })
-                            else -> null
-                        },
-                        trailing = { Icon(painterResource(R.drawable.ic_chevron_right), null, Modifier.size(20.dp)) },
-                        trailingOnTitle = false,
-                    ) { Text(category?.label() ?: tr("Без категории", "No category"), style = MaterialTheme.typography.titleMedium) }
-                    GroupRow(
-                        1, rows,
                         onClick = { choosing = Choosing.ACCOUNT },
                         leading = { GlyphCircle(account?.let { typeIcon(it.type) } ?: R.drawable.ic_wallet) },
                         supporting = account?.let { a -> data.states[a.id]?.let { st -> { Text(Fmt.amount(st.balanceMinor, a.currency)) } } },
@@ -492,7 +529,7 @@ fun EntrySheet(
                         trailingOnTitle = false,
                     ) { Text(account?.name ?: tr("Счёт", "Account"), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     GroupRow(
-                        2, rows,
+                        1, rows,
                         onClick = { choosing = Choosing.DATE },
                         leading = { GlyphCircle(R.drawable.ic_calendar) },
                         trailing = { Icon(painterResource(R.drawable.ic_chevron_right), null, Modifier.size(20.dp)) },
@@ -501,7 +538,7 @@ fun EntrySheet(
                     if (offersMonthly) {
                         // A new expense in "Регулярные" comes back every month unless switched off.
                         GroupRow(
-                            3, rows,
+                            2, rows,
                             Modifier.semantics { role = Role.Switch },
                             onClick = { monthly = !monthly },
                             leading = { GlyphCircle(R.drawable.ic_repeat) },
@@ -520,27 +557,6 @@ fun EntrySheet(
     }
 
     when (choosing) {
-        Choosing.CATEGORY -> FormSheet(onDismiss = { choosing = null }) {
-            Caption(tr("Категория", "Category"))
-            VSpace(Gap.m)
-            if (type == OpType.EXPENSE) {
-                ChoiceGroup(listOf(Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), bucket, { picked ->
-                    bucketAuto = false
-                    bucket = picked
-                    // A category of another bucket does not belong any more.
-                    if (categoryId?.let { data.categoryById[it] }?.let { Buckets.of(it) } != picked) { categoryId = null }
-                }, Modifier.fillMaxWidth()) { ChoiceText(bucketLabel(it)) }
-                VSpace(Gap.s)
-            }
-            CategoryGrid(
-                data = data,
-                kind = if (type == OpType.INCOME) CategoryKind.INCOME else CategoryKind.EXPENSE,
-                bucket = if (type == OpType.EXPENSE) bucket else null,
-                selected = categoryId,
-                auto = categoryAuto,
-                onPick = { categoryId = it; categoryAuto = false; choosing = null },
-            )
-        }
         Choosing.ACCOUNT -> FormSheet(onDismiss = { choosing = null }) {
             Caption(tr("Счёт", "Account"))
             VSpace(Gap.m)
@@ -758,4 +774,4 @@ private fun CategoryGrid(data: AppData, kind: CategoryKind, bucket: Bucket?, sel
 }
 
 /** Which of the entry form's rows has its choice open. */
-private enum class Choosing { CATEGORY, ACCOUNT, DATE }
+private enum class Choosing { ACCOUNT, DATE }
