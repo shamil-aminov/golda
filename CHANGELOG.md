@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The coin.** The launcher icon is drawn the way a minted gold coin is: one gold hue,
+  facets from cream to deep amber, the shaded ones fading toward their points
+  (`tools/coin_ref.py`).
+
 - **Back is at the bottom** on Settings and an account's page, as on the
   forms and reviews; the account page has edit next to it.
 - **Insights** shows the total with the three buckets as filters, categories

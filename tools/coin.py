@@ -1,3 +1,5 @@
+# The coin's geometry and light, and its one-colour themed icon (ic_launcher_monochrome.xml).
+# The colour icon is drawn from this by coin_ref.py.
 import math, sys
 C = 54.0
 R = 26.0                       # decagon circumradius, well inside the adaptive icon's safe zone
