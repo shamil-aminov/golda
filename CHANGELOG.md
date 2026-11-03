@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Property tests** (Kotest) for the money rules: transfers make and lose
+  nothing, an account spent to zero keeps no ruble cost, amounts read back as
+  shown, debts and the spending period hold for any balance and day, the
+  mosaic fills its area. Mutation score of the domain from 74 % to 84 %, and
+  CI now fails below 82 %.
 - **Themes.** Settings → Тема: eleven ready palettes (two for colour-vision deficiency) and a generator that
   builds a whole theme from one colour (a hue slider, the wallpaper's colour,
   or a surprise), a style (calm, vivid, bold, mono), light or dark, and a

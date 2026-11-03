@@ -118,6 +118,7 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
+    testImplementation(libs.kotest.property)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -150,6 +151,8 @@ tasks.register<JavaExec>("pitest") {
     val sources = file("src/main/java")
     val report = layout.buildDirectory.dir("reports/pitest")
     val classPathFile = layout.buildDirectory.file("tmp/pitest/classpath.txt")
+    // The code and the tests are its inputs: a change to either runs it again.
+    inputs.files(testClasspath)
     outputs.dir(report)
     argumentProviders.add(
         CommandLineArgumentProvider {
@@ -171,6 +174,8 @@ tasks.register<JavaExec>("pitest") {
                 "--outputFormats", "HTML,CSV",
                 "--timestampedReports", "false",
                 "--threads", "4",
+                // The floor: tests that notice fewer breaks than this fail the build. Raise it, never lower it.
+                "--mutationThreshold", "82",
             )
         },
     )

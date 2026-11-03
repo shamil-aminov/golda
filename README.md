@@ -174,8 +174,14 @@ The unit tests need no device. They cover the ledger and cost basis, rates
 and card-charge estimates, the spending period and its burn, buckets, savings
 interest, debts and the prepayment calculator, analytics, how voice answers
 turn into operations, and the amounts read back from the transcript.
+Besides examples, property tests (Kotest) check rules on thousands of random
+inputs: moving money never makes or loses any, an account spent down to zero
+keeps no ruble cost, an amount as shown reads back to the same kopecks, the
+mosaic covers its area without overlaps.
+
 `./gradlew pitest` mutation-tests the domain against them: it breaks the code
-one small way at a time and reports every break no test noticed.
+one small way at a time and reports every break no test noticed. CI fails
+below 82 % of breaks caught; the floor only goes up.
 
 Debug builds can fill the app with a made-up demo, which **erases everything
 in the app first**. [CONTRIBUTING.md](CONTRIBUTING.md) explains how to run it

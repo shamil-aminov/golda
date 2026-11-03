@@ -30,6 +30,9 @@ jobs:
       - name: Unit tests
         run: ./gradlew test --stacktrace
 
+      - name: Mutation tests
+        run: ./gradlew pitest --stacktrace
+
       - name: Lint
         run: ./gradlew lintDebug --stacktrace
 
