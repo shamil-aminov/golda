@@ -20,12 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- "15 тысяч" is read as fifteen thousand when the app checks the model's
+  sum against the words; before, "куртка 15 тысяч рублей" was booked as 15 ₽.
+  A transfer the model leaves without a sum takes the one the words say.
 - The mosaic's corners follow each tile's size, so small tiles stay tiles
   instead of turning into pills.
 - A spoken transfer with one sum ("погасил кредитку 15 тысяч с карты") is
-  booked: the prompt now says one sum is what was sent, and when the model
-  still gives it as what arrived, between accounts in one currency the app
-  takes it as both. Found by the Gemini evals (29 of 31 phrases right).
+  booked: when the model gives it as what arrived, between accounts in one
+  currency the app takes it as both. Found by the Gemini evals, which now also
+  score what the app books after its own checks.
 - Settings keeps its place while Theme is open over it, and forgets it once
   closed. Pages slide in from the right going deeper and back out going back,
   as in Android's own settings.

@@ -11,7 +11,11 @@ import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.DefaultCategories
 import sh.aminov.golda.data.Gemini
 import sh.aminov.golda.domain.Fmt
+import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.Settings
+import sh.aminov.golda.domain.VoiceAction
+import sh.aminov.golda.domain.VoiceMapper
+import sh.aminov.golda.domain.VoiceResult
 import sh.aminov.golda.domain.VoiceItem
 import sh.aminov.golda.domain.VoicePrompt
 import java.io.File
@@ -40,6 +44,27 @@ class GeminiEvalTest {
     )
     private val settings = Settings(localCurrency = "GEL", displayCurrencies = listOf("RUB", "USD", "GEL", "THB"))
     private val system = VoicePrompt.system(accounts, DefaultCategories.all, settings, LocalDate.of(2026, 10, 24))
+    private val rates = Rates(mapOf("USD" to 92.0, "GEL" to 34.0, "THB" to 2.7), markup = 0.1)
+    private val categories = DefaultCategories.all.mapIndexed { i, c -> c.copy(id = i + 1L) }
+
+    /**
+     * What the app would book from the model's answer, after its own checks: every expected item a
+     * record, each with the sum said. Null when there is no sum to compare.
+     */
+    private fun booked(case: Case, result: VoiceResult): Boolean {
+        val actions = VoiceMapper.actions(result, accounts, categories, settings, rates, System.currentTimeMillis(), java.time.ZoneOffset.UTC)
+        if (case.items.all { it.intent == "unknown" }) return actions.all { it is VoiceAction.NotUnderstood }
+        if (actions.size != case.items.size) return false
+        return case.items.zip(actions).all { (e, a) ->
+            val draft = (a as? VoiceAction.Record)?.draft ?: return@all false
+            if (e.amount == "*" || e.amount == "-") return@all true
+            val account = accounts.first { it.id == draft.accountId }
+            val code = e.currency.takeIf { it.length == 3 } ?: account.currency
+            val want = Fmt.parseMinor(e.amount, code)
+            // The sum as said: kept beside a converted charge, else the amount itself in the account's currency.
+            (draft.purchaseAmountMinor ?: draft.amountMinor) == want || (code != account.currency && draft.purchaseAmountMinor == null && draft.amountMinor > 0)
+        }
+    }
 
     private data class Expected(val intent: String, val amount: String, val currency: String, val account: String, val to: String, val toAmount: String, val category: String)
     private data class Case(val said: String, val items: List<Expected>, val audio: File? = null)
@@ -85,6 +110,7 @@ class GeminiEvalTest {
         val report = StringBuilder("Model $model\n\n")
         val totals = mutableMapOf<String, Pair<Int, Int>>()
         var casesRight = 0
+        var casesBooked = 0
         val all = cases()
         for (case in all) {
             val result = runCatching {
@@ -103,13 +129,16 @@ class GeminiEvalTest {
                 }
             }
             if (right) casesRight++
+            val book = result.getOrNull()?.let { booked(case, it) } == true
+            if (book) casesBooked++
             val tag = if (case.audio != null) "🎤 " else ""
-            report.append(if (right) "✓ " else "✗ ").append(tag).append(case.said)
+            report.append(if (right) "✓ " else "✗ ").append(if (book) "" else "(не записалось бы) ").append(tag).append(case.said)
             result.exceptionOrNull()?.let { report.append("  (failed: ${it.message})") }
             report.append('\n')
             lines.forEach { report.append(it).append('\n') }
         }
-        report.append("\n$casesRight of ${all.size} phrases fully right\n")
+        report.append("\n$casesRight of ${all.size} phrases fully right from the model\n")
+        report.append("$casesBooked of ${all.size} booked right by the app, after its own checks\n")
         totals.forEach { (field, ab) -> report.append("  $field: ${ab.first}/${ab.second}\n") }
         println(report)
         File("build/evals.txt").writeText(report.toString())

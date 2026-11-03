@@ -70,6 +70,13 @@ class VoiceMapperEdgesTest {
         assertEquals(1_500_000L, paid.amountMinor)
         assertEquals(1_500_000L, paid.toAmountMinor)
         assertFalse(paid.isEstimate)
+        // No sum from the model at all: the one the words say, in the currency of the account it leaves.
+        fun said(text: String, i: VoiceItem) = VoiceMapper.actions(VoiceResult(text, listOf(i)), accounts + rub2, listOf(food), settings, rates, now, zone).single()
+        val saved = (said("перевёл с карты на кредитку 40 тысяч", item("transfer", null, null, account = rub.id, to = rub2.id)) as VoiceAction.Record).draft
+        assertEquals(4_000_000L, saved.amountMinor)
+        assertEquals(4_000_000L, saved.toAmountMinor)
+        // Two amounts said, or a phrase with more items: not guessed.
+        notUnderstood(said("перевёл 300 и 500", item("transfer", null, null, account = rub.id, to = rub2.id)))
         // Across currencies one sum can't say the other: not guessed.
         notUnderstood(one(item("transfer", null, null, account = usd.id, to = gel.id, toAmount = "300")))
         // No sum at all: nothing to book.

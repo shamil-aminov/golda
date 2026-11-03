@@ -47,4 +47,13 @@ class SpokenAmountsTest {
         // A currency without fractions counts whole units.
         assertEquals(Checked(1_500, false), SpokenAmounts.check(1_500, "JPY", SpokenAmounts.parse("рамен 1500"), single = true))
     }
+
+    @Test
+    fun thousands() {
+        assertEquals(listOf(4_000_000L), hundredths("перевёл на накопительный 40 тысяч"))
+        assertEquals(listOf(150_000L), hundredths("1,5 тыс на подарок"))
+        assertEquals(listOf(1_500_000L), hundredths("погасил кредитку 15 тысяч рублей"))
+        // A purchase of fifteen thousand stays fifteen thousand, not fifteen.
+        assertEquals(Checked(1_500_000, false), SpokenAmounts.check(1_500_000, "RUB", SpokenAmounts.parse("куртка 15 тысяч рублей"), single = true))
+    }
 }
