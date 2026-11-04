@@ -185,15 +185,9 @@ fun AmountColumn(
 fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>, accountId: Long? = null, onClick: (OperationFull) -> Unit) {
     val today = data.today
     operations.groupBy { Ledger.localDate(it.op.timestamp, data.zone) }.forEach { (date, list) ->
-        // The day's spending beside its date, quiet, in the local currency in whole units as on Home;
-        // not on an account's page, where every row already says what moved.
-        val spent = if (accountId == null) list.filter { it.op.type == OpType.EXPENSE }.sumOf { full -> -full.postings.sumOf { p -> p.rubMinor } } else 0
-        val total = spent.takeIf { it > 0 }?.let { rub -> data.dayTotal(rub) }
         item(key = "day-$date") {
-            // The date opens the day's card, a step under a section's title; its sum at the end.
-            CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), quiet = true) {
-                total?.let { Text(it, style = TextRole.rowName.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
-            }
+            // The date alone opens the day's card, a group's title like Accounts'; a card from the last.
+            CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Space.cards))
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
             // New entries slide in, the rest make room.
@@ -283,6 +277,17 @@ internal fun operationLine(data: AppData, full: OperationFull, accountId: Long?)
             supporting = outAccount?.takeIf { it.id != data.usualAccountId }?.name
         }
     }
+    // One rule: the title is the note or the category; the second line says what the title does not —
+    // a transfer's note, else that it went between your accounts; with a note, its category; without
+    // one, the account (on its own page, the kind of the money instead).
+    supporting = when {
+        transfer -> op.note.takeUnless { it.isBlank() || restatesTransfer(it, outAccount?.name, intoAccount.name) } ?: tr("Между своими счетами", "Between your accounts")
+        op.note.isNotBlank() -> category?.label() ?: tr("Без категории", "No category")
+        accountId == null -> outAccount?.name
+        op.type == OpType.INCOME -> tr("Доход", "Income")
+        op.type == OpType.ADJUSTMENT -> tr("Сверка с банком", "Checked against the bank")
+        else -> tr("Трата", "Spending")
+    }
     return OperationLine(title, supporting, main, secondary, approximate, transfer)
 }
 
@@ -291,10 +296,8 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
     val op = full.op
     val category = op.categoryId?.let { data.categoryById[it] }
     val line = operationLine(data, full, accountId)
-    // Every row two lines on each side. On Home a row with nothing more to say names its account;
-    // on an account's page that is the page itself, so the line stays empty.
-    val out = full.postings.firstOrNull { it.amountMinor < 0 } ?: full.postings.first()
-    val second = line.supporting ?: if (accountId == null) data.accountById[out.accountId]?.name.orEmpty() else ""
+    // Every row two lines on each side: the amount on the name's baseline, what it came to on the second's.
+    val second = line.supporting.orEmpty()
     // A transfer is neither spent nor earned: a neutral color.
     val color = if (line.transfer) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
@@ -304,15 +307,21 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
         leading = {
             if (LocalColouredRows.current) {
                 val fill = operationColor(category?.key, op.type, LocalTones.current)
-                GlyphCircle(operationIcon(category, op.type), color = fill, ink = inkOn(fill))
+                GlyphCircle(operationIcon(category, op.type), color = fill, ink = inkOn(fill), size = OperationIcon)
             } else {
-                GlyphCircle(operationIcon(category, op.type))
+                GlyphCircle(operationIcon(category, op.type), size = OperationIcon)
             }
         },
         supporting = { Text(second, style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = { AmountColumn(line.main, line.secondary, line.approximate, color, reserve = true) },
     ) { Text(line.title, style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
+
+/**
+ * An operation's icon: a 48 circle, the row's biggest mark, its category's colour (40 in the other lists,
+ * where an icon only says what a setting is).
+ */
+val OperationIcon = 48.dp
 
 /**
  * Whether a transfer's note only says what "A → B" already does: it starts with "перевод"/"transfer",
