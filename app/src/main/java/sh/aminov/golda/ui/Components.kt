@@ -281,9 +281,12 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
         index, count, modifier,
         onClick = { onClick(full) },
         leading = {
-            val fill = LocalCategoryCircles.current?.takeIf { op.type == OpType.EXPENSE }?.get(category?.key)
-            if (fill != null) GlyphCircle(operationIcon(category, op.type), color = fill, ink = inkOn(fill))
-            else GlyphCircle(operationIcon(category, op.type))
+            if (LocalColouredRows.current) {
+                val fill = operationColor(category?.key, op.type, LocalTones.current)
+                GlyphCircle(operationIcon(category, op.type), color = fill, ink = inkOn(fill))
+            } else {
+                GlyphCircle(operationIcon(category, op.type))
+            }
         },
         supporting = supporting?.let { text -> { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailing = { AmountColumn(main, secondary, approximate, color) },

@@ -11,6 +11,7 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
+import sh.aminov.golda.data.OpType
 
 /** How loud a generated theme is. */
 enum class ThemeStyle { CALM, VIVID, EXPRESSIVE, MONO }
@@ -150,17 +151,32 @@ object ThemeGen {
 /** The tones the app is drawn in now, for colours worked out from them (categories, the pace bar). */
 val LocalTones = staticCompositionLocalOf { GoldaLight }
 
-/** Each category's hue on the OKLCH wheel: Еда stays green whatever the theme, only its depth changes. */
+/**
+ * Each category's hue on the OKLCH wheel: Еда stays green whatever the theme, only its depth changes.
+ * The same in the lists and in Аналитика, whatever the month.
+ */
 private val categoryHues = mapOf(
     "food" to 142.0, "transport" to 315.0, "household" to 185.0, "treats" to 355.0,
     "housing" to 255.0, "telecom" to 275.0, "subscriptions" to 300.0, "loans" to 25.0,
-    "shopping" to 50.0, "travel" to 220.0, "health" to 160.0,
+    "shopping" to 50.0, "travel" to 220.0, "health" to 160.0, "other" to 205.0,
+    // Money in: the warm golds, apart from what it is spent on.
+    "salary" to 85.0, "other_income" to 100.0, "interest" to 115.0, "gift" to 330.0,
 )
 
-/** A category's colour in [tones]: its own hue at the theme's lightness and chroma; others grey. */
+/**
+ * A category's colour in [tones]: its own hue at the theme's lightness and chroma; one of its own
+ * (a user's) or none, Другое's. In Ясная, the colours told apart by lightness too.
+ */
 fun categoryColor(key: String?, tones: Tones): Color {
-    val hue = categoryHues[key] ?: return oklch(tones.infoL.toDouble(), 0.012, 90.0)
-    return oklch(tones.infoL.toDouble(), tones.infoC.toDouble(), clearOfIce(hue))
+    val known = key?.takeIf { it in categoryHues } ?: "other"
+    if (tones.clearColours) return clearColour(categoryHues.keys.indexOf(known), tones.dark)
+    return oklch(tones.infoL.toDouble(), tones.infoC.toDouble(), clearOfIce(categoryHues.getValue(known)))
+}
+
+/** A row's colour: its category's; a transfer or a reconciliation the theme's own hue, softer, the same every time. */
+fun operationColor(key: String?, type: OpType, tones: Tones): Color = when (type) {
+    OpType.TRANSFER, OpType.ADJUSTMENT -> oklch(tones.infoL.toDouble(), (tones.infoC * 0.5).coerceAtLeast(0.04).toDouble(), clearOfIce(tones.seedHue.toDouble()))
+    else -> categoryColor(key, tones)
 }
 
 /** A category's colour in the current theme. */

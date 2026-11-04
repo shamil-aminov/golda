@@ -144,12 +144,11 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
     }
     // Each day's spending by category, biggest first: the day bars are stacked in the categories' colours.
     val tones = LocalTones.current
-    // Each category's colour by its rank in this period's whole spending (not the picked bucket's), so
-    // a filter never repaints a category: the biggest in the theme's hue.
+    // Each category in its own colour, the one its rows wear in the lists: Еда is the same green every month.
     val colours = remember(report, tones) {
-        report.categories.withIndex().associate { (rank, spend) ->
+        report.categories.associate { spend ->
             val key = spend.categoryId?.let { data.categoryById[it]?.key }
-            key to leitmotifColor(if (key == null) null else rank, tones)
+            key to if (key == null) leitmotifColor(null, tones) else categoryColor(key, tones)
         }
     }
     val stacks = remember(data, period, filter, tones, colours) {

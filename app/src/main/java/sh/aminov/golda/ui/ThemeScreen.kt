@@ -88,6 +88,8 @@ fun ThemeScreen(
     onForget: (String) -> Unit,
     oled: Boolean = false,
     onOled: (Boolean) -> Unit = {},
+    colouredRows: Boolean = true,
+    onColouredRows: (Boolean) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
@@ -142,6 +144,14 @@ fun ThemeScreen(
             ) {
                 Text(tr("Чистый чёрный", "Pure black"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                 CheckSwitch(oled) { onOled(it) }
+            }
+            // Each row's circle in its category's colour, as in Аналитика.
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(colouredRows, role = Role.Switch) { onColouredRows(it) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(tr("Цветные траты", "Coloured spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                CheckSwitch(colouredRows) { onColouredRows(it) }
             }
             // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
             BoxWithConstraints(Modifier.fillMaxWidth()) {

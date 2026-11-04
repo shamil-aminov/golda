@@ -402,11 +402,8 @@ fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier, color: Co
     IconCircle(modifier, color) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = ink) }
 }
 
-/**
- * A draft, not on yet (docs/tasks/category-colours.md): each spending's circle in its category's
- * mosaic colour, by category key. Null: the neutral circles.
- */
-val LocalCategoryCircles = staticCompositionLocalOf<Map<String?, Color>?> { null }
+/** Whether a row's circle wears its category's colour (Цветные траты on the Theme page); off, the neutral circles. */
+val LocalColouredRows = staticCompositionLocalOf { true }
 
 /** Black or white, whichever stands out more on [fill]. */
 fun inkOn(fill: Color): Color {

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -24,17 +23,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
-import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.I18n
-import sh.aminov.golda.domain.PeriodKind
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.HomeScreen
-import sh.aminov.golda.ui.LocalCategoryCircles
+import sh.aminov.golda.ui.Palette
 import sh.aminov.golda.ui.ThemeScreen
 import sh.aminov.golda.ui.Tones
 import sh.aminov.golda.ui.inkOn
-import sh.aminov.golda.ui.leitmotifColor
+import sh.aminov.golda.ui.operationColor
+import sh.aminov.golda.data.DefaultCategories
+import sh.aminov.golda.data.OpType
 import java.util.TimeZone
 
 /**
@@ -195,8 +194,8 @@ class BoldDraftsShots {
 }
 
 /**
- * Spending's circles in the category's mosaic colour, before and after, on a tall Home so the list
- * shows: docs/tasks/category-colours.md. recordRoborazziDebug with --tests "*CategoryCirclesShots*".
+ * Every row's circle in its colour, off and on, on a tall Home so the list shows:
+ * docs/tasks/category-colours.md. recordRoborazziDebug with --tests "*CategoryCirclesShots*".
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -211,34 +210,36 @@ class CategoryCirclesShots {
     }
 
     @Test
-    fun beforeAndAfter() {
+    fun offAndOn() {
         val data = ScreenshotTest().demo()
-        // The mosaic's own colours: each category by its rank in the month's spending, as Аналитика opens.
-        val period = Analytics.period(PeriodKind.MONTH, data.today, null)
-        val report = Analytics.report(data.operations, data.accountById, data.categoryById, period, data.today, data.zone, data.rates)
-        fun colours(t: Tones) = report.categories.withIndex().associate { (rank, spend) ->
-            val key = spend.categoryId?.let { data.categoryById[it]?.key }
-            key to leitmotifColor(if (key == null) null else rank, t)
-        }
         var tones by mutableStateOf(BoldDrafts.all[0].light)
         var on by mutableStateOf(false)
+        var home by mutableStateOf(true)
         compose.setContent {
-            GoldaTheme(tones) {
-                CompositionLocalProvider(LocalCategoryCircles provides if (on) colours(tones) else null) {
-                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                        HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
-                    }
+            GoldaTheme(tones, colouredRows = on) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    if (home) HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
+                    else AnalyticsScreen(data, PaddingValues()) {}
                 }
             }
         }
-        BoldDrafts.all.filter { it.key in CIRCLE_KEYS }.forEach { d ->
-            listOf(d.light, d.dark).forEach { t ->
+        val themes = BoldDrafts.all.filter { it.key in CIRCLE_KEYS }.map { it.key to listOf(it.light, it.dark) } +
+            listOf("golda" to listOf(Palette.GOLDA.light, Palette.GOLDA.dark))
+        themes.forEach { (key, halves) ->
+            halves.forEach { t ->
                 listOf(false, true).forEach { after ->
                     tones = t
                     on = after
+                    home = true
                     compose.waitForIdle()
-                    val name = "${d.key}_${if (t.dark) "dark" else "light"}_${if (after) "after" else "before"}"
-                    compose.onRoot().captureRoboImage("src/test/screenshots/bold/circles_$name.png")
+                    val half = if (t.dark) "dark" else "light"
+                    compose.onRoot().captureRoboImage("src/test/screenshots/bold/circles_${key}_${half}_${if (after) "after" else "before"}.png")
+                    // Аналитика with the fixed colours, to set beside the rows.
+                    if (after) {
+                        home = false
+                        compose.waitForIdle()
+                        compose.onRoot().captureRoboImage("src/test/screenshots/bold/circles_${key}_${half}_insights.png")
+                    }
                 }
             }
         }
@@ -250,15 +251,16 @@ class CategoryCirclesShots {
 }
 
 class CategoryCirclesContrastTest {
-    /** An icon on its category's colour stands out 3:1, WCAG's bar for a mark that is not text. */
+    /** A row's icon on its colour, every category and a transfer, in every draft: 3:1, WCAG's bar for a mark. */
     @Test
     fun theIconReadsOnItsColour() {
         BoldDrafts.all.flatMap { listOf(it.light, it.dark) }.forEach { t ->
-            (0 until 12).forEach { rank ->
-                val fill = leitmotifColor(rank, t)
-                val ink = inkOn(fill)
-                val (hi, lo) = listOf(fill.luminance(), ink.luminance()).sortedDescending()
-                assertTrue("rank $rank on ${t.plate}", (hi + 0.05) / (lo + 0.05) >= 3.0)
+            (DefaultCategories.all.map { it.key } + null).forEach { key ->
+                OpType.entries.forEach { type ->
+                    val fill = operationColor(key, type, t)
+                    val (hi, lo) = listOf(fill.luminance(), inkOn(fill).luminance()).sortedDescending()
+                    assertTrue("$key $type on ${t.plate}", (hi + 0.05) / (lo + 0.05) >= 3.0)
+                }
             }
         }
     }

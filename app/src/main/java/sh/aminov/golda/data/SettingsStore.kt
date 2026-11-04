@@ -36,6 +36,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val palette = stringPreferencesKey("palette")
         val themeMode = stringPreferencesKey("themeMode")
         val oled = booleanPreferencesKey("oled")
+        val colouredRows = booleanPreferencesKey("colouredRows")
         val autoBackupFolder = stringPreferencesKey("autoBackupFolder")
         val lastAutoBackup = longPreferencesKey("lastAutoBackup")
         val savedThemes = stringPreferencesKey("savedThemes")
@@ -80,6 +81,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             // Before the mode was one setting, some themes were dark (or light) only: keep them so.
             themeMode = this[K.themeMode] ?: legacyThemeMode(this[K.palette]),
             oled = this[K.oled] ?: d.oled,
+            colouredRows = this[K.colouredRows] ?: d.colouredRows,
             autoBackupFolder = this[K.autoBackupFolder],
             lastAutoBackup = this[K.lastAutoBackup] ?: d.lastAutoBackup,
             savedThemes = this[K.savedThemes]?.split('|')?.filter { it.isNotBlank() } ?: d.savedThemes,
@@ -105,6 +107,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         this[K.palette] = s.palette
         this[K.themeMode] = s.themeMode
         this[K.oled] = s.oled
+        this[K.colouredRows] = s.colouredRows
         if (s.autoBackupFolder != null) this[K.autoBackupFolder] = s.autoBackupFolder else remove(K.autoBackupFolder)
         this[K.lastAutoBackup] = s.lastAutoBackup
         this[K.savedThemes] = s.savedThemes.joinToString("|")
