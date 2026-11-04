@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -261,19 +262,27 @@ fun AccountsScreen(
             val words = TextRole.caption
             val figures = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
-                // One block, the total: its label, the figure and the figure in other currencies a text apart.
-                Text(tr("Всего на счетах", "Total in accounts"), style = words, color = ink, maxLines = 1)
-                VSpace(Space.text)
-                HeroAmount(data.base.whole(total), ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
-                VSpace(Space.text)
-                Text(data.others(total, data.base.code), style = figures, color = ink)
-                // What the debt costs, a block under: its label like the total's, the money it eats like the line above.
+                // The figures first, each block closed by its label, the sizes only going down: the total
+                // and the same money in other currencies, «Всего на счетах» under them. Each block is one
+                // node for TalkBack, read as it stands: the figures, then what they are.
+                Column(Modifier.semantics(mergeDescendants = true) {}) {
+                    HeroAmount(data.base.whole(total), ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
+                    VSpace(Space.text)
+                    Text(data.others(total, data.base.code), style = figures, color = ink)
+                    VSpace(Space.text)
+                    Text(tr("Всего на счетах", "Total in accounts"), style = words, color = ink, maxLines = 1)
+                }
+                // What the debt costs, a block under: the money it eats, then its label.
                 Debts.advice(data.accounts, data.states)?.let { advice ->
                     VSpace(Space.block)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
-                    Text(head, style = words, color = ink)
-                    VSpace(Space.text)
-                    tail?.let { Text(it, style = figures, color = ink) }
+                    Column(Modifier.semantics(mergeDescendants = true) {}) {
+                        tail?.let {
+                            Text(it, style = figures, color = ink)
+                            VSpace(Space.text)
+                        }
+                        Text(head, style = words, color = ink)
+                    }
                 }
             }
         }
