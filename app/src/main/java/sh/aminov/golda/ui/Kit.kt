@@ -1,6 +1,5 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -96,7 +95,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.HorizontalDivider
@@ -104,7 +102,6 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.window.PopupProperties
-import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -126,9 +123,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.clip
@@ -373,10 +370,13 @@ fun groupShape(index: Int, count: Int, outer: Dp = CardCorner): Shape {
 }
 
 /**
- * One row of a grouped list. [onClick] null makes it a plain row. The gap under it is part of the
- * row, so a LazyColumn can lay rows out one item each.
+ * One row of a grouped list. [onClick] null makes it a plain row. Our own row, not Material's list
+ * item: that one holds a two-line row at 72 at least, which broke the spacing progression and the
+ * density. Here a row is its text and [Space] only: half a block over and under it, the card's 16 at
+ * the group's ends and its sides, the second line a text's step under the first. One node for
+ * TalkBack (the caller's role and state included), 48 at least to tap, the ripple in the row's shape.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GroupRow(
     index: Int,
@@ -393,53 +393,44 @@ fun GroupRow(
     trailingOnTitle: Boolean = true,
     headline: @Composable () -> Unit,
 ) {
-    // Lifted by the second line and the space over it, so its centre sits on the title's; less the 4 an
-    // amount's 28 line stands over a name's 24, so the end never makes the row taller than its two lines.
-    val lift = with(LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() } + Space.text - 4.dp
-    val end: (@Composable () -> Unit)? = if (trailingOnTitle && supporting != null && trailing != null) {
-        { Box(Modifier.padding(bottom = lift)) { trailing() } }
-    } else {
-        trailing
-    }
-    val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
-    // Half a block over and under each row, so two rows' texts are a block apart; the card's own 16
-    // at its ends. The sides as Material has them (16).
-    val layout = LocalLayoutDirection.current
-    val padding = ListItemDefaults.ContentPadding.let {
-        PaddingValues(
-            start = it.calculateStartPadding(layout), end = it.calculateEndPadding(layout),
-            top = if (index == 0) Space.card else Space.half, bottom = if (index == count - 1) Space.card else Space.half,
-        )
-    }
-    // The second line a text's step under the first.
-    val second: (@Composable () -> Unit)? = supporting?.let { { Box(Modifier.padding(top = Space.text)) { it() } } }
-    val colors = ListItemDefaults.segmentedColors(containerColor = container)
+    val shape = groupShape(index, count)
+    val scheme = MaterialTheme.colorScheme
+    val type = MaterialTheme.typography
     // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
-    val spaced = modifier.bleed(Gap.s)
-    if (onClick != null) {
-        SegmentedListItem(
-            onClick = onClick,
-            shapes = shapes,
-            modifier = spaced,
-            leadingContent = leading,
-            trailingContent = end,
-            supportingContent = second,
-            onLongClick = onLongClick,
-            colors = colors,
-            contentPadding = padding,
-            content = headline,
-        )
+    val tap = if (onClick != null || onLongClick != null) {
+        Modifier.clip(shape).combinedClickable(onClick = onClick ?: {}, onLongClick = onLongClick)
     } else {
-        SegmentedListItem(
-            shapes = shapes,
-            modifier = spaced,
-            leadingContent = leading,
-            trailingContent = end,
-            supportingContent = second,
-            colors = colors,
-            contentPadding = padding,
-            content = headline,
-        )
+        Modifier.semantics(mergeDescendants = true) {}
+    }
+    Surface(modifier.bleed(Gap.s).then(tap), shape = shape, color = container, contentColor = scheme.onSurface) {
+        // On the title's line when it has a second line under it; else in the middle, like a switch.
+        val onTitle = trailingOnTitle && supporting != null && trailing != null
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(
+                start = Space.card, end = Space.card,
+                top = if (index == 0) Space.card else Space.half, bottom = if (index == count - 1) Space.card else Space.half,
+            ),
+            verticalAlignment = if (onTitle) Alignment.Top else Alignment.CenterVertically,
+        ) {
+            leading?.let {
+                CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { it() }
+                Spacer(Modifier.width(Space.card))
+            }
+            Column(Modifier.weight(1f).let { if (onTitle) it else it.align(Alignment.CenterVertically) }) {
+                ProvideTextStyle(type.bodyLarge) { headline() }
+                supporting?.let {
+                    Spacer(Modifier.height(Space.text))
+                    CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { ProvideTextStyle(type.bodyMedium) { it() } }
+                }
+            }
+            trailing?.let {
+                Spacer(Modifier.width(Space.card))
+                CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) {
+                    // On the title's line it starts with the name (an amount and, under it, what it became).
+                    it()
+                }
+            }
+        }
     }
 }
 
