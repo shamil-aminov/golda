@@ -97,7 +97,7 @@ class ScreenshotTest {
     }
 
     /** The demo of `Demo.samples`, built in memory: a ruble salary, money moved abroad, two weeks of lari. */
-    private fun demo(): AppData {
+    internal fun demo(): AppData {
         val zone = ZoneId.of("UTC")
         val now = today.atTime(19, 0).atZone(zone).toInstant().toEpochMilli()
         val hour = 3_600_000L

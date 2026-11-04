@@ -57,8 +57,13 @@ private fun ColorScheme.goldOnlyByName(): ColorScheme = copy(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaTheme(palette: String? = null, mode: String? = null, content: @Composable () -> Unit) {
-    val tones = tonesFor(palette, isDarkMode(mode, isSystemInDarkTheme()))
+fun GoldaTheme(palette: String? = null, mode: String? = null, content: @Composable () -> Unit) =
+    GoldaTheme(tonesFor(palette, isDarkMode(mode, isSystemInDarkTheme())), content)
+
+/** The app's theme drawn in a set of [tones] of its own, a preset's or one not yet in [Palette]. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun GoldaTheme(tones: Tones, content: @Composable () -> Unit) {
     val base = colorSchemeOf(tones)
     // The bars' icons follow the theme, not the system: dark icons on a light theme and back.
     val view = LocalView.current
