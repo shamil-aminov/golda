@@ -60,6 +60,25 @@ data class Envelope(
 }
 
 object Envelopes {
+    /**
+     * The settings for a new period from [day], as long as the one set before (a month when none was):
+     * what a top-up recorded with "Начать новый месяц" does.
+     */
+    fun startingOn(day: LocalDate, settings: Settings): Settings {
+        val before = if (settings.periodStart > 0 && settings.periodEnd > settings.periodStart) {
+            LocalDate.ofEpochDay(settings.periodStart) to LocalDate.ofEpochDay(settings.periodEnd)
+        } else {
+            null
+        }
+        val length = before?.let { (s, e) -> Length.entries.firstOrNull { end(s, it) == e } }
+        val end = when {
+            before == null -> end(day, Length.MONTH)
+            length != null -> end(day, length)
+            else -> day.plusDays(ChronoUnit.DAYS.between(before.first, before.second))
+        }
+        return settings.copy(periodStart = day.toEpochDay(), periodEnd = end.toEpochDay())
+    }
+
     /** Lengths a period is usually set to; a date of your own is the fourth choice. */
     enum class Length { WEEK, TWO_WEEKS, MONTH }
 
@@ -91,14 +110,25 @@ object Envelopes {
         .maxOrNull()
 
     /**
-     * The period: the one set while it lasts; otherwise a month from the card's last top-up (or from
-     * today, with none), so the screen means something before anything is set.
+     * The period: the one set (by hand, or by a top-up recorded with "Начать новый месяц") while it
+     * lasts, and once it is over the next one of the same length, so money coming in never moves it on
+     * its own. Never set: a month from the card's last top-up (or from today), so the screen means
+     * something before anything is set.
      */
     fun period(accountId: Long, operations: List<OperationFull>, settings: Settings, today: LocalDate, zone: ZoneId): Pair<LocalDate, LocalDate> {
         if (settings.periodEnd > 0 && settings.periodStart > 0) {
-            val start = LocalDate.ofEpochDay(settings.periodStart)
-            val end = LocalDate.ofEpochDay(settings.periodEnd)
-            if (!end.isBefore(today) && !start.isAfter(today)) return start to end
+            var start = LocalDate.ofEpochDay(settings.periodStart)
+            var end = LocalDate.ofEpochDay(settings.periodEnd)
+            if (!start.isAfter(today) && !end.isBefore(start)) {
+                // A month stays a month (the 28th to the 28th); any other length steps by its days.
+                val monthly = end(start, Length.MONTH) == end
+                val days = ChronoUnit.DAYS.between(start, end).coerceAtLeast(1)
+                while (end.isBefore(today)) {
+                    start = end
+                    end = if (monthly) end(start, Length.MONTH) else start.plusDays(days)
+                }
+                return start to end
+            }
         }
         val start = lastTopUp(accountId, operations, today, zone) ?: today
         val end = end(start, Length.MONTH).let { if (it.isBefore(today)) today else it }

@@ -111,7 +111,7 @@ object ReviewPrompt {
             appendLine("Период: с ${period.from.format(day)} по ${period.to.format(day)}, $days дн.")
             start?.let { appendLine("Учёт ведётся с ${it.format(day)}; до этого трат просто не записано.") }
             appendLine("Суммы — сколько это стоило в рублях.")
-            appendLine("Расходы всего: ${rub(report.spentRub)}; ежедневные ${rub(report.dailyRub)}, регулярные ${rub(report.regularRub)}, крупные ${rub(report.bigRub)}.")
+            appendLine("Расходы всего: ${rub(report.spentRub)}; ежедневные ${rub(report.dailyRub)}, регулярные ${rub(report.regularRub)}, разовые ${rub(report.bigRub)}.")
             appendLine("Ежедневное в среднем: ${rub(report.dailyPerDayRub)} в день.")
             appendLine("Доходы: ${rub(report.incomeRub)}. Потери на обмене против ЦБ: ${rub(report.fxLossRub)}.")
             appendLine()
@@ -221,7 +221,7 @@ object ReviewPrompt {
     private fun bucketWord(bucket: sh.aminov.golda.data.Bucket) = when (bucket) {
         sh.aminov.golda.data.Bucket.DAILY -> "ежедневные"
         sh.aminov.golda.data.Bucket.REGULAR -> "регулярные"
-        sh.aminov.golda.data.Bucket.BIG -> "крупные"
+        sh.aminov.golda.data.Bucket.BIG -> "разовые"
     }
 
     /**

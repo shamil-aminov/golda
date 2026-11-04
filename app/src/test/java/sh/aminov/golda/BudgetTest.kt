@@ -145,9 +145,33 @@ class BudgetTest {
         topUp(today.minusDays(3))
         val set = Settings(periodStart = today.minusDays(3).toEpochDay(), periodEnd = today.plusDays(4).toEpochDay())
         assertEquals(today.plusDays(4), envelope(set).end)
-        // Over: back to a month from the last top-up.
+        // Over: the next one of the same 19 days, from where it ended. A top-up does not move it.
         val over = Settings(periodStart = today.minusDays(20).toEpochDay(), periodEnd = today.minusDays(1).toEpochDay())
-        assertEquals(today.minusDays(3).plusMonths(1), envelope(over).end)
+        assertEquals(today.minusDays(1), envelope(over).start)
+        assertEquals(today.plusDays(18), envelope(over).end)
+    }
+
+    @Test
+    fun aMonthSetRollsOnAsMonthsAndMoneyComingInDoesNotMoveIt() {
+        val set = Settings(periodStart = LocalDate.of(2026, 8, 28).toEpochDay(), periodEnd = LocalDate.of(2026, 9, 28).toEpochDay())
+        // A friend's money after the month was set: income, and the month stays.
+        op(OpType.INCOME, today.minusDays(1), tbc to 10_000)
+        val e = envelope(set)
+        assertEquals(LocalDate.of(2026, 10, 28), e.start)
+        assertEquals(LocalDate.of(2026, 11, 28), e.end)
+    }
+
+    @Test
+    fun aTopUpStartingANewMonthKeepsTheLengthSetBefore() {
+        val day = LocalDate.of(2026, 11, 4)
+        assertEquals(day.plusMonths(1).toEpochDay(), Envelopes.startingOn(day, Settings()).periodEnd)
+        val twoWeeks = Settings(periodStart = day.minusWeeks(3).toEpochDay(), periodEnd = day.minusWeeks(1).toEpochDay())
+        assertEquals(day.plusWeeks(2).toEpochDay(), Envelopes.startingOn(day, twoWeeks).periodEnd)
+        val tenDays = Settings(periodStart = day.minusDays(20).toEpochDay(), periodEnd = day.minusDays(10).toEpochDay())
+        assertEquals(day.toEpochDay(), Envelopes.startingOn(day, tenDays).periodStart)
+        assertEquals(day.plusDays(10).toEpochDay(), Envelopes.startingOn(day, tenDays).periodEnd)
+        // The card picked stays the card.
+        assertEquals(4L, Envelopes.startingOn(day, tenDays.copy(spendAccountId = 4)).spendAccountId)
     }
 
     @Test

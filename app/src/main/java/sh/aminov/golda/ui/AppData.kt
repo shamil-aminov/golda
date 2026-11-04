@@ -104,7 +104,7 @@ fun typeLabel(type: AccountType) = when (type) {
 fun bucketLabel(bucket: Bucket) = when (bucket) {
     Bucket.DAILY -> tr("Ежедневные", "Everyday")
     Bucket.REGULAR -> tr("Регулярные", "Regular")
-    Bucket.BIG -> tr("Крупные", "Big")
+    Bucket.BIG -> tr("Разовые", "One-off")
 }
 
 fun dayLabel(date: LocalDate, today: LocalDate): String = when (date) {

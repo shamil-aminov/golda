@@ -582,11 +582,7 @@ fun CheckSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?) {
             uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
             uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ),
-        thumbContent = if (checked) {
-            { Icon(painterResource(R.drawable.ic_check), null, Modifier.size(SwitchDefaults.IconSize)) }
-        } else {
-            null
-        },
+        // No mark on the thumb: the side and the colour say on or off, the mark was a faint extra.
     )
 }
 

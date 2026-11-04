@@ -305,7 +305,7 @@ fun SettingsScreen(
     }
 }
 
-private fun fullDate(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale))
+internal fun fullDate(date: LocalDate): String = date.format(DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale))
 
 /** "15-го" / "day 15". */
 private fun dayOfMonth(day: Int): String = tr("$day-го", "day $day")

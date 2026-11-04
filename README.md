@@ -24,7 +24,7 @@
   <img src="docs/screenshots/entry-dark.png" width="24%" alt="A new expense, dark theme">
   <img src="docs/screenshots/accounts-dark.png" width="24%" alt="Accounts, dark theme">
 </p>
-<p align="center"><sub>Demo data, 0.17.5. Home and insights in the light theme; a new expense and accounts in Midnight.</sub></p>
+<p align="center"><sub>Demo data, 0.20.0. Home and insights in the light theme; a new expense and accounts in Midnight.</sub></p>
 
 ---
 
@@ -56,14 +56,16 @@ loud is the moment you notice you are spending.
   card, the charge is estimated at the CBR cross rate + 2 % and marked **≈**
   until you correct it.
 - **Safe to spend today.** Put money on the card you spend from for a week,
-  two or a month: Golda splits what is left over the days left. Income does
-  not come into it.
+  two or a month: Golda splits what is left over the days left. A top-up of
+  that card asks "Новый месяц с …?" (on for a transfer from your own account,
+  off for an income), so a friend's money never restarts the month; when the
+  period ends, the next one of the same length begins.
 - **Burn from the balance.** How much a day actually leaves the card since
   the top-up, and the day it runs out at that pace: "Spending 70 ₾ a day:
   runs out November 20, 6 days early". Reconcile the card and it holds even
   for days you wrote nothing down.
-- **Three buckets.** Everyday, regular (rent, phone, subscriptions) and big
-  (clothes, travel) spending, apart in insights.
+- **Three buckets.** Everyday, regular (rent, phone, subscriptions) and
+  one-off (clothes, travel, a pharmacy) spending, apart in insights.
 - **Regular payments**, under the accounts, with the day each is charged. Two
   days before a subscription is charged you're asked whether you still need
   it; a payment due soon shows on the home screen.

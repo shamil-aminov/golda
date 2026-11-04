@@ -62,6 +62,7 @@ import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
 import sh.aminov.golda.data.Repo
 import sh.aminov.golda.data.Undo
+import sh.aminov.golda.domain.Envelopes
 import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
@@ -493,6 +494,7 @@ private fun MainScreen(
                     onDelete = ::deleteOperation,
                     onRepeat = { sheet = Sheet.Entry(EntryRequest(copy = it)) },
                     onRegular = { scope.launch { repo.saveObligation(it) } },
+                    onNewPeriod = { day -> change { Envelopes.startingOn(day, it) } },
                     suggest = { note, kind -> repo.suggestCategory(note, kind) },
                 )
                 is Sheet.Acc -> AccountSheet(

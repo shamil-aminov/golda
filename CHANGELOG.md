@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-11-04
+
+### Changed
+
+- **A top-up asks whether a new month starts, instead of every top-up
+  starting one.** Any money onto the spending card used to restart "можно
+  сегодня": a friend's 40 $ counted as the monthly top-up. Now recording a
+  transfer or an income onto the spending card shows "Новый месяц с …", on for
+  a transfer from another account of yours, off for an income; nothing else
+  moves the period. When a period set this way (or by hand) ends, the next one
+  of the same length begins on its own: a month stays a month.
+- **"Крупные" is "Разовые".** The group holds what is neither every day nor
+  every month (clothes, a pharmacy, a transfer to a friend), big or not.
+- **Switches have no check mark on the thumb**: it was a faint extra; the side
+  and the colour say on or off.
+- README screenshots of 0.20.0; unused screenshots and an old worktree removed;
+  the spec describes the period, the buckets, reconciling and the themes as
+  they work now.
+
 ## [0.19.1] — 2026-11-04
 
 ### Fixed
@@ -494,7 +513,8 @@ First public release.
 - Spending is never recorded from bank notifications. Saying the purchase out
   loud is the point.
 
-[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.19.1...HEAD
+[Unreleased]: https://github.com/shamil-aminov/golda/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.20.0
 [0.19.1]: https://github.com/shamil-aminov/golda/releases/tag/v0.19.1
 [0.19.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.19.0
 [0.18.0]: https://github.com/shamil-aminov/golda/releases/tag/v0.18.0

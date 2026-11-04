@@ -132,6 +132,8 @@ fun EntrySheet(
     onRepeat: (OperationFull) -> Unit = {},
     /** A regular expense saved as a monthly payment too. */
     onRegular: (Obligation) -> Unit = {},
+    /** A top-up of the spending card that starts a new period on its day. */
+    onNewPeriod: (LocalDate) -> Unit = {},
     /** The category a note most likely means: the history, else Gemini; null when neither knows. */
     suggest: suspend (String, CategoryKind) -> Long? = { _, _ -> null },
 ) {
@@ -271,10 +273,17 @@ fun EntrySheet(
     val offersMonthly = editing == null && payment == null && type == OpType.EXPENSE && bucket == Bucket.REGULAR &&
         note.isNotBlank() && data.obligations.none { it.name.trim().equals(note.trim(), ignoreCase = true) }
     var monthly by remember { mutableStateOf(true) }
+    // Money onto the spending card asks, and never decides, whether the month starts again: on for a
+    // transfer from another account of yours (the monthly top-up), off for an income (a friend's 40 $).
+    val card = data.envelope?.account?.id
+    val tops = editing == null && card != null &&
+        ((type == OpType.TRANSFER && toAccount?.id == card) || (type == OpType.INCOME && account?.id == card))
+    var newPeriod by remember(type) { mutableStateOf(type == OpType.TRANSFER) }
 
     fun save() {
         if (!valid) return
         if (offersMonthly && monthly) onRegular(Obligation(name = note.trim(), amountMinor = amount, currency = amountCode, dayOfMonth = date.dayOfMonth))
+        if (tops && newPeriod) onNewPeriod(date)
         onSave(draft())
     }
 
@@ -468,6 +477,11 @@ fun EntrySheet(
                     TonalField(note, { note = it }, Modifier.fillMaxWidth().heightIn(min = 56.dp), placeholder = tr("Комментарий", "Note"))
                     VSpace(Gap.l)
                     DateChoices(date, data.today) { picked -> if (picked == null) pickingDate = true else date = picked }
+                    if (tops) {
+                        // Alone under the fields, the row keeps to their edges instead of reaching into the margin.
+                        VSpace(Gap.l)
+                        Box(Modifier.padding(horizontal = Gap.s)) { NewPeriodRow(newPeriod, date, 0, 1) { newPeriod = it } }
+                    }
                 }
                 else -> {
                     // Everything on the first level: currency, card and date are buttons, not menus.
@@ -504,7 +518,7 @@ fun EntrySheet(
                     }
                     VSpace(Gap.l)
                     // Where it comes from and when: rows that open their choice, changed seldom.
-                    val rows = 2 + if (offersMonthly) 1 else 0
+                    val rows = 2 + (if (offersMonthly) 1 else 0) + (if (tops) 1 else 0)
                     GroupRow(
                         0, rows,
                         onClick = { choosing = Choosing.ACCOUNT },
@@ -531,6 +545,7 @@ fun EntrySheet(
                             trailingOnTitle = false,
                         ) { Text(tr("Каждый месяц, ${date.dayOfMonth} числа", "Every month, on the ${date.dayOfMonth}"), style = MaterialTheme.typography.titleMedium) }
                     }
+                    if (tops) NewPeriodRow(newPeriod, date, rows - 1, rows) { newPeriod = it }
                     // Gemini's precise tag, under all that was chosen, while its note is unchanged.
                     op?.tag?.takeIf { OpTags.key(op.note) == OpTags.key(note) }?.let { tag ->
                         VSpace(Gap.m)
@@ -760,3 +775,16 @@ private fun CategoryGrid(data: AppData, kind: CategoryKind, bucket: Bucket?, sel
 
 /** Which of the entry form's rows has its choice open. */
 private enum class Choosing { ACCOUNT, DATE }
+
+/** "Начать новый месяц с 4 ноября": the top-up's question, a switch row like "Каждый месяц". */
+@Composable
+private fun NewPeriodRow(on: Boolean, date: LocalDate, index: Int, count: Int, onChange: (Boolean) -> Unit) {
+    GroupRow(
+        index, count,
+        Modifier.semantics { role = Role.Switch },
+        onClick = { onChange(!on) },
+        leading = { GlyphCircle(R.drawable.ic_calendar) },
+        trailing = { CheckSwitch(on, null) },
+        trailingOnTitle = false,
+    ) { Text(tr("Новый месяц с ${fullDate(date)}", "A new month from ${fullDate(date)}"), style = MaterialTheme.typography.titleMedium) }
+}

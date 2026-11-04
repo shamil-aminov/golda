@@ -246,9 +246,10 @@ class DebtsEnvelopePropertiesTest {
         // A set period that includes today, its first and last days included.
         val set = Settings(periodStart = today.toEpochDay(), periodEnd = today.toEpochDay())
         assertEquals(today to today, Envelopes.period(card.id, ops, set, today, zone))
-        // Over: a month from the last top-up.
+        // Over: the months roll on from where it was set, whatever came in since.
         val over = Settings(periodStart = start.minusMonths(2).toEpochDay(), periodEnd = start.minusMonths(1).toEpochDay())
-        assertEquals(start.plusDays(2) to start.plusDays(2).plusMonths(1), Envelopes.period(card.id, ops, over, today, zone))
+        val (from, to) = Envelopes.period(card.id, ops, over, today, zone)
+        assertTrue(!from.isAfter(today) && !to.isBefore(today) && to == from.plusMonths(1))
         // Not started yet: the same.
         val future = Settings(periodStart = today.plusDays(1).toEpochDay(), periodEnd = today.plusDays(9).toEpochDay())
         assertEquals(start.plusDays(2), Envelopes.period(card.id, ops, future, today, zone).first)
