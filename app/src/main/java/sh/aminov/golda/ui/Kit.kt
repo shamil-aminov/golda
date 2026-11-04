@@ -123,6 +123,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.LocalContentColor
@@ -446,6 +447,21 @@ fun GroupRow(
 fun IconCircle(modifier: Modifier = Modifier, color: Color = circleColor(), size: Dp = 40.dp, content: @Composable () -> Unit) {
     Box(modifier.size(size).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { content() }
 }
+
+/**
+ * A row's icon, one for every list of things (an operation, an account, a payment): a 48 circle in the
+ * thing's colour at 22 % over the card, the glyph that colour pulled towards the text's ink — the
+ * colour says what it is without being the loudest thing in the row. A thing with no colour of its
+ * own (an account, a payment) takes the quiet ink.
+ */
+@Composable
+fun RowIcon(@DrawableRes icon: Int, colour: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    val card = tileColor()
+    GlyphCircle(icon, color = colour.copy(alpha = 0.22f).compositeOver(card), ink = lerp(colour, MaterialTheme.colorScheme.onSurface, 0.45f), size = RowIconSize)
+}
+
+/** [RowIcon]'s circle. */
+val RowIconSize = 48.dp
 
 /** An icon in its neutral circle: a category, a transfer. */
 @Composable
@@ -1235,8 +1251,8 @@ object TextRole {
     /** A row's name: 16. */
     val rowName: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyLarge.copy(fontWeight = Base)
 
-    /** A row's amount: 22, a step over its name. */
-    val rowAmount: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = Base)
+    /** A row's amount: its name's 16, the accent: it leads by its weight, not its size. */
+    val rowAmount: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyLarge.merge(Tnum).copy(fontWeight = Accent)
 
     /** A group's title: 22, the accent. */
     val groupTitle: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.copy(fontWeight = Accent)

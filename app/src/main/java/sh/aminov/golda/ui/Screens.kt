@@ -386,11 +386,13 @@ private fun AccountRow(
     GroupRow(
         index, count, Modifier.padding(horizontal = Gap.m),
         onClick = onClick,
+        // A row like the feed's: the account's type in a quiet circle.
+        leading = { RowIcon(typeIcon(state.account.type)) },
         // Always two lines, so the rows run evenly.
         supporting = { Text(accountSubline(data, state), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // What is on the account reads first: a step over the name, 22 against 16.
+                // What is on the account leads by its weight, the name's size: as every amount in a row.
                 Text(amount, style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))

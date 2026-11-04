@@ -58,7 +58,8 @@ private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Mo
     GroupRow(
         index, count, modifier,
         onClick = onClick,
-        // Like an account's row: the same three roles.
+        // Like an account's row: the same icon, the same three roles.
+        leading = { RowIcon(R.drawable.ic_repeat) },
         supporting = { Text(dayOfMonth(payment.dayOfMonth), style = TextRole.caption) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
