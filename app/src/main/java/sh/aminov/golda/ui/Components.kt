@@ -280,7 +280,14 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
     GroupRow(
         index, count, modifier,
         onClick = { onClick(full) },
-        leading = { GlyphCircle(operationIcon(category, op.type)) },
+        leading = {
+            if (LocalColouredRows.current) {
+                val fill = operationColor(category?.key, op.type, LocalTones.current)
+                GlyphCircle(operationIcon(category, op.type), color = fill, ink = inkOn(fill))
+            } else {
+                GlyphCircle(operationIcon(category, op.type))
+            }
+        },
         supporting = supporting?.let { text -> { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailing = { AmountColumn(main, secondary, approximate, color) },
     ) { Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) }

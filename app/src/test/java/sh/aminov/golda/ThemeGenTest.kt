@@ -14,6 +14,11 @@ import sh.aminov.golda.ui.ThemeSpec
 import sh.aminov.golda.ui.ThemeStyle
 import sh.aminov.golda.ui.hueOf
 import sh.aminov.golda.ui.oklch
+import sh.aminov.golda.ui.inkOn
+import sh.aminov.golda.ui.operationColor
+import sh.aminov.golda.ui.categoryColor
+import sh.aminov.golda.data.OpType
+import sh.aminov.golda.data.DefaultCategories
 import kotlin.random.Random
 
 class ThemeGenTest {
@@ -62,12 +67,36 @@ class ThemeGenTest {
                 assertTrue("$name muted/card ${ratio(t.muted, t.card)}", ratio(t.muted, t.card) >= 4.5)
                 assertTrue("$name onPicked ${ratio(t.onGraphite, t.graphite)}", ratio(t.onGraphite, t.graphite) >= 4.5)
                 assertTrue("$name onAction ${ratio(t.onGold, t.gold)}", ratio(t.onGold, t.gold) >= 4.5)
+                assertTrue("$name onPlate ${ratio(t.onPlate, t.plate)}", ratio(t.onPlate, t.plate) >= 7.0)
+                assertTrue("$name onPlateMuted ${ratio(t.onPlateMuted, t.plate)}", ratio(t.onPlateMuted, t.plate) >= 4.5)
+                // OLED: the dark half on black keeps its inks.
+                if (dark) assertTrue("$name oled", ratio(t.text, tonesFor(p.key, dark = true, oled = true).page) >= 7.0)
+                // A row's icon on its colour, every category and a transfer: 3:1, WCAG's bar for a mark.
+                (categoryKeys + null).forEach { key ->
+                    OpType.entries.forEach { type ->
+                        val fill = operationColor(key, type, t)
+                        assertTrue("$name $key $type icon", ratio(inkOn(fill), fill) >= 3.0)
+                    }
+                }
             }
         }
         // Twenty-odd, calm first.
         assertTrue(Palette.entries.size >= 20)
         assertEquals(Palette.entries.sortedBy { it.bold }, Palette.entries)
         assertEquals(Palette.CLEAR, Palette.of("clear-night"))
+    }
+
+    private val categoryKeys = DefaultCategories.all.map { it.key }
+
+    /** A category keeps its colour whatever else is spent; its own hue apart from the others in a theme. */
+    @Test
+    fun aCategoryHasItsOwnColour() {
+        val t = Palette.GOLDA.light
+        assertEquals(categoryColor("food", t), categoryColor("food", t))
+        val spending = DefaultCategories.all.filter { it.kind == sh.aminov.golda.data.CategoryKind.EXPENSE }.map { categoryColor(it.key, t) }
+        assertEquals(spending.size, spending.distinct().size)
+        // A category of the user's own takes Другое's.
+        assertEquals(categoryColor("other", t), categoryColor("mine", t))
     }
 
     @Test

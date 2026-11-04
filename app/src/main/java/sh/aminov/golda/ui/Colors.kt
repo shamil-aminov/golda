@@ -9,7 +9,8 @@ import androidx.compose.ui.graphics.Color
  * below is one of these, so whatever role a component asks for, it lands on the same few colours:
  *
  * - [Tones.page]: the light grey background and every sheet.
- * - [Tones.card]: every tile, list, field and the toolbar, the hero tiles included.
+ * - [Tones.card]: every tile, list, field and the toolbar.
+ * - [Tones.plate]: the hero tiles; the card itself unless a bold theme colours it.
  * - [Tones.soft]: tonal buttons (Сомневаюсь, Сходится), unpicked toggles.
  * - [Tones.line]: tracks, dividers, the quietest chart marks.
  * - [Tones.muted] / [Tones.text]: secondary and primary text and icons.
@@ -44,7 +45,19 @@ class Tones(
      * for eyes that mix those up.
      */
     val clearColours: Boolean = false,
-)
+    /** The hero tile of a tab, the one plate of colour on it; a card like the rest unless a theme says so. */
+    val plate: Color = card,
+    val onPlate: Color = text,
+    val onPlateMuted: Color = muted,
+    /** The pace bar while the money lasts, set against [plate]; null: the leitmotif's own colour. */
+    val pace: Color? = null,
+) {
+    /** The same set on another [page]: pure black for OLED screens. */
+    fun onPage(page: Color) = Tones(
+        dark, page, card, soft, line, muted, text, graphite, onGraphite, gold, onGold, error, onError, errorSoft, onErrorSoft,
+        infoL, infoC, seedHue, clearColours, plate, onPlate, onPlateMuted, pace,
+    )
+}
 
 internal val GoldaLight = Tones(
     dark = false,
@@ -98,7 +111,7 @@ private fun lightScheme(t: Tones) = with(t) {
         surfaceBright = card, surfaceDim = page,
         surfaceContainerLowest = card, surfaceContainerLow = card, surfaceContainer = card,
         surfaceContainerHigh = card, surfaceContainerHighest = soft,
-        primaryFixed = card, primaryFixedDim = graphite, onPrimaryFixed = text, onPrimaryFixedVariant = muted,
+        primaryFixed = plate, primaryFixedDim = graphite, onPrimaryFixed = onPlate, onPrimaryFixedVariant = onPlateMuted,
         secondaryFixed = card, secondaryFixedDim = graphite, onSecondaryFixed = text, onSecondaryFixedVariant = muted,
         tertiaryFixed = card, tertiaryFixedDim = graphite, onTertiaryFixed = text, onTertiaryFixedVariant = muted,
     )
@@ -117,7 +130,7 @@ private fun darkScheme(t: Tones) = with(t) {
         surfaceBright = card, surfaceDim = page,
         surfaceContainerLowest = card, surfaceContainerLow = card, surfaceContainer = card,
         surfaceContainerHigh = card, surfaceContainerHighest = soft,
-        primaryFixed = card, primaryFixedDim = graphite, onPrimaryFixed = text, onPrimaryFixedVariant = muted,
+        primaryFixed = plate, primaryFixedDim = graphite, onPrimaryFixed = onPlate, onPrimaryFixedVariant = onPlateMuted,
         secondaryFixed = card, secondaryFixedDim = graphite, onSecondaryFixed = text, onSecondaryFixedVariant = muted,
         tertiaryFixed = card, tertiaryFixedDim = graphite, onTertiaryFixed = text, onTertiaryFixedVariant = muted,
     )

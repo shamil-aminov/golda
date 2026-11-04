@@ -9,6 +9,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
 import android.app.WallpaperManager
@@ -84,6 +86,10 @@ fun ThemeScreen(
     onMode: (String) -> Unit,
     onSave: (String) -> Unit,
     onForget: (String) -> Unit,
+    oled: Boolean = false,
+    onOled: (Boolean) -> Unit = {},
+    colouredRows: Boolean = true,
+    onColouredRows: (Boolean) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
@@ -129,6 +135,23 @@ fun ThemeScreen(
                         ThemeMode.DARK -> tr("Тёмная", "Dark")
                     },
                 )
+            }
+            // Every dark half on pure black, for OLED screens. The whole line flips the switch.
+            VSpace(Gap.s)
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(oled, role = Role.Switch) { onOled(it) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(tr("Чистый чёрный", "Pure black"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                CheckSwitch(oled) { onOled(it) }
+            }
+            // Each row's circle in its category's colour, as in Аналитика.
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(colouredRows, role = Role.Switch) { onColouredRows(it) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(tr("Цветные траты", "Coloured spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                CheckSwitch(colouredRows) { onColouredRows(it) }
             }
             // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
             BoxWithConstraints(Modifier.fillMaxWidth()) {

@@ -237,11 +237,24 @@ fun circleColor(): Color = MaterialTheme.colorScheme.surface
 fun HeroTile(
     modifier: Modifier = Modifier,
     // The one card on a tab: the top block, set off the flat page under it.
-    container: Color = tileColor(),
+    container: Color = MaterialTheme.colorScheme.primaryFixed,
     content: Color = MaterialTheme.colorScheme.onPrimaryFixed,
     onClick: (() -> Unit)? = null,
     body: @Composable ColumnScope.() -> Unit,
 ) {
+    // On a plate of colour its own inks, so whatever inside asks for the plain ones reads on it.
+    val scheme = MaterialTheme.colorScheme
+    if (container == scheme.primaryFixed && container != scheme.surfaceContainer) {
+        MaterialTheme(colorScheme = scheme.copy(onSurface = scheme.onPrimaryFixed, onSurfaceVariant = scheme.onPrimaryFixedVariant)) {
+            HeroSurface(modifier, container, content, onClick, body)
+        }
+    } else {
+        HeroSurface(modifier, container, content, onClick, body)
+    }
+}
+
+@Composable
+private fun HeroSurface(modifier: Modifier, container: Color, content: Color, onClick: (() -> Unit)?, body: @Composable ColumnScope.() -> Unit) {
     val color by animateColorAsState(container, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "hero")
     val ink by animateColorAsState(content, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "heroInk")
     val shape = MaterialTheme.shapes.extraLargeIncreased
@@ -388,8 +401,17 @@ fun IconCircle(modifier: Modifier = Modifier, color: Color = circleColor(), cont
 
 /** An icon in its neutral circle: a category, a transfer. */
 @Composable
-fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
-    IconCircle(modifier) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier, color: Color = circleColor(), ink: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    IconCircle(modifier, color) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = ink) }
+}
+
+/** Whether a row's circle wears its category's colour (Цветные траты on the Theme page); off, the neutral circles. */
+val LocalColouredRows = staticCompositionLocalOf { true }
+
+/** Black or white, whichever stands out more on [fill]. */
+fun inkOn(fill: Color): Color {
+    val l = fill.luminance()
+    return if ((l + 0.05f) / 0.05f >= 1.05f / (l + 0.05f)) Color(0xFF0A0A0A) else Color.White
 }
 
 /** The tonal text field: corner 16, surfaceContainerHighest, no underline. */

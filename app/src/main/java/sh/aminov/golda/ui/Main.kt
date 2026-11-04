@@ -346,6 +346,10 @@ private fun MainScreen(
                 onBack = { page = Page.Settings },
                 onApply = { key -> change { it.copy(palette = key) } },
                 onMode = { mode -> change { it.copy(themeMode = mode) } },
+                oled = data.settings.oled,
+                onOled = { on -> change { it.copy(oled = on) } },
+                colouredRows = data.settings.colouredRows,
+                onColouredRows = { on -> change { it.copy(colouredRows = on) } },
                 onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )

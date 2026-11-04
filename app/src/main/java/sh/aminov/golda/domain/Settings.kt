@@ -37,6 +37,10 @@ data class Settings(
     val palette: String = "golda",
     /** Light or dark for every theme: "SYSTEM" follows the phone, "LIGHT" and "DARK" stay put. */
     val themeMode: String = "SYSTEM",
+    /** A dark half on pure black, for OLED screens; off, the theme's own dark page. */
+    val oled: Boolean = false,
+    /** Each row's circle in its category's colour; off, the neutral circles. */
+    val colouredRows: Boolean = true,
     /** The folder a weekly backup goes to (a document tree the person picked); null: none. */
     val autoBackupFolder: String? = null,
     /** When the last weekly backup was written, epoch millis; 0: never. */
