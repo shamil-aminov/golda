@@ -22,22 +22,22 @@ import org.robolectric.annotation.GraphicsMode
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.ui.AccountsScreen
 import sh.aminov.golda.ui.GoldaTheme
-import sh.aminov.golda.ui.LocalCardInset
+import sh.aminov.golda.ui.LocalCardCorner
 import java.util.TimeZone
 
 /**
- * TEMPORARY (task `docs/tasks/accounts-screen.md`): the Accounts tab with the cards' inner side room as
- * now, +4 and +8, in Marathon dark and Golda light, into `docs/tasks/accounts-screen/inset-*`. Delete,
- * with `LocalCardInset` in Kit.kt, once the owner has picked.
+ * TEMPORARY (task `docs/tasks/accounts-screen.md`): the Accounts tab with every card's corner as now
+ * (32 the header, 28 the rest), 20, 16 and 12, in Marathon dark and Golda light, into
+ * `docs/tasks/accounts-screen/corner-*`. Delete, with `LocalCardCorner` in Kit.kt, once the owner has picked.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h1100dp-xxhdpi")
-class CardInsetPreviewTest(private val extra: Int) {
+class CardCornerPreviewTest(private val corner: Int) {
     companion object {
         @JvmStatic
-        @ParameterizedRobolectricTestRunner.Parameters(name = "+{0}")
-        fun extras() = listOf(0, 4, 8).map { arrayOf<Any>(it) }
+        @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun corners() = listOf(0, 20, 16, 12).map { arrayOf<Any>(it) }
     }
 
     @get:Rule val compose = createComposeRule()
@@ -52,13 +52,13 @@ class CardInsetPreviewTest(private val extra: Int) {
         val data = ScreenshotTest().demo()
         compose.setContent {
             GoldaTheme(palette, mode) {
-                CompositionLocalProvider(LocalCardInset provides extra.dp) {
+                CompositionLocalProvider(LocalCardCorner provides corner.takeIf { it > 0 }?.dp) {
                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> }) }
                 }
             }
         }
         compose.onRoot().captureRoboImage(
-            "../docs/tasks/accounts-screen/inset-${extra}_$theme.png",
+            "../docs/tasks/accounts-screen/corner-${if (corner == 0) "now" else corner}_$theme.png",
             roborazziOptions = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.002f)),
         )
     }
