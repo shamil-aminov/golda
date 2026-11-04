@@ -24,38 +24,39 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
     OCEAN("ocean", "Океан", "Ocean", false, { recipe(false, 225.0, 0.02, 210.0, 0.05, 200.0, 0.12) }, { recipe(true, 225.0, 0.025, 210.0, 0.05, 200.0, 0.12) }),
     DESERT("desert", "Пустыня", "Desert", false, { recipe(false, 70.0, 0.025, 50.0, 0.05, 40.0, 0.13) }, { recipe(true, 60.0, 0.025, 50.0, 0.05, 45.0, 0.13) }),
 
-    // The bold ones, after Bungie's Marathon: a white or near-black page and quiet lists, one plate of
-    // colour per tab, and on it the pace bar, the picked state and the action in the colour against it.
-    // The game's own six (lime, magenta, ultramarine, orange, cyan, the blue-grey), each pair against its opposite.
+    // The bold ones, after Bungie's Marathon: a white or near-black page and quiet lists. Two colours carry
+    // each: the first on the mic (the action), the second on the plate (the hero tiles), as far apart as the
+    // theme allows; the pace bar stands out on the plate, the picked state stays black or white.
+    // The game's own colours: the lime mic, a magenta plate (deep enough to carry white words), cyan for the bar.
     MARATHON("marathon", "Марафон", "Marathon", true,
-        { boldSet(false, 0xFFC2FE0C, 0xFF0A0A0A, 0xFF3D4500, 0xFFEA027E, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF3601FB, 0xFFFFFFFF, swatches = marathonSix) },
+        { boldSet(false, 0xFFA8006A, 0xFFFFFFFF, 0xFFFFC0E4, 0xFF01FFFF, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFC2FE0C, 0xFF0A0A0A, swatches = marathonRest) },
         {
             boldSet(
-                true, 0xFF3601FB, 0xFFFFFFFF, 0xFFC8C0FF, 0xFFC2FE0C, 0xFFEA027E, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF0A0A0A,
-                page = 0xFF07090F, card = 0xFF29324F, soft = 0xFF3A4566, line = 0xFF4A5578, swatches = marathonSix,
+                true, 0xFFA8006A, 0xFFFFFFFF, 0xFFFFC0E4, 0xFF01FFFF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF0A0A0A,
+                page = 0xFF07090F, card = 0xFF29324F, soft = 0xFF3A4566, line = 0xFF4A5578, swatches = marathonRest,
             )
         }),
     ULTRAMARINE("ultramarine", "Ультрамарин", "Ultramarine", true,
-        { boldSet(false, 0xFF2233FF, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFF2233FF, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A) },
-        { boldSet(true, 0xFF1A2BD0, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFF2233FF, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF1A2BD0, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A) }),
     SIGNAL("signal", "Сигнал", "Signal", true,
-        { boldSet(false, 0xFFFF6E2E, 0xFF0A0A0A, 0xFF3A1000, 0xFF1426B8, 0xFF2233FF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFF6E2E) },
-        { boldSet(true, 0xFFA81800, 0xFFFFFFFF, 0xFFFFD0C0, 0xFFDFFF1A, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFFFF6E2E, 0xFF0A0A0A, 0xFF3A1000, 0xFF1426B8, 0xFF0A0A0A, 0xFFFFFFFF, 0xFF2233FF, 0xFFFFFFFF) },
+        { boldSet(true, 0xFFA81800, 0xFFFFFFFF, 0xFFFFD0C0, 0xFFDFFF1A, 0xFFFFFFFF, 0xFF0A0A0A, 0xFF2233FF, 0xFFFFFFFF) }),
     PIXEL("pixel", "Пиксель", "Pixel", true,
-        { boldSet(false, 0xFFFF6ACB, 0xFF0A0A0A, 0xFF5A0040, 0xFF1426B8, 0xFF2233FF, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A) },
-        { boldSet(true, 0xFF8A0068, 0xFFFFFFFF, 0xFFFFC8EE, 0xFFDFFF1A, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF3DBE, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFFFF6ACB, 0xFF0A0A0A, 0xFF5A0040, 0xFF1426B8, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF8A0068, 0xFFFFFFFF, 0xFFFFC8EE, 0xFFDFFF1A, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A) }),
     HOLOGRAM("hologram", "Голограмма", "Hologram", true,
-        { boldSet(false, 0xFF01FFFF, 0xFF0A0A0A, 0xFF00434D, 0xFFEA027E, 0xFF0A0A0A, 0xFF01FFFF, 0xFFEA027E, 0xFF0A0A0A) },
-        { boldSet(true, 0xFF005A66, 0xFFFFFFFF, 0xFFA8EEF7, 0xFFFF6EC0, 0xFFFF2EA6, 0xFF0A0A0A, 0xFF2EE6FF, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFF01FFFF, 0xFF0A0A0A, 0xFF00434D, 0xFFEA027E, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFEA027E, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF005A66, 0xFFFFFFFF, 0xFFA8EEF7, 0xFFFF6EC0, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFF2EA6, 0xFF0A0A0A) }),
     TERMINAL("terminal", "Терминал", "Terminal", true,
-        { boldSet(false, 0xFF7CFF4F, 0xFF0A0A0A, 0xFF164A00, 0xFFC8102E, 0xFF0A0A0A, 0xFF7CFF4F, 0xFFFF4A10, 0xFF0A0A0A) },
-        { boldSet(true, 0xFF0F4A14, 0xFFFFFFFF, 0xFF9BE88F, 0xFFFF4FD8, 0xFF39FF14, 0xFF000000, 0xFF39FF14, 0xFF000000) }),
+        { boldSet(false, 0xFF7CFF4F, 0xFF0A0A0A, 0xFF164A00, 0xFFC8102E, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF0F4A14, 0xFFFFFFFF, 0xFF9BE88F, 0xFF39FF14, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFF4FD8, 0xFF0A0A0A) }),
     VIOLET("violet", "Фиолет", "Violet", true,
-        { boldSet(false, 0xFF5B14FF, 0xFFFFFFFF, 0xFFDCD0FF, 0xFFFFE500, 0xFF0A0A0A, 0xFFFFE500, 0xFFFFE500, 0xFF0A0A0A) },
-        { boldSet(true, 0xFF3A1290, 0xFFFFFFFF, 0xFFD8C6FF, 0xFFFFE500, 0xFFFFFFFF, 0xFF2A0A6B, 0xFFFFE500, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFF5B14FF, 0xFFFFFFFF, 0xFFDCD0FF, 0xFF01FFFF, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFFFE500, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF3A1290, 0xFFFFFFFF, 0xFFD8C6FF, 0xFF01FFFF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFFE500, 0xFF0A0A0A) }),
     PLATE("plate", "Плашка", "Plate", true,
-        { boldSet(false, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFDFFF1A, 0xFFFF4A10, 0xFF0A0A0A) },
-        { boldSet(true, 0xFFF2F2F2, 0xFF0A0A0A, 0xFF4A4A4A, 0xFFE03000, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A) },
+        { boldSet(true, 0xFFF2F2F2, 0xFF0A0A0A, 0xFF4A4A4A, 0xFF3601FB, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFF5500, 0xFF0A0A0A) }),
     ;
 
     val light: Tones by lazy(light)
@@ -148,5 +149,5 @@ private fun boldSet(
     plate = Color(plate), onPlate = Color(onPlate), onPlateMuted = Color(onPlateMuted), pace = Color(pace), swatches = swatches,
 )
 
-/** Marathon's colours for the categories: lime, magenta, ultramarine, orange, cyan, in turn. */
-private val marathonSix = listOf(0xFFC2FE0C, 0xFFEA027E, 0xFF3601FB, 0xFFFF5500, 0xFF01FFFF).map { Color(it) }
+/** Marathon's other colours for the categories, quieter than the mic and the plate: ultramarine, orange, cyan, in turn. */
+private val marathonRest = listOf(0xFF3601FB, 0xFFFF5500, 0xFF01FFFF).map { Color(it) }

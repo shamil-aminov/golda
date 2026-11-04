@@ -100,10 +100,15 @@ class ThemeGenTest {
             assertTrue(it, Palette.of(it).bold)
         }
         assertEquals(Palette.MARATHON, Palette.of("acid"))
-        // Марафон in the game's own colours: the lime plate by day, the ultramarine by night, the blue-grey cards.
-        assertEquals(0xFFC2FE0C.toInt(), Palette.MARATHON.light.plate.toArgb())
-        assertEquals(0xFF3601FB.toInt(), Palette.MARATHON.dark.plate.toArgb())
+        // Марафон in the game's own colours: the lime mic in both halves, a magenta plate, the blue-grey cards.
+        listOf(Palette.MARATHON.light, Palette.MARATHON.dark).forEach { assertEquals(0xFFC2FE0C.toInt(), it.gold.toArgb()) }
+        assertEquals(0xFFA8006A.toInt(), Palette.MARATHON.light.plate.toArgb())
         assertEquals(0xFF29324F.toInt(), Palette.MARATHON.dark.card.toArgb())
+        // In a bold theme the mic and the plate carry the colour; the picked state stays black or white.
+        Palette.entries.filter { it.bold }.flatMap { listOf(it.light, it.dark) }.forEach {
+            assertTrue(it.graphite.toArgb() in setOf(0xFF0A0A0A.toInt(), 0xFFFFFFFF.toInt()))
+            assertTrue(it.gold != it.plate)
+        }
         assertEquals(Palette.GOLDA, Palette.of("nonsense"))
     }
 

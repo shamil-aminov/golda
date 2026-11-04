@@ -168,8 +168,10 @@ fun HomeScreen(
                             // Less than half a unit past it still reads "0 ₾": that is within it.
                             beyond > 0 && Fmt.whole(beyond, code) != "0" -> buildAnnotatedString {
                                 append(tr("Сверх нормы ", "Over the norm by "))
-                                // The bar's red is too pale for words; the error ink reads in both themes.
-                                withStyle(SpanStyle(color = scheme.onErrorContainer)) { append(whole(beyond, code)) }
+                                // The bar's red is too pale for words; the error ink reads in both themes, and on
+                                // a bold theme's plate of colour where it does not, the plate's own ink does.
+                                val overInk = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink
+                                withStyle(SpanStyle(color = overInk)) { append(whole(beyond, code)) }
                             }
                             else -> AnnotatedString(tr("В норме", "Within the norm"))
                         },
