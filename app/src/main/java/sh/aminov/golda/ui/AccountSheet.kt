@@ -156,6 +156,7 @@ fun AccountSheet(
                         label = if (type == AccountType.LOAN) tr("Платёж", "Payment") else tr("Минимальный платёж", "Minimum payment"),
                         suffix = Currencies.symbol(currency),
                         keyboardType = KeyboardType.Decimal,
+                        money = true,
                     )
                 }
             }

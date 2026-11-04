@@ -1,5 +1,10 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -401,14 +406,20 @@ fun TonalField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
     focusRequester: FocusRequester? = null,
+    /** An amount of money: the keypad offers + − × ÷ for it. */
+    money: Boolean = false,
 ) {
     val clear = Color.Transparent
     // The unpicked fill, as the choice tiles: it stands off a white sheet in every theme.
     val container = unpickedColor()
+    // A number is typed on the form's keypad, not the system keyboard: the same everywhere.
+    val numeric = keyboardType == KeyboardType.Decimal || keyboardType == KeyboardType.Number
+    val pad = if (numeric) rememberPadInput(value, onValueChange, ops = money, decimals = if (keyboardType == KeyboardType.Number) 0 else 2) else null
     TextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.heightIn(min = 56.dp).let { if (focusRequester != null) it.focusRequester(focusRequester) else it },
+        readOnly = pad != null,
+        modifier = modifier.heightIn(min = 56.dp).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.then(pad?.modifier ?: Modifier),
         textStyle = textStyle,
         // 14 sp floating or not: the M3 default shrinks it to 12, off the type scale.
         label = label?.let { { Text(it, style = MaterialTheme.typography.labelLarge) } },
@@ -625,7 +636,8 @@ fun FormPage(
             }
             // 24 dp under the form and 16 above the action bar: 40 in all, and never less while the
             // form scrolls under the bar.
-            CompositionLocalProvider(LocalTextInset provides Gap.s) {
+            val pad = remember { AmountPadState() }
+            CompositionLocalProvider(LocalTextInset provides Gap.s, LocalAmountPad provides pad) {
                 Column(
                     Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
                         .padding(top = Gap.s, bottom = Gap.l),
@@ -639,6 +651,8 @@ fun FormPage(
                     content = actions,
                 )
             }
+            // Where the keyboard would be: the actions ride on it as on the keyboard.
+            AmountPadHost(pad)
         }
     }
 }
@@ -758,7 +772,8 @@ fun FormSheet(
         Column(Modifier.imePadding()) {
             // 24 dp under the form and 16 above the action bar: 40 in all, and never less while the
             // form scrolls under the bar.
-            CompositionLocalProvider(LocalShown provides shown, LocalTextInset provides Gap.s) {
+            val pad = remember { AmountPadState() }
+            CompositionLocalProvider(LocalShown provides shown, LocalTextInset provides Gap.s, LocalAmountPad provides pad) {
                 Column(
                     Modifier.weight(1f, fill = false).verticalScroll(scroll).padding(horizontal = Gap.m)
                         .padding(top = Gap.s, bottom = Gap.l),
@@ -772,6 +787,7 @@ fun FormSheet(
                     content = actions,
                 )
             }
+            AmountPadHost(pad)
         }
     }
 }
@@ -841,8 +857,22 @@ fun HeroAmountField(
     symbolMenu: (@Composable () -> Unit)? = null,
     placeholder: String = "0",
     placeholderColor: Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+    /** An empty field may start with − or + (a debt's balance against money on it). */
+    signed: Boolean = false,
 ) {
-    BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+    val pad = rememberPadInput(text, onText, ops = true, signed = signed)
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    // "27 + 5 × 2" over the result, while a sum is being worked out; the line is kept empty
+    // otherwise, so the figure never jumps.
+    if (pad != null) {
+        Text(
+            pad.expression ?: "",
+            style = MaterialTheme.typography.titleMedium.merge(Tnum),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val base = bigFigure((if (maxSp > 0f) maxSp else ENTRY_FIGURE_SP).sp)
         val chars = (if (text.isEmpty()) placeholder.length else text.length + text.length / 4).coerceAtLeast(1) + 1 + symbol.length
         val fit = with(LocalDensity.current) { (maxWidth * 0.9f / (chars * 0.66f)).toSp() }
@@ -856,7 +886,8 @@ fun HeroAmountField(
             // Digits and one decimal mark, nothing else: a typed space or dash would make a number
             // the app reads differently from what the field shows.
             onValueChange = { typed -> onText(amountInput(typed)) },
-            modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier,
+            readOnly = pad != null,
+            modifier = (if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier).then(pad?.modifier ?: Modifier),
             textStyle = big.copy(color = color),
             singleLine = true,
             visualTransformation = Grouping,
@@ -869,6 +900,8 @@ fun HeroAmountField(
                 Row {
                     // The cursor stands before the grey "0", not on top of it.
                     Box(Modifier.width(IntrinsicSize.Max).alignByBaseline()) { field() }
+                    // On the keypad the field draws no cursor of its own: a thin blinking bar instead.
+                    if (pad?.focused == true) Caret(big, Modifier.alignByBaseline())
                     if (text.isEmpty()) Text(placeholder, Modifier.alignByBaseline(), style = big, color = placeholderColor, maxLines = 1)
                     Box(Modifier.alignByBaseline()) {
                         Row(
@@ -886,6 +919,15 @@ fun HeroAmountField(
         )
         }
     }
+    }
+}
+
+/** The keypad field's cursor: a thin bar in the figure's own type, blinking like the system one. */
+@Composable
+private fun Caret(style: TextStyle, modifier: Modifier) {
+    val blink = rememberInfiniteTransition(label = "caret")
+    val alpha by blink.animateFloat(1f, 0f, infiniteRepeatable(keyframes { durationMillis = 1000; 1f at 499; 0f at 500 }), label = "caret")
+    Text("|", modifier.alpha(alpha), style = style.copy(fontWeight = FontWeight.Thin), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
 }
 
 /** A bare field that is just its text, big: a name in a form, a small amount. */

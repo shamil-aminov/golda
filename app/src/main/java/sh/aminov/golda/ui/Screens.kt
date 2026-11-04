@@ -546,6 +546,7 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
             symbol = Currencies.symbol(state.currency),
             placeholder = whole + fraction,
             placeholderColor = MaterialTheme.colorScheme.onSurface,
+            signed = true,
         )
         VSpace(Gap.s)
         Text(

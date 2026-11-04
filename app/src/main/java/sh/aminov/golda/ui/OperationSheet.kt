@@ -679,6 +679,7 @@ private fun SecondAmount(code: String, text: String, open: Boolean, onOpen: (Boo
                 modifier = Modifier.width(220.dp),
                 suffix = Currencies.symbol(code),
                 keyboardType = KeyboardType.Decimal,
+                money = true,
                 onDone = { onOpen(false) },
                 textStyle = MaterialTheme.typography.titleLarge.merge(Tnum),
                 focusRequester = focus,
