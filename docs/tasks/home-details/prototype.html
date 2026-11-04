@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golda — детали главной</title>
+<style>
+  /* Golda dark, Zinc (ui/Colors.kt) */
+  :root {
+    --page: #1F1F23; --card: #2A2A2F; --soft: #3F3F46; --line: #52525B;
+    --muted: #ACACB4; --text: #F4F4F5; --gold: #E2B655; --onGold: #2B1D00;
+    --error: #F87171; --desk: #121214;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--desk); color: var(--text);
+         font-family: Roboto, "Segoe UI", system-ui, sans-serif; padding: 32px 24px 48px; }
+  h1 { font: 600 26px/1.3 inherit; margin: 0 0 6px; }
+  .lead { color: var(--muted); max-width: 900px; margin: 0 0 28px; font-size: 15px; line-height: 1.5; }
+  .row { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+  .col { width: 411px; }
+  .tag { font: 600 15px/1.3 inherit; margin: 0 0 4px; }
+  .tag b { color: var(--gold); }
+  .why { color: var(--muted); font-size: 14px; line-height: 1.45; margin: 0 0 14px; min-height: 82px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* phone 411×891 */
+  .phone { width: 411px; height: 891px; background: var(--page); border-radius: 28px; overflow: hidden;
+           position: relative; outline: 1px solid #333; }
+  .status { height: 36px; display: flex; justify-content: space-between; align-items: center; padding: 0 24px;
+            font-size: 14px; color: var(--text); }
+  .tile { margin: 4px 8px 0; background: var(--card); border-radius: 32px; padding: 24px 16px 24px; }
+  .cap { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+  .gear { width: 22px; height: 22px; border: 2px solid var(--muted); border-radius: 50%; }
+  .big { font-size: 72px; line-height: 1; font-weight: 400; letter-spacing: -1px; margin: 10px 0 18px -3px; }
+  .big span { color: var(--muted); }
+  .capsule { height: 20px; border-radius: 10px; background: rgba(226,182,85,.22); position: relative; }
+  .capsule i { position: absolute; inset: 0 auto 0 0; border-radius: 10px; background: var(--gold); }
+  .main { font-size: 22px; font-weight: 600; margin-top: 24px; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .new { outline: 1.5px dashed rgba(226,182,85,.55); outline-offset: 5px; border-radius: 6px; }
+
+  /* A: period line */
+  .period { margin-top: 18px; }
+  .ptrack { height: 6px; border-radius: 3px; background: var(--soft); position: relative; }
+  .ptrack i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--muted); }
+  .ptick { position: absolute; top: -5px; width: 2px; height: 16px; background: var(--text); border-radius: 1px; }
+  .plabels { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+
+  /* B: sparkline */
+  .spark { margin-top: 16px; display: block; }
+
+  /* C/D: quiet line with a mark */
+  .note { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; margin-top: 14px; }
+  .note .dot { width: 6px; height: 6px; border-radius: 3px; background: var(--muted); flex: none; }
+  .note b { color: var(--text); font-weight: 500; }
+
+  /* feed */
+  .day { display: flex; justify-content: space-between; color: var(--muted); font-size: 14px; padding: 24px 24px 8px; }
+  .group { margin: 0 16px; background: var(--card); border-radius: 24px; overflow: hidden; }
+  .op { display: flex; align-items: center; gap: 14px; padding: 12px 16px; min-height: 64px; }
+  .op + .op { border-top: 2px solid var(--page); }
+  .ico { width: 40px; height: 40px; border-radius: 20px; background: var(--soft); flex: none; }
+  .op .t { flex: 1; font-size: 16px; }
+  .op .t small { display: block; color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .op .a { font-size: 16px; }
+
+  /* floating bar */
+  .bar { position: absolute; left: 16px; right: 16px; bottom: 20px; height: 64px; display: flex; gap: 8px; align-items: center; }
+  .tabs { flex: 1; height: 64px; border-radius: 32px; background: var(--soft); display: flex; align-items: center;
+          justify-content: space-around; padding: 0 8px; }
+  .tabs span { width: 48px; height: 32px; border-radius: 16px; }
+  .tabs span.on { background: #4A5561; }
+  .tabs span:not(.on)::after { content: ""; display: block; width: 20px; height: 20px; margin: 6px auto; border-radius: 6px; border: 2px solid var(--muted); }
+  .plus, .mic { width: 64px; height: 64px; border-radius: 32px; display: grid; place-items: center; font-size: 28px; flex: none; }
+  .plus { background: var(--soft); color: var(--text); }
+  .mic { background: var(--gold); color: var(--onGold); }
+  .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 110px; background: linear-gradient(transparent, var(--page) 55%); }
+
+  .notes { max-width: 1300px; margin-top: 40px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .notes b { color: var(--text); }
+</style>
+</head>
+<body>
+<h1>Главная — аккуратные детали</h1>
+<p class="lead">Одна цифра и одна полоса остаются. Каждый вариант добавляет одну маленькую вещь (обведена пунктиром).
+  Данные одни на всех: карта в лари, период 26 октября – 26 ноября, сегодня 4 ноября (10-й день из 31), на карте
+  было 1 800 ₾, осталось 980 ₾, из них 150 ₾ — разовая покупка.</p>
+
+<div class="row" id="row"></div>
+
+<div class="notes">
+  <p><b>Сейчас</b> — как в приложении. <b>A–D</b> — по одной детали. <b>A + C</b> — рекомендуемое сочетание:
+    самое полезное и самое лёгкое; B и D — по желанию или на будущую страницу «подробнее про бюджет».</p>
+  <p>Цифры в прототипе посчитаны по формулам SPEC §5: на день = (980 + 12) / 23 = 43 ₾, можно сегодня = 43 − 12 = 31 ₾,
+    факт = (820 − 150) / 10 = 67 ₾, хватит на 980 / 67 = 14 дней из 23.</p>
+</div>
+
+<script>
+const tile = (extra, after = "") => `
+  <div class="tile">
+    <div class="cap"><span>Можно сегодня</span><span class="gear"></span></div>
+    <div class="big tnum">31 <span>₾</span></div>
+    <div class="capsule"><i style="width:72%"></i></div>
+    ${extra.top || ""}
+    <div class="main">Хватит на 14 из 23 дней</div>
+    <div class="sub tnum">План 43 ₾ в день · факт 67 ₾</div>
+    ${extra.bottom || ""}
+  </div>${after}`;
+
+const feed = `
+  <div class="day"><span>Сегодня</span><span class="tnum">12 ₾</span></div>
+  <div class="group">
+    <div class="op"><span class="ico"></span><span class="t">Кофе<small>Радости</small></span><span class="a tnum">−7 ₾</span></div>
+    <div class="op"><span class="ico"></span><span class="t">Маршрутка<small>Транспорт</small></span><span class="a tnum">−5 ₾</span></div>
+  </div>
+  <div class="day"><span>3 ноября</span><span class="tnum">94 ₾</span></div>
+  <div class="group">
+    <div class="op"><span class="ico"></span><span class="t">Продукты<small>Еда</small></span><span class="a tnum">−68 ₾</span></div>
+    <div class="op"><span class="ico"></span><span class="t">Аптека<small>Здоровье</small></span><span class="a tnum">−26 ₾</span></div>
+  </div>`;
+
+const chrome = `
+  <div class="fade"></div>
+  <div class="bar"><div class="tabs"><span class="on"></span><span></span><span></span></div>
+    <div class="plus">+</div><div class="mic">●</div></div>`;
+
+// A: the period as a thin line under the capsule: the tick is today (time gone), the fill is money gone.
+const periodLine = `
+  <div class="period new">
+    <div class="ptrack"><i style="width:46%"></i><span class="ptick" style="left:29%"></span></div>
+    <div class="plabels tnum"><span>26 окт</span><span>ушло 46 % · прошло 29 %</span><span>26 ноя</span></div>
+  </div>`;
+
+// B: the card's balance day by day, the plan as a faint straight line, and where this pace leads.
+function spark() {
+  const W = 379, H = 64, days = 31, start = 1800;
+  const spent = [40, 55, 150 + 60, 70, 48, 85, 62, 66, 94, 12]; // day 3 has the 150 ₾ purchase
+  let b = start; const pts = [[0, start]];
+  spent.forEach((s, i) => { b -= s; pts.push([i + 1, b]); });
+  const x = d => (d / days) * W, y = v => 6 + (1 - v / start) * (H - 12);
+  const path = pts.map(([d, v], i) => (i ? "L" : "M") + x(d).toFixed(1) + " " + y(v).toFixed(1)).join(" ");
+  const today = pts[pts.length - 1];
+  const out = today[0] + 980 / 67; // runs out
+  return `<svg class="spark new" width="${W}" height="${H + 18}" viewBox="0 0 ${W} ${H + 18}">
+    <line x1="0" y1="${y(start)}" x2="${W}" y2="${y(0)}" stroke="#52525B" stroke-width="1.5" stroke-dasharray="2 4"/>
+    <path d="${path}" fill="none" stroke="#E2B655" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <line x1="${x(today[0])}" y1="${y(today[1])}" x2="${x(out)}" y2="${y(0)}" stroke="#E2B655" stroke-opacity=".45" stroke-width="2" stroke-dasharray="4 4"/>
+    <circle cx="${x(today[0])}" cy="${y(today[1])}" r="4.5" fill="#E2B655"/>
+    <circle cx="${x(out)}" cy="${y(0)}" r="3" fill="#ACACB4"/>
+    <text x="0" y="${H + 16}" fill="#ACACB4" font-size="12">26 окт</text>
+    <text x="${x(out)}" y="${H + 16}" fill="#ACACB4" font-size="12" text-anchor="middle">18 ноя</text>
+    <text x="${W}" y="${H + 16}" fill="#ACACB4" font-size="12" text-anchor="end">26 ноя</text>
+  </svg>`;
+}
+
+// C: the regular payments still to come off the card this period.
+const regular = `<div class="note new tnum"><span class="dot"></span><span>Ещё спишется <b>85 ₾</b>: интернет 12 ноя, связь 18 ноя</span></div>`;
+
+// D: the same day of the last period.
+const lastTime = `<div class="note new tnum"><span class="dot"></span><span>В октябре к 10-му дню ушло 610 ₾ — сейчас на <b>210 ₾</b> больше</span></div>`;
+
+const variants = [
+  { tag: "Сейчас", why: "Как в приложении: цифра на сегодня, полоса дневной доли, «хватит на», план и факт. Отсюда видно «сегодня», но не весь период.", extra: {} },
+  { tag: "<b>A</b> · Период тонкой линией с отметкой «сегодня»", why: "Одним взглядом: денег ушло 46 %, времени прошло 29 % — идёшь быстрее плана. Полоса темпа — про сегодня, эта линия — про весь период, не задваивают друг друга. Как «Today» у Cashew, но тише.", extra: { bottom: periodLine } },
+  { tag: "<b>B</b> · Крошечный график остатка", why: "Видно, где деньги просели (покупка за 150 ₾ на 3-й день) и куда ведёт темп: пунктир упирается в ноль 18 ноября, раньше конца. Самая «умная» деталь, но и самая тяжёлая для глаза.", extra: { bottom: spark() } },
+  { tag: "<b>C</b> · Регулярные, что ещё спишутся", why: "Остаток на карте выглядит больше, чем он есть: интернет и связь ещё придут. Строка честно говорит, сколько уже занято. Сейчас регулярный платёж видно только за 2 дня до списания.", extra: { bottom: regular } },
+  { tag: "<b>D</b> · Сравнение с прошлым периодом", why: "Ответ на «это много или как обычно?»: тот же день прошлого месяца. Полезно, когда темп кажется высоким, но так всегда бывает в начале месяца (аренда, запасы).", extra: { bottom: lastTime } },
+  { tag: "<b>A + C</b> · Рекомендую", why: "Две самые полезные и тихие: где ты в периоде и что ещё занято. Цифра и полоса по-прежнему главные; добавилось две строки мелким.", extra: { bottom: periodLine + regular } },
+];
+
+document.getElementById("row").innerHTML = variants.map(v => `
+  <div class="col">
+    <p class="tag">${v.tag}</p>
+    <p class="why">${v.why}</p>
+    <div class="phone">
+      <div class="status tnum"><span>10:11</span><span>▴ ▮ 33%</span></div>
+      ${tile(v.extra)}
+      ${feed}
+      ${chrome}
+    </div>
+  </div>`).join("");
+</script>
+</body>
+</html>
