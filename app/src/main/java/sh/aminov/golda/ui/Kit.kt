@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -299,7 +300,9 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
             Spacer(Modifier.weight(1f))
             trailing?.let {
                 Spacer(Modifier.width(Gap.s))
-                it()
+                // The label's height stays the label's: a round action (48 dp to touch) hangs over the
+                // row's air instead of pushing the card below away.
+                Box(Modifier.height(32.dp).wrapContentHeight(unbounded = true), contentAlignment = Alignment.CenterEnd) { it() }
             }
         }
         // Pulled up to the label and kept off the card below, as far as a label sits from its card.
@@ -1134,8 +1137,10 @@ const val ENTRY_FIGURE_SP = 58f
 fun AddAction(description: String, onClick: () -> Unit) {
     // A round tonal "+" at the group's end, Material's way of adding to a list: quieter than a word,
     // and the same in every group. [description] is what TalkBack says ("Добавить счёт").
-    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
-        Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+    // A 32 dp circle, the label row's own height; lifted a little, so it keeps the same air above the card
+    // as the label does. Its right edge is the amounts' edge under it.
+    FilledTonalIconButton(onClick = onClick, modifier = Modifier.offset(y = (-4).dp).size(32.dp)) {
+        Icon(painterResource(R.drawable.ic_add), description, Modifier.size(18.dp))
     }
 }
 
