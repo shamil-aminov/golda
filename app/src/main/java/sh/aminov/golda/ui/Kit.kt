@@ -274,6 +274,8 @@ fun HeroTile(
     container: Color = MaterialTheme.colorScheme.primaryFixed,
     content: Color = MaterialTheme.colorScheme.onPrimaryFixed,
     onClick: (() -> Unit)? = null,
+    /** Over and under the content: the card's 16, or [HeaderSpace.edge] for a header whose texts are cut to their letters. */
+    vertical: Dp = Space.card,
     body: @Composable ColumnScope.() -> Unit,
 ) {
     // On a plate of colour its own inks, so whatever inside asks for the plain ones reads on it.
@@ -282,26 +284,26 @@ fun HeroTile(
         // Bad news in red where red reads on the plate (4.5:1), else in the plate's ink: the words still say it.
         val error = if (contrast(scheme.error, container) >= 4.5) scheme.error else scheme.onPrimaryFixed
         MaterialTheme(colorScheme = scheme.copy(onSurface = scheme.onPrimaryFixed, onSurfaceVariant = scheme.onPrimaryFixedVariant, error = error)) {
-            HeroSurface(modifier, container, content, onClick, body)
+            HeroSurface(modifier, container, content, onClick, vertical, body)
         }
     } else {
-        HeroSurface(modifier, container, content, onClick, body)
+        HeroSurface(modifier, container, content, onClick, vertical, body)
     }
 }
 
 @Composable
-private fun HeroSurface(modifier: Modifier, container: Color, content: Color, onClick: (() -> Unit)?, body: @Composable ColumnScope.() -> Unit) {
+private fun HeroSurface(modifier: Modifier, container: Color, content: Color, onClick: (() -> Unit)?, vertical: Dp, body: @Composable ColumnScope.() -> Unit) {
     val color by animateColorAsState(container, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "hero")
     val ink by animateColorAsState(content, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "heroInk")
     val shape = RoundedCornerShape(CardCorner)
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            Column(Modifier.padding(Space.card), content = body)
+            Column(Modifier.padding(horizontal = Space.card, vertical = vertical), content = body)
         }
     } else {
         Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
             // Placed 8 from the screen's edge, 16 inside: the text 24 from the edge, like every row's.
-            Column(Modifier.padding(Space.card), content = body)
+            Column(Modifier.padding(horizontal = Space.card, vertical = vertical), content = body)
         }
     }
 }
@@ -829,6 +831,35 @@ enum class Spacing(val factor: Float) {
         /** The stored name, [NORMAL] for none or an unknown one. */
         fun of(name: String?): Spacing = entries.firstOrNull { it.name == name } ?: NORMAL
     }
+}
+
+/**
+ * A header's gaps, all measured from the letters (the capitals' top, the baseline; a bar's own edge):
+ * the φ row 8 · 13 · 21 · 34 at «Обычно», one density factor on all of it (10 · 16 · 26 · 42 at
+ * «Просторно», as the owner set them by eye). A caption keeps to its value by the value's weight.
+ */
+object HeaderSpace {
+    /** A caption under a chart (the dates under the period bar): 8. */
+    val chartCaption: Dp @Composable @ReadOnlyComposable get() = step(8f)
+
+    /** A caption and a 22 value ("Проценты по кредитке" over its sum, the status over its plan): 13. */
+    val valueCaption: Dp @Composable @ReadOnlyComposable get() = step(13f)
+
+    /** A caption over the big figure: 21. */
+    val figureCaption: Dp @Composable @ReadOnlyComposable get() = step(21f)
+
+    /** Block from block inside a group (the figure and the bar, the dates and the status): 21. */
+    val block: Dp @Composable @ReadOnlyComposable get() = step(21f)
+
+    /** Group from group in one header (the total in other currencies and the debt's cost): 34. */
+    val group: Dp @Composable @ReadOnlyComposable get() = step(34f)
+
+    /** The plate's edge over the first letters and under the last: 21. */
+    val edge: Dp @Composable @ReadOnlyComposable get() = step(21f)
+
+    @Composable
+    @ReadOnlyComposable
+    private fun step(normal: Float): Dp = (normal * LocalSpacing.current.factor).roundToInt().dp
 }
 
 /** The [Spacing] in use: GoldaTheme provides the setting. */
