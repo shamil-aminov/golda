@@ -88,12 +88,16 @@ loud is the moment you notice you are spending.
   the talks under them are kept and backed up.
 - **Reconcile** any account against the bank, with a Sunday reminder.
 - **Backup** everything to one JSON file and restore from it.
-- **Themes.** Twenty-two ready themes, from calm to bold, each with a light and
-  a dark half, one switch for light, dark or the system's, and a generator that
-  builds a whole theme from one colour, a style and a contrast. "Ясная" is made
-  for colour-vision deficiency; every theme keeps text at 7:1 contrast. Category
-  colours follow the theme. List density — compact, normal or roomy — is set
-  on the same page.
+- **Themes.** Twenty ready themes, each with a light and a dark half: twelve
+  calm ones and eight bold ones after Bungie's Marathon — a white or black page,
+  quiet lists, and one plate of acid lime, ultramarine, red-orange or magenta at
+  the top of each tab, with the pace bar and the action in the colour against
+  it. One switch for light, dark or the system's, a generator that builds a
+  whole theme from one colour, a style and a contrast, "Pure black" for OLED
+  screens, and "Coloured spending": every row's circle in its category's
+  colour, the same as in the insights. "Ясная" is made for colour-vision
+  deficiency; every theme keeps text at 7:1 contrast. List density — compact,
+  normal or roomy — is set on the same page.
 - **Russian and English.** Material 3 Expressive, one card per group, one
   accent for the one action to take.
 

@@ -293,7 +293,8 @@ private fun ThemeChip(name: String, t: Tones, on: Boolean, width: Dp, onClick: (
             .padding(4.dp),
     ) {
         Box(Modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(16.dp)).background(t.page).padding(8.dp)) {
-            Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(t.card))
+            // The hero tile: a plate of colour in a bold theme, a card like the rest in a calm one.
+            Box(Modifier.fillMaxWidth().height(22.dp).clip(RoundedCornerShape(8.dp)).background(t.plate))
             Row(Modifier.align(Alignment.BottomStart), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.size(14.dp).clip(CircleShape).background(t.graphite))
                 Box(Modifier.size(14.dp).clip(CircleShape).background(t.gold))
