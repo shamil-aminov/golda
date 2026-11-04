@@ -285,7 +285,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                 CardTitle(tr("Доходы и обмен", "Income and exchange"), Modifier.padding(horizontal = Gap.m))
                 Surface(
                     Modifier.fillMaxWidth().padding(horizontal = Gap.s),
-                    shape = (LocalCardCorner.current ?: 28.dp).let { RoundedCornerShape(bottomStart = it, bottomEnd = it) }, color = tileColor(),
+                    shape = RoundedCornerShape(bottomStart = CardCorner, bottomEnd = CardCorner), color = tileColor(),
                 ) { Column(Modifier.padding(start = Gap.m, end = Gap.m, bottom = Gap.m), content = rows) }
             }
         }

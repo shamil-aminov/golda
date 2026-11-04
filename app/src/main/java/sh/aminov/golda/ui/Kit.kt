@@ -164,9 +164,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /*
- * The design system in one place. Spacing runs 4 · 8 · 16 · 24 · 40; corners are 32 for the one
- * hero tile on a screen, 28 for tiles and grouped lists (4 between rows), 16 for fields and full
- * pills for buttons. Text on a container always takes that container's "on" role.
+ * The design system in one place. Spacing runs 4 · 8 · 16 · 24 · 40; corners are [CardCorner], 20,
+ * for every card (the hero tile, tiles, grouped lists), 16 for fields and full pills for buttons. Text on a container always takes that container's "on" role.
  */
 
 object Gap {
@@ -263,7 +262,7 @@ fun HeroTile(
 private fun HeroSurface(modifier: Modifier, container: Color, content: Color, onClick: (() -> Unit)?, body: @Composable ColumnScope.() -> Unit) {
     val color by animateColorAsState(container, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "hero")
     val ink by animateColorAsState(content, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "heroInk")
-    val shape = LocalCardCorner.current?.let { RoundedCornerShape(it) } ?: MaterialTheme.shapes.extraLargeIncreased
+    val shape = RoundedCornerShape(CardCorner)
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
             Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
@@ -287,7 +286,7 @@ fun Tile(
     padding: PaddingValues = PaddingValues(Gap.m),
     body: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = LocalCardCorner.current?.let { RoundedCornerShape(it) } ?: MaterialTheme.shapes.extraLarge
+    val shape = RoundedCornerShape(CardCorner)
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier, shape = shape, color = container, contentColor = content) {
             Column(Modifier.padding(padding), content = body)
@@ -329,8 +328,11 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
     }
 }
 
-/** Corner 28 at the ends of a grouped list, 4 between its rows. */
-fun groupShape(index: Int, count: Int, outer: Dp = 28.dp): Shape {
+/** Every card's corner: the hero, a tile, the ends of a grouped list. */
+val CardCorner = 20.dp
+
+/** [CardCorner] at the ends of a grouped list, square between its rows. */
+fun groupShape(index: Int, count: Int, outer: Dp = CardCorner): Shape {
     // One card per group: round at its ends, square where its rows meet.
     val inner = 0.dp
     return RoundedCornerShape(
@@ -369,7 +371,7 @@ fun GroupRow(
     } else {
         trailing
     }
-    val shapes = ListItemDefaults.shapes(shape = groupShape(index, count, LocalCardCorner.current ?: 28.dp))
+    val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
     // The air the person picked, over and under the text: Material's own padding plus it.
     val air = LocalSpacing.current.row
     val layout = LocalLayoutDirection.current
@@ -784,9 +786,6 @@ enum class Spacing(val row: Dp, val underHeader: Dp, val underLabel: Dp) {
     }
 }
 
-/** TEMPORARY (docs/tasks/accounts-screen.md): one corner for every card, for the corner mock-ups; null in the app (32 hero, 28 the rest). */
-val LocalCardCorner = staticCompositionLocalOf<Dp?> { null }
-
 /** The [Spacing] in use: GoldaTheme provides the setting. */
 val LocalSpacing = staticCompositionLocalOf { Spacing.NORMAL }
 
@@ -1196,7 +1195,7 @@ const val ENTRY_FIGURE_SP = 58f
 /**
  * A group with an action, headed inside its own card: the title 22 semibold on the rows' text line, the
  * round tonal "+" (Material's way of adding to a list) in the top corner, 12 in from the top and the
- * end, 32 across, so its circle is concentric with the card's 28 corner (28 − 12 = 16). The rows under
+ * end, 32 across (it sat concentric with the old 28 corner; with 20 it keeps its place). The rows under
  * it count it as their first: index + 1 of count + 1. [alone] while the group has no rows: round all
  * over. [description] is what TalkBack says for the "+" ("Добавить счёт").
  */
@@ -1220,7 +1219,7 @@ fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier:
 @Composable
 fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = false, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
     // Out to the rows' card edge, 8 from the screen, like GroupRow.
-    Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2, LocalCardCorner.current ?: 28.dp), color = tileColor()) {
+    Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
             Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
