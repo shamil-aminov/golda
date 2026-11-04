@@ -189,21 +189,15 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
         val spent = if (accountId == null) list.filter { it.op.type == OpType.EXPENSE }.sumOf { full -> -full.postings.sumOf { p -> p.rubMinor } } else 0
         val total = spent.takeIf { it > 0 }?.let { rub -> data.dayTotal(rub) }
         item(key = "day-$date") {
-            // TEMPORARY (docs/tasks/one-header-rule.md): (б) and (г) open the day's card with its date.
-            when (val rule = LocalHeaderRule.current) {
-                HeaderRule.INSIDE, HeaderRule.MINE -> CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), quiet = rule == HeaderRule.MINE) {
-                    total?.let { Text(it, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
-                }
-                else -> GroupLabel(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    total?.let { Text(it, style = MaterialTheme.typography.labelLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
-                }
+            // The date opens the day's card, a step under a section's title; its sum at the end.
+            CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), quiet = true) {
+                total?.let { Text(it, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
             }
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
-            val head = if (LocalHeaderRule.current == HeaderRule.INSIDE || LocalHeaderRule.current == HeaderRule.MINE) 1 else 0
             // New entries slide in, the rest make room.
             OperationRow(
-                data, it, accountId, onClick, i + head, list.size + head,
+                data, it, accountId, onClick, i + 1, list.size + 1,
                 Modifier.padding(horizontal = Gap.m).animateItem(placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec()),
             )
         }

@@ -48,10 +48,7 @@ fun LazyListScope.regularPayments(data: AppData, onEdit: (Obligation) -> Unit) {
         )
     }
     payments.forEachIndexed { i, payment ->
-        item(key = "regular-${payment.id}") {
-            val head = headerSegments()
-            PaymentRow(payment, i + head, payments.size + head, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) }
-        }
+        item(key = "regular-${payment.id}") { PaymentRow(payment, i + 1, payments.size + 1, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
     }
 }
 

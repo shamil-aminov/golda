@@ -294,7 +294,8 @@ fun AccountsScreen(
         data.accounts.forEachIndexed { i, account ->
             item(key = account.id) {
                 val state = data.states.getValue(account.id)
-                val head = if (reconcileMode) 0 else headerSegments()
+                // Reconciling has no header: the rows are the whole card.
+                val head = if (reconcileMode) 0 else 1
                 AccountRow(
                     data, state, i + head, data.accounts.size + head,
                     reconcileMode = reconcileMode,

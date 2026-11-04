@@ -1203,17 +1203,15 @@ fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier:
             Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
         }
     }
-    // TEMPORARY (docs/tasks/one-header-rule.md): (в) puts the title over the card, as the dates are now.
-    if (LocalHeaderRule.current == HeaderRule.OUTSIDE) {
-        GroupLabel(title, modifier) { plus() }
-    } else {
-        CardTitle(title, modifier, alone, trailing = plus)
-    }
+    CardTitle(title, modifier, alone, trailing = plus)
 }
 
 /**
- * A group's title as the first part of its card, the [GroupHeader] geometry: 22 semibold on the rows'
- * text line, a 32 row 12 from the top for whatever stands at its end. [quiet]: a lesser title, 16.
+ * The one rule for a group of rows: its title opens its card, on the rows' text line, in a 32 row 12
+ * from the top with whatever belongs to the group at its end (the "+", the day's sum). A tab's section
+ * ("Счета", "Регулярные платежи") is 22 semibold; [quiet], one step down at 16, for a day in the feed
+ * and for the groups of a page that has its own big title (Settings, Currencies). The rows under it
+ * count it as their first: index + 1 of count + 1; [alone] while there are none.
  */
 @Composable
 fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = false, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
@@ -1237,16 +1235,6 @@ fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = fal
         }
     }
 }
-
-/** TEMPORARY (docs/tasks/one-header-rule.md): where a group's title goes, for the mock-ups; NOW in the app. */
-enum class HeaderRule { NOW, INSIDE, OUTSIDE, MINE }
-
-/** TEMPORARY (docs/tasks/one-header-rule.md). */
-val LocalHeaderRule = staticCompositionLocalOf { HeaderRule.NOW }
-
-/** TEMPORARY (docs/tasks/one-header-rule.md): segments a [GroupHeader] takes in its card: none when it stands over it. */
-@Composable
-fun headerSegments(): Int = if (LocalHeaderRule.current == HeaderRule.OUTSIDE) 0 else 1
 
 /** Vertical space from the spacing scale. */
 @Composable
