@@ -443,14 +443,14 @@ fun GroupRow(
 
 /** A 40 dp neutral circle for an icon at the start of a row. */
 @Composable
-fun IconCircle(modifier: Modifier = Modifier, color: Color = circleColor(), content: @Composable () -> Unit) {
-    Box(modifier.size(40.dp).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { content() }
+fun IconCircle(modifier: Modifier = Modifier, color: Color = circleColor(), size: Dp = 40.dp, content: @Composable () -> Unit) {
+    Box(modifier.size(size).clip(CircleShape).background(color), contentAlignment = Alignment.Center) { content() }
 }
 
 /** An icon in its neutral circle: a category, a transfer. */
 @Composable
-fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier, color: Color = circleColor(), ink: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
-    IconCircle(modifier, color) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = ink) }
+fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier, color: Color = circleColor(), ink: Color = MaterialTheme.colorScheme.onSurfaceVariant, size: Dp = 40.dp) {
+    IconCircle(modifier, color, size) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = ink) }
 }
 
 /** Whether a row's circle wears its category's colour (Цветные траты on the Theme page); off, the neutral circles. */

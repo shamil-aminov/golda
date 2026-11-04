@@ -89,6 +89,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.layout.FirstBaseline
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.OperationFull
@@ -124,26 +128,31 @@ fun HomeScreen(
             // money, with whether the money goes faster than the days.
             val scheme = MaterialTheme.colorScheme
             val ink = scheme.onPrimaryFixed
-            // The figures first, each closed by its caption (14, the base, the plate's second ink); every
-            // gap measured from the letters: a text's step inside a block, a block's between them.
+            // The figures first, each closed by its caption (14, the base, the plate's second ink). The big
+            // figure is cut at its baseline; every other text keeps its box, as on Accounts.
             val words = TextRole.caption
             val status = TextRole.headerFigures
-            val cut = Modifier.letters(words.fontSize)
             HeroTile(Modifier.padding(horizontal = Gap.s), content = ink) {
                 val code = envelope?.currency
-                Row(verticalAlignment = Alignment.Top) {
-                    Box(Modifier.weight(1f)) {
-                        // No account to spend from (or the data is still loading): the tile stays quiet.
-                        if (envelope != null && code != null) {
-                            HeroAmount(whole(envelope.leftTodayMinor, code), ink, Modifier.letters(BIG_FIGURE_SP.sp, top = false).testTag(Tags.HOME_BIG), signColor = ink)
+                val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
+                BoxWithConstraints {
+                    // The gear stands on the digits' top line, its glyph's right edge on the content's (16 from
+                    // the plate), its 48 to tap spilling into the padding; the figure fits what is left.
+                    val gear = 48.dp
+                    val size = figure?.let { heroFigureSize(it, maxWidth - gear) } ?: BIG_FIGURE_SP.sp
+                    val cap = with(LocalDensity.current) { (size.toPx() * 0.727f).roundToInt() + 12.dp.roundToPx() }
+                    Row {
+                        Box(Modifier.weight(1f).alignBy(FirstBaseline)) {
+                            // No account to spend from (or the data is still loading): the tile stays quiet.
+                            if (figure != null) HeroAmount(figure, ink, Modifier.letters(BIG_FIGURE_SP.sp, top = false).testTag(Tags.HOME_BIG), signColor = ink)
                         }
-                    }
-                    IconButton(onClick = onSettings, modifier = Modifier.overhang()) {
-                        Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onPrimaryFixedVariant)
+                        IconButton(onClick = onSettings, modifier = Modifier.offset(x = 12.dp).alignBy { cap }) {
+                            Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onPrimaryFixedVariant)
+                        }
                     }
                 }
                 if (envelope != null) VSpace(Space.text)
-                Text(tr("Можно сегодня", "Safe to spend today"), cut, style = words, maxLines = 1)
+                Text(tr("Можно сегодня", "Safe to spend today"), style = words, maxLines = 1)
                 if (envelope == null || code == null) return@HeroTile
                 VSpace(Space.block)
                 // The period as one bar: the days gone pale, the money gone over them, and what went
@@ -152,7 +161,7 @@ fun HomeScreen(
                 PeriodBar(envelope.timeShare, envelope.spentShare, paceColor(Pace.LASTS), red)
                 VSpace(Space.text)
                 // Where the bar starts and ends; no "today" here, the caption under the figure says it.
-                Row(Modifier.fillMaxWidth().then(cut)) {
+                Row(Modifier.fillMaxWidth()) {
                     Text(dayMonth(envelope.start), Modifier.weight(1f), style = words, maxLines = 1)
                     Text(dayMonth(envelope.end), style = words, maxLines = 1)
                 }
@@ -175,7 +184,7 @@ fun HomeScreen(
                             }
                             else -> AnnotatedString(tr("В норме", "Within the norm"))
                         },
-                        Modifier.letters(status.fontSize).testTag(Tags.HOME_RUNWAY),
+                        Modifier.testTag(Tags.HOME_RUNWAY),
                         // The tile's main statement: the header's figures, in full ink.
                         style = status,
                         color = ink,
@@ -185,7 +194,7 @@ fun HomeScreen(
                     // What a day was meant to be and what it actually is: its caption.
                     val plan = tr("План ${whole(envelope.perDayMinor, code)} в день", "Plan ${whole(envelope.perDayMinor, code)} a day")
                     val fact = envelope.burnMinor?.let { tr("факт ${whole(it, code)}", "actual ${whole(it, code)}") }
-                    Text(listOfNotNull(plan, fact).joinToString(" · "), cut, style = words, maxLines = 1)
+                    Text(listOfNotNull(plan, fact).joinToString(" · "), style = words, maxLines = 1)
                 }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
@@ -260,13 +269,14 @@ fun AccountsScreen(
                 // The figures first, each block closed by its label, the sizes only going down: the total
                 // and the same money in other currencies, «Всего на счетах» under them. Each block is one
                 // node for TalkBack, read as it stands: the figures, then what they are.
-                // Every gap from the letters, as on Home; the captions in the plate's second ink.
+                // The figure cut at its baseline (the empty band under its digits would lift the line under it
+                // to a block's distance); every other text by its box. The captions in the plate's second ink.
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
                     HeroAmount(data.base.whole(total), ink, Modifier.letters(BIG_FIGURE_SP.sp, top = false).testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
                     VSpace(Space.text)
-                    Text(data.others(total, data.base.code), Modifier.letters(figures.fontSize), style = figures, color = ink)
+                    Text(data.others(total, data.base.code), style = figures, color = ink)
                     VSpace(Space.text)
-                    Text(tr("Всего на счетах", "Total in accounts"), Modifier.letters(words.fontSize), style = words, maxLines = 1)
+                    Text(tr("Всего на счетах", "Total in accounts"), style = words, maxLines = 1)
                 }
                 // What the debt costs, a block under: the money it eats, then its label.
                 Debts.advice(data.accounts, data.states)?.let { advice ->
@@ -274,10 +284,10 @@ fun AccountsScreen(
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
                         tail?.let {
-                            Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
+                            Text(it, style = figures, color = ink)
                             VSpace(Space.text)
                         }
-                        Text(head, Modifier.letters(words.fontSize), style = words)
+                        Text(head, style = words)
                     }
                 }
             }
@@ -626,10 +636,7 @@ internal fun PeriodBar(time: Float, spent: Float, color: Color, over: Color) {
 @Composable
 fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        // Tabular figures run about 0.6 em wide; keep a little air at the edge.
-        val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
-        // One size on every tab, so the figure does not jump when swiping; smaller only to fit.
-        val size = minOf(fit, BIG_FIGURE_SP).sp
+        val size = heroFigureSize(text, maxWidth)
         // The one big thing on a tab, still: the sign as in the entry field, one space away, in the
         // muted ink, so the digits are read first.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
@@ -650,6 +657,14 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier, signCo
             maxLines = 1,
         )
     }
+}
+
+/** The big figure's size for [text] in [width]: one size on every tab, so it does not jump when swiping; smaller only to fit. */
+@Composable
+internal fun heroFigureSize(text: String, width: Dp): TextUnit {
+    // Tabular figures run about 0.6 em wide; keep a little air at the edge.
+    val fit = with(LocalDensity.current) { (width * 0.94f / (text.length * 0.6f)).toSp().value }
+    return minOf(fit, BIG_FIGURE_SP).sp
 }
 
 /** How far right of its origin the first character's ink starts, in px; about 6.5 % of the size if the face cannot be measured. */
