@@ -191,45 +191,32 @@ object Gap {
 val GroupGap = 2.dp
 
 /**
- * Space by role, one progression: ×1.5, 9 · 14 · 21 · 32 · 48 at «Просторно» — the row the owner's eye
- * set by hand on Home and Accounts (header and lists alike), measured from the letters (the capitals'
- * top, the baseline; an icon's or a bar's own edge). Inside a group always less than between groups:
- * a caption by the weight of what it names (a chart's 9, a value's 14, the big figure's 21) < block (32)
- * < group (48). The card's edge over and under its letters is 24 (its sides' 16 × 1.5), the sides stay
- * 16, the screen's margin 8. The density is one factor on the whole row (×0.8 to «Обычно» from it).
+ * Space by level, one progression: φ from 16, 4 · 6 · 10 · 16 · 26 · 42, the type's golden steps
+ * again. Inside a group always less than between groups: text from text (6) < block from block (20,
+ * 10 over and under a row) < card from card (26). The card's own padding (16) and the screen's margin
+ * (8) stay outside the chain. The list density scales the levels, never 16 or 8. On Accounts for now
+ * (docs/tasks/spacing.md); the other screens move to it next.
  */
 object Space {
-    /** The card's sides and the gap by an icon: 16. */
+    /** The card's own padding, every side: 16. */
     val card = Gap.m
 
-    /** A row's second line under its name, and what an amount came to under it: a value's caption, 14. */
-    val text: Dp @Composable @ReadOnlyComposable get() = Rhythm.valueCaption
+    /** Level 0: one text from the next in a block (a row's name and its second line, a label and its figure). */
+    val text: Dp @Composable @ReadOnlyComposable get() = scaled(6.dp)
 
-    /** Over and under each row: half of [block], so two rows' letters are a row's step (21) apart. */
-    val half: Dp @Composable @ReadOnlyComposable get() = Rhythm.row / 2
+    /** Half of level 1: over and under each row. */
+    val half: Dp @Composable @ReadOnlyComposable get() = scaled(10.dp)
 
-    /** Row from row: 21. */
-    val block: Dp @Composable @ReadOnlyComposable get() = Rhythm.row
+    /** Level 1: block from block in a card, 2 × [half] (row from row, a title from its first row). */
+    val block: Dp @Composable @ReadOnlyComposable get() = half * 2
 
-    /** Card from card (the days of the feed, the groups of Accounts), and a header from its first card: 32. */
-    val cards: Dp @Composable @ReadOnlyComposable get() = Rhythm.block
+    /** Level 3: card from card. */
+    val cards: Dp @Composable @ReadOnlyComposable get() = scaled(26.dp)
 
-    /** A card's edge over its first letters and under its last: 24. */
-    val edge: Dp @Composable @ReadOnlyComposable get() = Rhythm.edge
-}
-
-/** The ×1.5 row by role, at «Просторно»; [Spacing.factor] over 1.25 scales it to the density in use. */
-object Rhythm {
-    val chartCaption: Dp @Composable @ReadOnlyComposable get() = step(9f)
-    val valueCaption: Dp @Composable @ReadOnlyComposable get() = step(14f)
-    val row: Dp @Composable @ReadOnlyComposable get() = step(21f)
-    val block: Dp @Composable @ReadOnlyComposable get() = step(32f)
-    val group: Dp @Composable @ReadOnlyComposable get() = step(48f)
-    val edge: Dp @Composable @ReadOnlyComposable get() = step(24f)
-
+    /** [base] times the density, to the nearest 2. */
     @Composable
     @ReadOnlyComposable
-    private fun step(roomy: Float): Dp = (roomy * LocalSpacing.current.factor / Spacing.ROOMY.factor).dp
+    private fun scaled(base: Dp): Dp = (kotlin.math.round(base.value * LocalSpacing.current.factor / 2) * 2).dp
 }
 
 @Composable
@@ -425,36 +412,32 @@ fun GroupRow(
     Surface(modifier.bleed(Gap.s).then(tap), shape = shape, color = container, contentColor = scheme.onSurface) {
         // On the title's line when it has a second line under it; else in the middle, like a switch.
         val onTitle = trailingOnTitle && supporting != null && trailing != null
-        // Every text cut to its letters, so each gap is measured from them: the card's edge at the group's
-        // ends, half a row's step at the others, the second line a value's caption under the name.
-        val name = Modifier.letters(TextRole.rowName.fontSize)
-        val caption = Modifier.letters(TextRole.caption.fontSize)
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(
                 start = Space.card, end = Space.card,
-                top = if (index == 0) Space.edge else Space.half, bottom = if (index == count - 1) Space.edge else Space.half,
+                top = if (index == 0) Space.card else Space.half, bottom = if (index == count - 1) Space.card else Space.half,
             ),
             verticalAlignment = if (onTitle) Alignment.Top else Alignment.CenterVertically,
         ) {
             leading?.let {
-                // In the middle of the row's letters, taking none of its height: it overhangs into the gaps.
-                Box(Modifier.align(Alignment.CenterVertically).height(0.dp).wrapContentHeight(unbounded = true)) {
+                // In the middle of the row: it halves a two-line row's height.
+                Box(Modifier.align(Alignment.CenterVertically)) {
                     CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { it() }
                 }
                 Spacer(Modifier.width(Space.card))
             }
             Column(Modifier.weight(1f).let { if (onTitle) it else it.align(Alignment.CenterVertically) }) {
-                Box(name) { ProvideTextStyle(type.bodyLarge) { headline() } }
+                ProvideTextStyle(type.bodyLarge) { headline() }
                 supporting?.let {
                     Spacer(Modifier.height(Space.text))
-                    Box(caption) { CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { ProvideTextStyle(type.bodyMedium) { it() } } }
+                    CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { ProvideTextStyle(type.bodyMedium) { it() } }
                 }
             }
             trailing?.let {
                 Spacer(Modifier.width(Space.card))
                 CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) {
                     // On the title's line it starts with the name (an amount and, under it, what it became).
-                    Box(if (onTitle) name else Modifier) { it() }
+                    it()
                 }
             }
         }
@@ -851,28 +834,32 @@ enum class Spacing(val factor: Float) {
 }
 
 /**
- * A header's gaps, by role, on [Rhythm] (9 · 14 · 21 · 32 · 48 at «Просторно», the owner's by eye), all
- * measured from the letters (the capitals' top, the baseline; a bar's own edge). A caption keeps to its
- * value by the value's weight.
+ * A header's gaps, all measured from the letters (the capitals' top, the baseline; a bar's own edge):
+ * the φ row 8 · 13 · 21 · 34 at «Обычно», one density factor on all of it (10 · 16 · 26 · 42 at
+ * «Просторно», as the owner set them by eye). A caption keeps to its value by the value's weight.
  */
 object HeaderSpace {
-    /** A caption under a chart (the dates under the period bar): 9. */
-    val chartCaption: Dp @Composable @ReadOnlyComposable get() = Rhythm.chartCaption
+    /** A caption under a chart (the dates under the period bar): 8. */
+    val chartCaption: Dp @Composable @ReadOnlyComposable get() = step(8f)
 
-    /** A caption and a 22 value ("Проценты по кредитке" over its sum, the status over its plan): 14. */
-    val valueCaption: Dp @Composable @ReadOnlyComposable get() = Rhythm.valueCaption
+    /** A caption and a 22 value ("Проценты по кредитке" over its sum, the status over its plan): 13. */
+    val valueCaption: Dp @Composable @ReadOnlyComposable get() = step(13f)
 
     /** A caption over the big figure: 21. */
-    val figureCaption: Dp @Composable @ReadOnlyComposable get() = Rhythm.row
+    val figureCaption: Dp @Composable @ReadOnlyComposable get() = step(21f)
 
-    /** Block from block inside a group (the figure and the bar, the dates and the status): 32. */
-    val block: Dp @Composable @ReadOnlyComposable get() = Rhythm.block
+    /** Block from block inside a group (the figure and the bar, the dates and the status): 21. */
+    val block: Dp @Composable @ReadOnlyComposable get() = step(21f)
 
-    /** Group from group in one header (the total in other currencies and the debt's cost): 48. */
-    val group: Dp @Composable @ReadOnlyComposable get() = Rhythm.group
+    /** Group from group in one header (the total in other currencies and the debt's cost): 34. */
+    val group: Dp @Composable @ReadOnlyComposable get() = step(34f)
 
-    /** The plate's edge over the first letters and under the last: 24. */
-    val edge: Dp @Composable @ReadOnlyComposable get() = Rhythm.edge
+    /** The plate's edge over the first letters and under the last: 21. */
+    val edge: Dp @Composable @ReadOnlyComposable get() = step(21f)
+
+    @Composable
+    @ReadOnlyComposable
+    private fun step(normal: Float): Dp = (normal * LocalSpacing.current.factor).roundToInt().dp
 }
 
 /** The [Spacing] in use: GoldaTheme provides the setting. */
@@ -1370,23 +1357,23 @@ fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier:
  */
 @Composable
 fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = false, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
-    val style = if (quiet) TextRole.rowName.copy(fontWeight = TextRole.Accent) else TextRole.groupTitle
     // Out to the rows' card edge, 8 from the screen, like GroupRow.
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
-        // The card's edge over the title's letters; a block under them to the first row's letters (the row
-        // adds its half a row's step).
         Row(
-            Modifier.padding(start = Space.card, end = 12.dp, top = Space.edge, bottom = if (alone) Space.edge else Rhythm.block - Space.half),
+            // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
+            // The card's 16 over the title's line, half a block under it (the first row adds the other half).
+            Modifier.padding(start = Space.card, end = 12.dp, top = Space.card, bottom = if (alone) Space.card else Space.half).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // A quiet title and what stands at its end (a day's sum) share a baseline.
             Text(
-                title, Modifier.weight(1f).semantics { heading() }.letters(style.fontSize),
-                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                title, Modifier.weight(1f).semantics { heading() }.let { if (quiet) it.alignByBaseline() else it },
+                style = if (quiet) TextRole.rowName.copy(fontWeight = TextRole.Accent) else TextRole.groupTitle,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             trailing?.let {
                 Spacer(Modifier.width(Gap.s))
-                // Centred on the title's letters, taking none of their height ("+" is 32 to their 16).
-                Box(Modifier.height(0.dp).wrapContentHeight(unbounded = true)) { it() }
+                Box(if (quiet) Modifier.alignByBaseline() else Modifier) { it() }
             }
         }
     }
