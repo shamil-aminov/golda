@@ -93,7 +93,7 @@ class HomeFixPreviewTest(private val variant: String, private val painted: Boole
     companion object {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0} painted={1}")
-        fun cases() = listOf("c", "cfix", "l1", "l1top", "l2", "acc", "accfix").flatMap { v -> listOf(false, true).map { arrayOf<Any>(v, it) } }
+        fun cases() = listOf("c", "cfix", "cfix2", "l1", "l1top", "l2", "acc", "accfix", "accfix2").flatMap { v -> listOf(false, true).map { arrayOf<Any>(v, it) } }
     }
 
     @get:Rule val compose = createComposeRule()
@@ -109,7 +109,7 @@ class HomeFixPreviewTest(private val variant: String, private val painted: Boole
         compose.setContent {
             GoldaTheme(palette, mode, "ROOMY") {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                    if (variant.startsWith("acc")) Column(Modifier.padding(top = Gap.s)) { AccountsHeader(data, variant == "accfix", painted) }
+                    if (variant.startsWith("acc")) Column(Modifier.padding(top = Gap.s)) { AccountsHeader(data, variant != "acc", variant == "accfix2", painted) }
                     else Mock(data, variant, painted)
                 }
             }
@@ -122,6 +122,10 @@ class HomeFixPreviewTest(private val variant: String, private val painted: Boole
 
     @Test fun goldaLight() = shot("golda_light", "golda", "LIGHT")
     @Test fun marathonDark() = shot("marathon_dark", "marathon", "DARK")
+
+    // The second ink on the plates: two bright bold themes too, for those two frames only.
+    @Test fun hologramLight() { if (variant.endsWith("2")) shot("hologram_light", "hologram", "LIGHT") }
+    @Test fun signalLight() { if (variant.endsWith("2")) shot("signal_light", "signal", "LIGHT") }
 }
 
 private val levelColors = listOf(Color(0xCCFF4D9D), Color(0xCCFF9F1C), Color(0xCC2EC4B6), Color(0xCC3A86FF))
@@ -149,17 +153,19 @@ private fun whole(minor: Long, code: String) = Fmt.whole(minor, code) + " " + Cu
 @Composable
 private fun Mock(data: AppData, v: String, painted: Boolean) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = Gap.s, bottom = 40.dp)) {
-        item { Hero(data, fix = v != "c", painted) }
+        item { Hero(data, fix = v != "c", second = v == "cfix2", painted) }
         days(data, v, painted)
     }
 }
 
 /** В's header; [fix]: every gap from the ink (the figure cut at its baseline, the words at their cap and baseline). */
 @Composable
-private fun Hero(data: AppData, fix: Boolean, painted: Boolean) {
+private fun Hero(data: AppData, fix: Boolean, second: Boolean, painted: Boolean) {
     val e = data.envelope ?: return
     val scheme = MaterialTheme.colorScheme
     val ink = scheme.onPrimaryFixed
+    // [second]: a caption in the plate's second ink, the rule for every caption.
+    val label = if (second) scheme.onPrimaryFixedVariant else ink
     val words = TextRole.caption
     val status = TextRole.headerFigures
     val w = if (fix) Modifier.ink(words.fontSize) else Modifier
@@ -173,13 +179,13 @@ private fun Hero(data: AppData, fix: Boolean, painted: Boolean) {
             Icon(painterResource(R.drawable.ic_settings), null, Modifier.size(24.dp), tint = ink)
         }
         Gap(Space.text, 0, painted)
-        Text("Можно сегодня", w, style = words, color = ink, maxLines = 1)
+        Text("Можно сегодня", w, style = words, color = label, maxLines = 1)
         Gap(Space.block, 1, painted)
         PeriodBar(e.timeShare, e.spentShare, paceColor(Pace.LASTS), paceColor(Pace.OVER))
         Gap(Space.text, 0, painted)
         Row(Modifier.fillMaxWidth().then(w)) {
-            Text(dayMonth(e.start), Modifier.weight(1f), style = words, color = ink)
-            Text(dayMonth(e.end), style = words, color = ink)
+            Text(dayMonth(e.start), Modifier.weight(1f), style = words, color = label)
+            Text(dayMonth(e.end), style = words, color = label)
         }
         Gap(Space.block, 1, painted)
         val overInk = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink
@@ -192,15 +198,16 @@ private fun Hero(data: AppData, fix: Boolean, painted: Boolean) {
         )
         Gap(Space.text, 0, painted)
         val fact = e.burnMinor?.let { " · факт ${whole(it, code)}" }.orEmpty()
-        Text("План ${whole(e.perDayMinor, code)} в день$fact", w, style = words, color = ink, maxLines = 1)
+        Text("План ${whole(e.perDayMinor, code)} в день$fact", w, style = words, color = label, maxLines = 1)
     }
 }
 
 /** Accounts' header (Р2) as in the code now, and with the gaps from the ink. */
 @Composable
-private fun AccountsHeader(data: AppData, fix: Boolean, painted: Boolean) {
+private fun AccountsHeader(data: AppData, fix: Boolean, second: Boolean, painted: Boolean) {
     val total = data.states.values.sumOf { it.rubMinor }
     val ink = MaterialTheme.colorScheme.onPrimaryFixed
+    val label = if (second) MaterialTheme.colorScheme.onPrimaryFixedVariant else ink
     val words = TextRole.caption
     val figures = TextRole.headerFigures
     val w = if (fix) Modifier.ink(words.fontSize) else Modifier
@@ -212,11 +219,11 @@ private fun AccountsHeader(data: AppData, fix: Boolean, painted: Boolean) {
         Gap(Space.text, 0, painted)
         Text(data.others(total, data.base.code), f, style = figures, color = ink)
         Gap(Space.text, 0, painted)
-        Text("Всего на счетах", w, style = words, color = ink)
+        Text("Всего на счетах", w, style = words, color = label)
         Gap(Space.block, 1, painted)
         Text(tail, f, style = figures, color = ink)
         Gap(Space.text, 0, painted)
-        Text(head, w, style = words, color = ink)
+        Text(head, w, style = words, color = label)
     }
 }
 
