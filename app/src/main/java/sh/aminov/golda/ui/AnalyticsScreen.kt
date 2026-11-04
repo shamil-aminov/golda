@@ -381,7 +381,7 @@ private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier, onOpe
                     LaunchedEffect(item.name) { delay(order * 50L); shown.animateTo(1f, motion) }
                     // Ink: the tile's own colour, made deep, so the words belong to it.
                     // Deep ink on light tiles, light ink on deep ones: readable on either.
-                    val ink = if (item.color.luminance() < 0.3f) lerp(item.color, Color.White, 0.9f) else lerp(item.color, Color.Black, 0.72f)
+                    val ink = tileInk(item.color)
                     // Corners in proportion to the tile: 16 dp on the big ones, and a small tile keeps
                     // its corners small rather than turning into a pill.
                     val corner = with(density) { (minOf(tile.width, tile.height) * 0.12f).toDp() }.coerceIn(4.dp, 16.dp)

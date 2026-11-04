@@ -26,9 +26,15 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
 
     // The bold ones, after Bungie's Marathon: a white or near-black page and quiet lists, one plate of
     // colour per tab, and on it the pace bar, the picked state and the action in the colour against it.
+    // The game's own six (lime, magenta, ultramarine, orange, cyan, the blue-grey), each pair against its opposite.
     MARATHON("marathon", "Марафон", "Marathon", true,
-        { boldSet(false, 0xFFDFFF1A, 0xFF0A0A0A, 0xFF3D4500, 0xFF2233FF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF2233FF, 0xFFFFFFFF) },
-        { boldSet(true, 0xFF2233FF, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFDFFF1A, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A) }),
+        { boldSet(false, 0xFFC2FE0C, 0xFF0A0A0A, 0xFF3D4500, 0xFFEA027E, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF3601FB, 0xFFFFFFFF, swatches = marathonSix) },
+        {
+            boldSet(
+                true, 0xFF3601FB, 0xFFFFFFFF, 0xFFC8C0FF, 0xFFC2FE0C, 0xFFEA027E, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF0A0A0A,
+                page = 0xFF07090F, card = 0xFF29324F, soft = 0xFF3A4566, line = 0xFF4A5578, swatches = marathonSix,
+            )
+        }),
     ULTRAMARINE("ultramarine", "Ультрамарин", "Ultramarine", true,
         { boldSet(false, 0xFF2233FF, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFF2233FF, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A) },
         { boldSet(true, 0xFF1A2BD0, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A) }),
@@ -39,7 +45,7 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
         { boldSet(false, 0xFFFF6ACB, 0xFF0A0A0A, 0xFF5A0040, 0xFF1426B8, 0xFF2233FF, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A) },
         { boldSet(true, 0xFF8A0068, 0xFFFFFFFF, 0xFFFFC8EE, 0xFFDFFF1A, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF3DBE, 0xFF0A0A0A) }),
     HOLOGRAM("hologram", "Голограмма", "Hologram", true,
-        { boldSet(false, 0xFF3DE8FF, 0xFF0A0A0A, 0xFF00434D, 0xFFE0007A, 0xFF0A0A0A, 0xFF3DE8FF, 0xFFFF2EA6, 0xFF0A0A0A) },
+        { boldSet(false, 0xFF01FFFF, 0xFF0A0A0A, 0xFF00434D, 0xFFEA027E, 0xFF0A0A0A, 0xFF01FFFF, 0xFFEA027E, 0xFF0A0A0A) },
         { boldSet(true, 0xFF005A66, 0xFFFFFFFF, 0xFFA8EEF7, 0xFFFF6EC0, 0xFFFF2EA6, 0xFF0A0A0A, 0xFF2EE6FF, 0xFF0A0A0A) }),
     TERMINAL("terminal", "Терминал", "Terminal", true,
         { boldSet(false, 0xFF7CFF4F, 0xFF0A0A0A, 0xFF164A00, 0xFFC8102E, 0xFF0A0A0A, 0xFF7CFF4F, 0xFFFF4A10, 0xFF0A0A0A) },
@@ -128,14 +134,19 @@ private fun clearNight() = darkSet(0xFF121212, 0xFF1E1E1E, 0xFF2C2C2C, 0xFF3A3A3
 private fun boldSet(
     dark: Boolean, plate: Long, onPlate: Long, onPlateMuted: Long, pace: Long,
     picked: Long, onPicked: Long, action: Long, onAction: Long,
+    page: Long = if (dark) 0xFF121212 else 0xFFFFFFFF, card: Long = if (dark) 0xFF1E1E1E else 0xFFF3F3F3,
+    soft: Long = if (dark) 0xFF2C2C2C else 0xFFE6E6E6, line: Long = if (dark) 0xFF3A3A3A else 0xFFD4D4D4,
+    swatches: List<Color>? = null,
 ) = Tones(
     dark = dark,
-    page = Color(if (dark) 0xFF121212 else 0xFFFFFFFF), card = Color(if (dark) 0xFF1E1E1E else 0xFFF3F3F3),
-    soft = Color(if (dark) 0xFF2C2C2C else 0xFFE6E6E6), line = Color(if (dark) 0xFF3A3A3A else 0xFFD4D4D4),
+    page = Color(page), card = Color(card), soft = Color(soft), line = Color(line),
     muted = Color(if (dark) 0xFFB0B0B0 else 0xFF555555), text = Color(if (dark) 0xFFFFFFFF else 0xFF0A0A0A),
     graphite = Color(picked), onGraphite = Color(onPicked), gold = Color(action), onGold = Color(onAction),
     error = Color(if (dark) 0xFFF87171 else 0xFFDC2626), onError = Color(if (dark) 0xFF450A0A else 0xFFFFFFFF),
     errorSoft = Color(if (dark) 0xFF4C1D1D else 0xFFFEE2E2), onErrorSoft = Color(if (dark) 0xFFFECACA else 0xFF991B1B),
     infoL = 0.70f, infoC = 0.17f,
-    plate = Color(plate), onPlate = Color(onPlate), onPlateMuted = Color(onPlateMuted), pace = Color(pace),
+    plate = Color(plate), onPlate = Color(onPlate), onPlateMuted = Color(onPlateMuted), pace = Color(pace), swatches = swatches,
 )
+
+/** Marathon's colours for the categories: lime, magenta, ultramarine, orange, cyan, in turn. */
+private val marathonSix = listOf(0xFFC2FE0C, 0xFFEA027E, 0xFF3601FB, 0xFFFF5500, 0xFF01FFFF).map { Color(it) }

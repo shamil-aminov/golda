@@ -73,6 +73,11 @@ class BoldThemesShots {
                     compose.onRoot().captureRoboImage("src/test/screenshots/bold/$name.png", roborazziOptions = options)
                 }
             }
+            // Марафон on pure black, as Чистый чёрный draws it.
+            tones = Palette.MARATHON.dark.onPage(Color.Black)
+            home = h
+            compose.waitForIdle()
+            compose.onRoot().captureRoboImage("src/test/screenshots/bold/marathon_oled_${if (h) "home" else "insights"}.png", roborazziOptions = options)
         }
     }
 
