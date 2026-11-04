@@ -9,11 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -22,6 +25,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -48,6 +53,7 @@ import sh.aminov.golda.ui.GroupRow
 import sh.aminov.golda.ui.HeroAmount
 import sh.aminov.golda.ui.HeroTile
 import sh.aminov.golda.ui.VSpace
+import sh.aminov.golda.ui.bleed
 import sh.aminov.golda.ui.tileColor
 import sh.aminov.golda.ui.typeLabel
 import java.util.TimeZone
@@ -92,6 +98,12 @@ class GroupHeaderPreviewTest {
     @Test fun cDark() = variant(Variant.C, true)
     @Test fun dLight() = variant(Variant.D, false)
     @Test fun dDark() = variant(Variant.D, true)
+    @Test fun v1Light() = variant(Variant.V1, false)
+    @Test fun v1Dark() = variant(Variant.V1, true)
+    @Test fun v2Light() = variant(Variant.V2, false)
+    @Test fun v2Dark() = variant(Variant.V2, true)
+    @Test fun v3Light() = variant(Variant.V3, false)
+    @Test fun v3Dark() = variant(Variant.V3, true)
 }
 
 private enum class Variant(val file: String) {
@@ -106,7 +118,27 @@ private enum class Variant(val file: String) {
 
     /** Cards 16 from the screen with corner 16, no bleed; the label on the rows' text. */
     D("d_small_corners"),
+
+    /** В, refined: titleMedium semibold; a 40 "+" 8 inside the corner (28 − 8 = its 20 radius). */
+    V1("v-1_title_medium"),
+
+    /** В, refined: titleLarge regular, the same corner. */
+    V2("v-2_title_large"),
+
+    /** В, refined: titleLarge semibold, more air: a 32 "+" 12 inside the corner (28 − 12 = 16). */
+    V3("v-3_title_large_bold"),
 }
+
+/** The refined В's header: what the title looks like, and how far the "+" sits in from the corner. */
+private class Head(val style: @Composable () -> TextStyle, val inset: Dp, val button: Dp)
+
+private val Variant.head: Head?
+    get() = when (this) {
+        Variant.V1 -> Head({ MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold) }, 8.dp, 40.dp)
+        Variant.V2 -> Head({ MaterialTheme.typography.titleLarge }, 8.dp, 40.dp)
+        Variant.V3 -> Head({ MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold) }, 12.dp, 32.dp)
+        else -> null
+    }
 
 /** The Accounts tab's top: the total, the accounts and the regular payments, the header drawn as [v] says. */
 @Composable
@@ -154,6 +186,8 @@ private fun LazyListScope.group(v: Variant, title: String, lines: List<Line>) {
         Variant.B -> item { GroupLabel(title, Modifier.padding(horizontal = Gap.m).padding(top = Gap.xl, bottom = Gap.s)) { AddAction("", {}) } }
         Variant.C -> item { VSpace(Gap.l) }
         Variant.D -> item { DLabel(title) }
+        // More air between the groups than the 24 of now.
+        else -> item { VSpace(32.dp) }
     }
     when (v) {
         Variant.C -> {
@@ -166,7 +200,29 @@ private fun LazyListScope.group(v: Variant, title: String, lines: List<Line>) {
             lines.forEachIndexed { i, l -> item { LineRow(l, i + 1, count) } }
         }
         Variant.D -> lines.forEachIndexed { i, l -> item { SmallRow(l, i, lines.size) } }
+        Variant.V1, Variant.V2, Variant.V3 -> {
+            val count = lines.size + 1
+            item { CardHead(title, v.head!!) }
+            lines.forEachIndexed { i, l -> item { LineRow(l, i + 1, count) } }
+        }
         else -> lines.forEachIndexed { i, l -> item { LineRow(l, i, lines.size) } }
+    }
+}
+
+/**
+ * The card's first segment: the title on the rows' text line (16 in), the "+" in the top corner, as far
+ * in from both edges as makes its circle concentric with the card's 28 corner, and as much air under it.
+ */
+@Composable
+private fun CardHead(title: String, head: Head) {
+    val r = 28.dp
+    Surface(Modifier.padding(horizontal = Gap.m).bleed(Gap.s).fillMaxWidth(), shape = RoundedCornerShape(topStart = r, topEnd = r), color = tileColor()) {
+        Row(Modifier.padding(start = Gap.m, end = head.inset, top = head.inset, bottom = head.inset), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = head.style(), maxLines = 1)
+            FilledTonalIconButton(onClick = {}, modifier = Modifier.size(head.button)) {
+                Icon(painterResource(R.drawable.ic_add), null, Modifier.size(20.dp))
+            }
+        }
     }
 }
 
