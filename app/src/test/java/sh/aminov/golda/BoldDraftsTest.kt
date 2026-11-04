@@ -31,57 +31,53 @@ import sh.aminov.golda.ui.Tones
 import java.util.TimeZone
 
 /**
- * Drafts of the bold themes after Bungie's Marathon (acid lime, ultramarine, red-orange, black and
- * white plates), to choose from before any of them replaces a preset. Temporary: the chosen ones
+ * Drafts of the bold themes after Bungie's Marathon: white or near-black pages, the bold colours on
+ * the plates (the cards), the picked state, the action and the categories. Temporary: the chosen ones
  * move into Palette and this file goes. See docs/tasks/bold-themes.md.
  */
 internal object BoldDrafts {
-    class Draft(val key: String, val light: Tones, val dark: Tones)
+    class Draft(val key: String, val light: Tones, val dark: Tones) {
+        /** The dark half on a page of pure black, for OLED screens. */
+        val oled: Tones get() = BoldDrafts.set(true, dark.card, dark.graphite, dark.onGraphite, dark.gold, dark.onGold, page = Color.Black)
+    }
 
-    private fun set(dark: Boolean, vararg c: Long) = Tones(
+    /** One half: the page, its inks and the quiet surfaces neutral, the colour on the [card] and the two states. */
+    fun set(dark: Boolean, card: Color, picked: Color, onPicked: Color, action: Color, onAction: Color, page: Color? = null) = Tones(
         dark = dark,
-        page = Color(c[0]), card = Color(c[1]), soft = Color(c[2]), line = Color(c[3]), muted = Color(c[4]), text = Color(c[5]),
-        graphite = Color(c[6]), onGraphite = Color(c[7]), gold = Color(c[8]), onGold = Color(c[9]),
+        page = page ?: if (dark) Color(0xFF121212) else Color.White, card = card,
+        soft = if (dark) Color(0xFF222222) else Color(0xFFEDEDED), line = if (dark) Color(0xFF363636) else Color(0xFFD4D4D4),
+        muted = if (dark) Color(0xFFD4D4D4) else Color(0xFF2E2E2E), text = if (dark) Color.White else Color(0xFF0A0A0A),
+        graphite = picked, onGraphite = onPicked, gold = action, onGold = onAction,
         error = if (dark) Color(0xFFF87171) else Color(0xFFDC2626), onError = if (dark) Color(0xFF450A0A) else Color.White,
         errorSoft = if (dark) Color(0xFF4C1D1D) else Color(0xFFFEE2E2), onErrorSoft = if (dark) Color(0xFFFECACA) else Color(0xFF991B1B),
         infoL = if (dark) 0.70f else 0.74f, infoC = 0.16f,
     )
 
-    // page, card, soft, line, muted, text, picked, on picked, action, on action
+    private fun light(vararg c: Long) = set(false, Color(c[0]), Color(c[1]), Color(c[2]), Color(c[3]), Color(c[4]))
+    private fun dark(vararg c: Long) = set(true, Color(c[0]), Color(c[1]), Color(c[2]), Color(c[3]), Color(c[4]))
+
+    // card, picked, on picked, action, on action
     val all = listOf(
-        // Acid lime pages, black picked, ultramarine action; at night black with the lime as the action.
-        Draft("marathon",
-            set(false, 0xFFDFFF1A, 0xFFF7FFC9, 0xFFC9EB00, 0xFFA8C400, 0xFF3D4500, 0xFF0A0A0A, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF2233FF, 0xFFFFFFFF),
-            set(true, 0xFF0A0A0A, 0xFF171717, 0xFF262626, 0xFF3A3A3A, 0xFFB9C77A, 0xFFF3FFC4, 0xFF2233FF, 0xFFFFFFFF, 0xFFD7FF1F, 0xFF0A0A0A)),
-        // Ultramarine with a red-orange action.
-        Draft("ultramarine",
-            set(false, 0xFFAFBBFF, 0xFFE4E8FF, 0xFF98A6FF, 0xFF7F8FF5, 0xFF25307A, 0xFF050A3A, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A),
-            set(true, 0xFF0D1BB0, 0xFF1A2BD0, 0xFF2B3CE0, 0xFF4252EA, 0xFFC4CCFF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFFFF5A1F, 0xFF0A0A0A)),
-        // Red-orange, the ref's 0241 plate; ultramarine picked by day, lime by night.
-        Draft("signal",
-            set(false, 0xFFFFAA7A, 0xFFFFE6D6, 0xFFFF9662, 0xFFF07E48, 0xFF6A2100, 0xFF1A0600, 0xFF2233FF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFFAA7A),
-            set(true, 0xFF5A1000, 0xFF761900, 0xFF8E2406, 0xFFA8330F, 0xFFFFC9AE, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A)),
+        // Acid lime plates, black picked, ultramarine action; at night ultramarine plates and the lime as the action.
+        Draft("marathon", light(0xFFDFFF1A, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF2233FF, 0xFFFFFFFF), dark(0xFF2233FF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFD7FF1F, 0xFF0A0A0A)),
+        // Blue plates with a red-orange action.
+        Draft("ultramarine", light(0xFF9AA8FF, 0xFF2233FF, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A), dark(0xFF1A2BD0, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A)),
+        // Red-orange, the ref's 0241 plate.
+        Draft("signal", light(0xFFFF7A3D, 0xFF0A0A0A, 0xFFFFFFFF, 0xFF2233FF, 0xFFFFFFFF), dark(0xFFA81800, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A)),
         // The pixel squares' magenta with lime.
-        Draft("pixel",
-            set(false, 0xFFFF9EE0, 0xFFFFE3F6, 0xFFFF86D6, 0xFFF06CC6, 0xFF6E0B50, 0xFF230018, 0xFF2233FF, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A),
-            set(true, 0xFF3E0034, 0xFF5A004B, 0xFF72005F, 0xFF8C1478, 0xFFF7B8E6, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF3DBE, 0xFF0A0A0A)),
+        Draft("pixel", light(0xFFFF6ACB, 0xFF2233FF, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A), dark(0xFF8A0068, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF3DBE, 0xFF0A0A0A)),
         // The visor's cyan glow with hot pink.
-        Draft("hologram",
-            set(false, 0xFF6CF0FF, 0xFFD6FBFF, 0xFF4FE2F5, 0xFF2FCBE0, 0xFF00434D, 0xFF001A1F, 0xFF0A0A0A, 0xFF6CF0FF, 0xFFFF2EA6, 0xFF0A0A0A),
-            set(true, 0xFF00262E, 0xFF00363F, 0xFF004A55, 0xFF00616E, 0xFF9FE6F0, 0xFFEFFDFF, 0xFFFF2EA6, 0xFF0A0A0A, 0xFF2EE6FF, 0xFF0A0A0A)),
-        // Phosphor green; at night green on black, like a screen.
-        Draft("terminal",
-            set(false, 0xFF9DFF7A, 0xFFE3FFD8, 0xFF86F25E, 0xFF6AD944, 0xFF164A00, 0xFF031400, 0xFF0A0A0A, 0xFF9DFF7A, 0xFFFF4A10, 0xFF0A0A0A),
-            set(true, 0xFF000000, 0xFF0B140B, 0xFF142414, 0xFF1F3A1F, 0xFF7FD877, 0xFFB8FFA8, 0xFF143D14, 0xFFB8FFA8, 0xFF39FF14, 0xFF000000)),
-        // Electric violet with a yellow picked state.
-        Draft("violet",
-            set(false, 0xFFCDB0FF, 0xFFF1E8FF, 0xFFBE99FF, 0xFFA97FF5, 0xFF47208F, 0xFF14052E, 0xFF0A0A0A, 0xFFFFE500, 0xFF5B14FF, 0xFFFFFFFF),
-            set(true, 0xFF2A0A6B, 0xFF3A1290, 0xFF4B1EAA, 0xFF5F30C2, 0xFFD8C6FF, 0xFFFFFFFF, 0xFFFFE500, 0xFF0A0A0A, 0xFFB48CFF, 0xFF0A0A0A)),
-        // The armour's white plates and black, red-orange and lime the only colour.
-        Draft("plate",
-            set(false, 0xFFFFFFFF, 0xFFF2F2F2, 0xFFE2E2E2, 0xFFC8C8C8, 0xFF4A4A4A, 0xFF0A0A0A, 0xFF0A0A0A, 0xFFDFFF1A, 0xFFFF4A10, 0xFF0A0A0A),
-            set(true, 0xFF000000, 0xFF141414, 0xFF242424, 0xFF383838, 0xFFB5B5B5, 0xFFFFFFFF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A)),
+        Draft("hologram", light(0xFF3DE8FF, 0xFF0A0A0A, 0xFF3DE8FF, 0xFFFF2EA6, 0xFF0A0A0A), dark(0xFF005A66, 0xFFFF2EA6, 0xFF0A0A0A, 0xFF2EE6FF, 0xFF0A0A0A)),
+        // Phosphor green.
+        Draft("terminal", light(0xFF7CFF4F, 0xFF0A0A0A, 0xFF7CFF4F, 0xFFFF4A10, 0xFF0A0A0A), dark(0xFF0F4A14, 0xFF39FF14, 0xFF000000, 0xFF39FF14, 0xFF000000)),
+        // Electric violet with yellow.
+        Draft("violet", light(0xFFB794FF, 0xFF0A0A0A, 0xFFFFE500, 0xFF5B14FF, 0xFFFFFFFF), dark(0xFF5B14FF, 0xFFFFFFFF, 0xFF2A0A6B, 0xFFFFE500, 0xFF0A0A0A)),
+        // The armour's plates: grey on white, black on black, the colour only in the two states.
+        Draft("plate", light(0xFFEDEDED, 0xFF0A0A0A, 0xFFDFFF1A, 0xFFFF4A10, 0xFF0A0A0A), dark(0xFF1C1C1C, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A)),
     )
+
+    /** The ones shown before and after a pure black page. */
+    val oledKeys = listOf("marathon", "ultramarine", "pixel")
 }
 
 class BoldDraftsContrastTest {
@@ -89,7 +85,7 @@ class BoldDraftsContrastTest {
     @Test
     fun everyDraftIsReadable() {
         BoldDrafts.all.forEach { d ->
-            listOf(d.light, d.dark).forEach { t ->
+            listOf(d.light, d.dark, d.oled).forEach { t ->
                 val name = "${d.key} ${if (t.dark) "dark" else "light"}"
                 assertTrue("$name text/page", ratio(t.text, t.page) >= 7.0)
                 assertTrue("$name text/card", ratio(t.text, t.card) >= 7.0)
@@ -145,6 +141,12 @@ class BoldDraftsShots {
                     val name = "${d.key}_${if (t.dark) "dark" else "light"}_${if (h) "home" else "insights"}"
                     compose.onRoot().captureRoboImage("src/test/screenshots/bold/$name.png")
                 }
+            }
+            BoldDrafts.all.filter { it.key in BoldDrafts.oledKeys }.forEach { d ->
+                tones = d.oled
+                home = h
+                compose.waitForIdle()
+                compose.onRoot().captureRoboImage("src/test/screenshots/bold/${d.key}_oled_${if (h) "home" else "insights"}.png")
             }
         }
     }

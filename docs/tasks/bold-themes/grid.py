@@ -1,6 +1,7 @@
 import sys
 from PIL import Image, ImageDraw, ImageFont
 src, out = sys.argv[1], sys.argv[2]
+prefix = sys.argv[3] if len(sys.argv) > 3 else 'grid'
 names=[('marathon','Марафон'),('ultramarine','Ультрамарин'),('signal','Сигнал'),('pixel','Пиксель'),
        ('hologram','Голограмма'),('terminal','Терминал'),('violet','Фиолет'),('plate','Плашка')]
 try: font=ImageFont.truetype('C:/Windows/Fonts/segoeuib.ttf',30)
@@ -16,5 +17,21 @@ for screen in ('home','insights'):
         d.text((x,y+5),f'{i+1}. {label}',fill=(240,240,240),font=font)
         for j,side in enumerate(('light','dark')):
             grid.paste(Image.open(f'{src}/{k}_{side}_{screen}.png').convert('RGB').resize((W,H),Image.LANCZOS),(x+j*(W+gap),y+head))
-    grid.save(f'{out}/grid-{screen}.png',optimize=True)
+    grid.save(f'{out}/{prefix}-{screen}.png',optimize=True)
     print(grid.size)
+
+# OLED: the dark half as it is beside the same on a page of pure black.
+oled=[('marathon','Марафон'),('ultramarine','Ультрамарин'),('pixel','Пиксель')]
+small=ImageFont.truetype('C:/Windows/Fonts/segoeui.ttf',24) if font!=ImageFont.load_default() else font
+for screen in ('home','insights'):
+    W=300; gap=12; pairgap=36; head=80
+    im0=Image.open(f'{src}/marathon_dark_{screen}.png'); H=round(W*im0.height/im0.width); pw=2*W+gap
+    grid=Image.new('RGB',(3*pw+4*pairgap, H+head+2*pairgap),(128,128,132))
+    d=ImageDraw.Draw(grid)
+    for i,(k,label) in enumerate(oled):
+        x=pairgap+i*(pw+pairgap); y=pairgap
+        d.text((x,y),label,fill=(255,255,255),font=font)
+        for j,(side,cap) in enumerate((('dark','сейчас #121212'),('oled','OLED #000000'))):
+            d.text((x+j*(W+gap),y+42),cap,fill=(240,240,240),font=small)
+            grid.paste(Image.open(f'{src}/{k}_{side}_{screen}.png').convert('RGB').resize((W,H),Image.LANCZOS),(x+j*(W+gap),y+head))
+    grid.save(f'{out}/oled-{screen}.png',optimize=True)
