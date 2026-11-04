@@ -42,7 +42,7 @@ fun LazyListScope.regularPayments(data: AppData, onEdit: (Obligation) -> Unit) {
         VSpace(Gap.l)
         // Just the name; adding is the group's action, in its header.
         GroupLabel(tr("Регулярные платежи", "Regular payments"), Modifier.padding(horizontal = Gap.m)) {
-            HeaderAction(tr("Добавить", "Add")) {
+            AddAction(tr("Добавить платёж", "Add a payment")) {
                 onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
             }
         }

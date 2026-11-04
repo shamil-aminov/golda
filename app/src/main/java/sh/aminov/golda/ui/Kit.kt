@@ -1131,14 +1131,11 @@ const val ENTRY_FIGURE_SP = 58f
 
 /** A group's action in its header: "+ Добавить" as a small pill, its target 48 dp. */
 @Composable
-fun HeaderAction(text: String, onClick: () -> Unit) {
-    // Just the word, no plus, no pill: the header already says it is a group's action. No side
-    // padding, so its right edge is the amounts' edge under it.
-    Row(
-        Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onClick).padding(vertical = Gap.s),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+fun AddAction(description: String, onClick: () -> Unit) {
+    // A round tonal "+" at the group's end, Material's way of adding to a list: quieter than a word,
+    // and the same in every group. [description] is what TalkBack says ("Добавить счёт").
+    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+        Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
     }
 }
 

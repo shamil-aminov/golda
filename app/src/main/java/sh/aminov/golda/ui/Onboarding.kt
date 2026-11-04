@@ -102,7 +102,7 @@ fun Onboarding(
                         )
                         // Adding is the group's action, in its header, as on Accounts.
                         GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                            HeaderAction(tr("Добавить", "Add")) { adding = true }
+                            AddAction(tr("Добавить счёт", "Add an account")) { adding = true }
                         }
                         val count = data.accounts.size
                         data.accounts.forEachIndexed { i, account ->

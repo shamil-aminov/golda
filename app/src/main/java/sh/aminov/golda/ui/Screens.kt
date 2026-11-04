@@ -290,7 +290,7 @@ fun AccountsScreen(
         item(key = "gap") {
             if (!reconcileMode) {
                 GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    HeaderAction(tr("Добавить", "Add"), onAdd)
+                    AddAction(tr("Добавить счёт", "Add an account"), onAdd)
                 }
             }
         }
@@ -548,23 +548,14 @@ fun ReconcileSheet(state: AccountState, onDismiss: () -> Unit, onReconcile: (Lon
             placeholderColor = MaterialTheme.colorScheme.onSurface,
             signed = true,
         )
-        VSpace(Gap.s)
-        Text(
-            when {
-                diff == null || diff == 0L -> " "
-                shortfall && asSpending -> Fmt.amount(diff, state.currency, signed = true).let { tr("Разницу $it запишу тратой «Не записано»", "I'll record the $it difference as spending “Not recorded”") }
-                else -> Fmt.amount(diff, state.currency, signed = true).let { tr("Разницу $it запишу как поправку", "I'll record the $it difference as an adjustment") }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleMedium.merge(Tnum),
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        )
+        // No sentence under the figure: the button says what is recorded ("Записать −43,45 $"), the switch
+        // whether as spending. A line there stole the figure's place and looked like the point.
         if (shortfall) {
-            VSpace(Gap.s)
-            // The whole line flips the switch.
+            VSpace(Gap.m)
+            // The whole line flips the switch; its words start where the question above starts.
             Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(asSpending, role = Role.Switch) { asSpending = it },
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(asSpending, role = Role.Switch) { asSpending = it }
+                    .padding(horizontal = LocalTextInset.current),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(tr("Это ежедневные траты", "Count as everyday spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)

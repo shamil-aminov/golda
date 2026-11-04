@@ -1,5 +1,6 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.material3.HorizontalDivider
 import sh.aminov.golda.data.OperationFull
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.semantics.Role
@@ -157,10 +158,12 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
             .filter { it.op.type == OpType.EXPENSE && (filter == null || Buckets.of(it.op, data.categoryById) == filter) }
             .groupBy { Ledger.localDate(it.op.timestamp, data.zone) }
             .mapValues { (_, ops) ->
-                ops.groupBy { it.op.categoryId?.let(data.categoryById::get)?.key }
-                    .map { (key, list) -> (colours[key] ?: leitmotifColor(null, tones)) to -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } } }
-                    .filter { it.second > 0 }
-                    .sortedByDescending { it.second }
+                ops.groupBy { it.op.categoryId?.let(data.categoryById::get) }
+                    .map { (category, list) ->
+                        DayPart(colours[category?.key] ?: leitmotifColor(null, tones), category?.label() ?: tr("Без категории", "No category"), -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } })
+                    }
+                    .filter { it.rub > 0 }
+                    .sortedByDescending { it.rub }
             }
     }
     // The golden-ratio steps: 14 for words around the figure, 22 for the main line, the figure up to 94.
@@ -261,7 +264,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                     val barStacks = remember(stacks, bar, first) {
                         if (bar == Analytics.Bar.DAY) stacks
                         else stacks.entries.groupBy { Analytics.barStart(it.key, first, bar) }.mapValues { (_, days) ->
-                            days.flatMap { it.value }.groupBy { it.first }.map { (color, parts) -> color to parts.sumOf { it.second } }.sortedByDescending { it.second }
+                            days.flatMap { it.value }.groupBy { it.name }.map { (_, parts) -> parts.first().copy(rub = parts.sumOf { it.rub }) }.sortedByDescending { it.rub }
                         }
                     }
                     val plan = data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter == Bucket.DAILY && bar == Analytics.Bar.DAY }
@@ -537,7 +540,7 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
  * The dashed line is the daily budget.
  */
 @Composable
-private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<Pair<Color, Long>>>) {
+private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>) {
     // The picked day's dot in the theme's own colour, like the other leading marks.
     val accent = leitmotifColor(0, LocalTones.current)
     if (days.isEmpty()) return
@@ -602,12 +605,12 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                         )
                     }
                     val parts = stacks[day].orEmpty()
-                    val sum = parts.sumOf { it.second }
+                    val sum = parts.sumOf { it.rub }
                     if (value > 0 && sum > 0) {
                         // The day's categories stacked in their colours, biggest at the bottom; the picked day full, the rest softer.
                         clipPath(path) {
                             var y = size.height
-                            parts.forEach { (color, rub) ->
+                            parts.forEach { (color, _, rub) ->
                                 val part = h * rub / sum
                                 // A hairline of the card between two categories, so like colours don't merge.
                                 drawRect(color, Offset(left, y - part), Size(barWidth, (part - gapPx).coerceAtLeast(0f)))
@@ -650,6 +653,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     )
                 }
             }
+            // What the picked day went on, the bars' legend: a short list in the same card, "● Еда  1 200 ₽".
+            DayLegend(stacks[days.getOrNull(picked)?.first].orEmpty(), (stacks.values.maxOfOrNull { it.size } ?: 0).coerceAtMost(LEGEND_ROWS), base)
             // What the dashed line is: the plan for a day.
             budget?.let {
                 VSpace(Gap.m)
@@ -673,3 +678,37 @@ private fun dayShort(date: LocalDate, today: LocalDate): String =
 private fun categoryName(data: AppData, spend: CategorySpend): String =
     spend.categoryId?.let { data.categoryById[it]?.label() } ?: tr("Без категории", "No category")
 
+/** One category's share of a bar: its colour, its name and what went on it, in rubles (kopecks). */
+data class DayPart(val color: Color, val name: String, val rub: Long)
+
+/** Rows the day's list shows at most; more categories than that fold into "Ещё N". */
+private const val LEGEND_ROWS = 4
+
+/**
+ * The picked bar's categories as a list under the chart: a dot of the bar's colour, the name, the sum.
+ * As many rows as the busiest day needs (up to [LEGEND_ROWS]), kept even on a quieter day, so the
+ * card does not jump from one day to the next.
+ */
+@Composable
+private fun DayLegend(parts: List<DayPart>, rows: Int, base: Base) {
+    if (rows == 0) return
+    val shown = if (parts.size > rows) parts.take(rows - 1) + DayPart(
+        Color.Transparent,
+        tr("Ещё ", "") + (parts.size - rows + 1) + " " + plural((parts.size - rows + 1).toLong(), "категория", "категории", "категорий", "more category", "more categories"),
+        parts.drop(rows - 1).sumOf { it.rub },
+    ) else parts
+    VSpace(Gap.m)
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    VSpace(Gap.xs)
+    repeat(rows) { i ->
+        val part = shown.getOrNull(i)
+        Row(Modifier.fillMaxWidth().height(36.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (part != null) {
+                Box(Modifier.size(10.dp).background(if (part.color == Color.Transparent) MaterialTheme.colorScheme.outlineVariant else part.color, CircleShape))
+                Spacer(Modifier.width(Gap.s))
+                Text(part.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(base.approx(part.rub), style = MaterialTheme.typography.bodyMedium.merge(Tnum), maxLines = 1)
+            }
+        }
+    }
+}
