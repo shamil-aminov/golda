@@ -11,6 +11,8 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -162,16 +164,15 @@ fun AmountColumn(
     secondary: String? = null,
     approximate: Boolean = false,
     color: Color = MaterialTheme.colorScheme.onSurface,
+    /** Keep the second line's room when there is no [secondary]: every row of a list two lines high. */
+    reserve: Boolean = false,
 ) {
     Column(horizontalAlignment = Alignment.End) {
-        Text(main, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = color, maxLines = 1)
-        if (secondary != null) {
-            Text(
-                (if (approximate) "≈ " else "") + secondary,
-                style = MaterialTheme.typography.bodyMedium.merge(Tnum),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
+        // The amount a row's name's size, what it came to a caption a text's step under it.
+        Text(main, style = TextRole.rowName.merge(Tnum), color = color, maxLines = 1)
+        if (secondary != null || reserve) {
+            Spacer(Modifier.height(Space.text))
+            Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), style = TextRole.caption, maxLines = 1)
         }
     }
 }
@@ -191,7 +192,7 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
         item(key = "day-$date") {
             // The date opens the day's card, a step under a section's title; its sum at the end.
             CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), quiet = true) {
-                total?.let { Text(it, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+                total?.let { Text(it, style = TextRole.rowName.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
             }
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
@@ -204,8 +205,18 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
     }
 }
 
-@Composable
-fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: (OperationFull) -> Unit, index: Int, count: Int, modifier: Modifier = Modifier) {
+/** What a row of the feed says: its title and second line, the amount and what it came to. */
+internal class OperationLine(
+    val title: String,
+    val supporting: String?,
+    val main: String,
+    val secondary: String?,
+    val approximate: Boolean,
+    val transfer: Boolean,
+)
+
+/** The words of [full]'s row: on Home with [accountId] null, else as that account's page shows it. */
+internal fun operationLine(data: AppData, full: OperationFull, accountId: Long?): OperationLine {
     val op = full.op
     val category = op.categoryId?.let { data.categoryById[it] }
     val out = full.postings.firstOrNull { it.amountMinor < 0 } ?: full.postings.first()
@@ -272,11 +283,20 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
             supporting = outAccount?.takeIf { it.id != data.usualAccountId }?.name
         }
     }
-    val color = when {
-        transfer -> MaterialTheme.colorScheme.onSurfaceVariant
-        op.type == OpType.INCOME || (own ?: out).amountMinor > 0 -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.onSurface
-    }
+    return OperationLine(title, supporting, main, secondary, approximate, transfer)
+}
+
+@Composable
+fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: (OperationFull) -> Unit, index: Int, count: Int, modifier: Modifier = Modifier) {
+    val op = full.op
+    val category = op.categoryId?.let { data.categoryById[it] }
+    val line = operationLine(data, full, accountId)
+    // Every row two lines on each side. On Home a row with nothing more to say names its account;
+    // on an account's page that is the page itself, so the line stays empty.
+    val out = full.postings.firstOrNull { it.amountMinor < 0 } ?: full.postings.first()
+    val second = line.supporting ?: if (accountId == null) data.accountById[out.accountId]?.name.orEmpty() else ""
+    // A transfer is neither spent nor earned: a neutral color.
+    val color = if (line.transfer) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
     GroupRow(
         index, count, modifier,
@@ -289,9 +309,9 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
                 GlyphCircle(operationIcon(category, op.type))
             }
         },
-        supporting = supporting?.let { text -> { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-        trailing = { AmountColumn(main, secondary, approximate, color) },
-    ) { Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        supporting = { Text(second, style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        trailing = { AmountColumn(line.main, line.secondary, line.approximate, color, reserve = true) },
+    ) { Text(line.title, style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 /**
