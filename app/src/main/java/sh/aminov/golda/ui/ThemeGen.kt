@@ -11,6 +11,8 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.random.Random
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import sh.aminov.golda.data.OpType
 
 /** How loud a generated theme is. */
@@ -170,6 +172,7 @@ private val categoryHues = mapOf(
 fun categoryColor(key: String?, tones: Tones): Color {
     val known = key?.takeIf { it in categoryHues } ?: "other"
     if (tones.clearColours) return clearColour(categoryHues.keys.indexOf(known), tones.dark)
+    tones.swatches?.let { return it[categoryHues.keys.indexOf(known) % it.size] }
     return oklch(tones.infoL.toDouble(), tones.infoC.toDouble(), clearOfIce(categoryHues.getValue(known)))
 }
 
@@ -215,6 +218,23 @@ private const val ICE_HUE = 235.0
 private fun clearOfIce(hue: Double): Double {
     val h = ((hue % 360) + 360) % 360
     return if (kotlin.math.abs(h - ICE_HUE) >= 30) h else (h + 180) % 360
+}
+
+/**
+ * Text on a mosaic tile of [fill]: a deep tint of it on a light tile, a pale one on a deep tile; pure
+ * black or white where the tint would read under 4.5:1 (a theme's vivid swatches, Ясная's mid tones).
+ */
+fun tileInk(fill: Color): Color {
+    val tint = if (fill.luminance() < 0.3f) lerp(fill, Color.White, 0.9f) else lerp(fill, Color.Black, 0.72f)
+    // A little over the bar: the tint is rounded to 8 bits once drawn.
+    if (contrast(tint, fill) >= 4.7) return tint
+    return if (contrast(Color.Black, fill) >= contrast(Color.White, fill)) Color.Black else Color.White
+}
+
+/** WCAG's contrast ratio of two colours. */
+fun contrast(a: Color, b: Color): Double {
+    val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()
+    return (hi + 0.05) / (lo + 0.05)
 }
 
 /** How the money is doing, on the home bar: the theme's own colour while it lasts, red once overspent. */

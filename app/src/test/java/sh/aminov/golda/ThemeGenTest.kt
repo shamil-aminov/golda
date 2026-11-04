@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import androidx.compose.ui.graphics.toArgb
 import sh.aminov.golda.data.legacyThemeMode
 import sh.aminov.golda.ui.Palette
 import sh.aminov.golda.ui.ThemeGen
@@ -15,6 +16,7 @@ import sh.aminov.golda.ui.ThemeStyle
 import sh.aminov.golda.ui.hueOf
 import sh.aminov.golda.ui.oklch
 import sh.aminov.golda.ui.inkOn
+import sh.aminov.golda.ui.tileInk
 import sh.aminov.golda.ui.operationColor
 import sh.aminov.golda.ui.categoryColor
 import sh.aminov.golda.data.OpType
@@ -82,6 +84,11 @@ class ThemeGenTest {
                         assertTrue("$name $key $type icon", ratio(inkOn(fill), fill) >= 3.0)
                     }
                 }
+                // The words on a category's mosaic tile: 4.5:1, whatever the swatch.
+                (categoryKeys + null).forEach { key ->
+                    val fill = categoryColor(key, t)
+                    assertTrue("$name $key tile ${ratio(tileInk(fill), fill)}", ratio(tileInk(fill), fill) >= 4.5)
+                }
             }
         }
         // Twenty-odd, calm first.
@@ -93,6 +100,15 @@ class ThemeGenTest {
             assertTrue(it, Palette.of(it).bold)
         }
         assertEquals(Palette.MARATHON, Palette.of("acid"))
+        // Марафон in the game's own colours: the lime mic in both halves, a magenta plate, the blue-grey cards.
+        listOf(Palette.MARATHON.light, Palette.MARATHON.dark).forEach { assertEquals(0xFFC2FE0C.toInt(), it.gold.toArgb()) }
+        assertEquals(0xFFA8006A.toInt(), Palette.MARATHON.light.plate.toArgb())
+        assertEquals(0xFF29324F.toInt(), Palette.MARATHON.dark.card.toArgb())
+        // In a bold theme the mic and the plate carry the colour; the picked state stays black or white.
+        Palette.entries.filter { it.bold }.flatMap { listOf(it.light, it.dark) }.forEach {
+            assertTrue(it.graphite.toArgb() in setOf(0xFF0A0A0A.toInt(), 0xFFFFFFFF.toInt()))
+            assertTrue(it.gold != it.plate)
+        }
         assertEquals(Palette.GOLDA, Palette.of("nonsense"))
     }
 

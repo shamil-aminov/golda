@@ -51,11 +51,13 @@ class Tones(
     val onPlateMuted: Color = muted,
     /** The pace bar while the money lasts, set against [plate]; null: the leitmotif's own colour. */
     val pace: Color? = null,
+    /** A theme's own colours for the categories, in turn by category; null: each category's hue at [infoL] and [infoC]. */
+    val swatches: List<Color>? = null,
 ) {
     /** The same set on another [page]: pure black for OLED screens. */
     fun onPage(page: Color) = Tones(
         dark, page, card, soft, line, muted, text, graphite, onGraphite, gold, onGold, error, onError, errorSoft, onErrorSoft,
-        infoL, infoC, seedHue, clearColours, plate, onPlate, onPlateMuted, pace,
+        infoL, infoC, seedHue, clearColours, plate, onPlate, onPlateMuted, pace, swatches,
     )
 }
 
