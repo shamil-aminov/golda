@@ -69,6 +69,10 @@ class ThemeGenTest {
                 assertTrue("$name onAction ${ratio(t.onGold, t.gold)}", ratio(t.onGold, t.gold) >= 4.5)
                 assertTrue("$name onPlate ${ratio(t.onPlate, t.plate)}", ratio(t.onPlate, t.plate) >= 7.0)
                 assertTrue("$name onPlateMuted ${ratio(t.onPlateMuted, t.plate)}", ratio(t.onPlateMuted, t.plate) >= 4.5)
+                // A bold one's pace bar stands out on its plate: 3:1, WCAG's bar for a mark that carries meaning.
+                t.pace?.let { assertTrue("$name pace ${ratio(it, t.plate)}", ratio(it, t.plate) >= 3.0) }
+                // isDark() reads the page's luminance: a light half stays above the half.
+                assertEquals("$name page", dark, t.page.relative() < 0.5)
                 // OLED: the dark half on black keeps its inks.
                 if (dark) assertTrue("$name oled", ratio(t.text, tonesFor(p.key, dark = true, oled = true).page) >= 7.0)
                 // A row's icon on its colour, every category and a transfer: 3:1, WCAG's bar for a mark.
@@ -84,6 +88,12 @@ class ThemeGenTest {
         assertTrue(Palette.entries.size >= 20)
         assertEquals(Palette.entries.sortedBy { it.bold }, Palette.entries)
         assertEquals(Palette.CLEAR, Palette.of("clear-night"))
+        // The bold themes before 0.20 land on their heirs, not on Golda.
+        listOf("sunset", "lava", "tropic", "aurora", "candy", "cyber", "neon", "acid", "indigo").forEach {
+            assertTrue(it, Palette.of(it).bold)
+        }
+        assertEquals(Palette.MARATHON, Palette.of("acid"))
+        assertEquals(Palette.GOLDA, Palette.of("nonsense"))
     }
 
     private val categoryKeys = DefaultCategories.all.map { it.key }

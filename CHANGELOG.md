@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Eight new bold themes after Bungie's Marathon** instead of the ten pastel
+  ones: Марафон, Ультрамарин, Сигнал, Пиксель, Голограмма, Терминал, Фиолет,
+  Плашка. A white or near-black page and quiet lists; the colour is on one
+  plate per tab, the hero tile, with its own inks, and the pace bar, the picked
+  state and the action stand out against it. A theme picked before moves to
+  the nearest new one (Закат to Сигнал, Леденец to Пиксель…), not to Golda.
+- **Category colours are fixed to the category.** Еда is the same colour every
+  month, in the mosaic, the day bars and the lists alike; income categories
+  have colours of their own.
+
+### Added
+
+- **"Цветные траты"** on the Theme page, on by default: every row's circle in
+  its category's colour, the icon black or white whichever stands out more;
+  transfers and reconciliations in the theme's own hue.
+- **"Чистый чёрный"** on the Theme page, off by default: the dark half of any
+  theme on a pure black page, for OLED screens.
+- The Theme page's chips show a bold theme's plate.
+
 ## [0.20.0] — 2026-11-04
 
 ### Changed

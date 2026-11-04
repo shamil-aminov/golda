@@ -31,8 +31,7 @@
   `insights_clear`) и `docs/screenshots` перезаписаны.
 
 ## Осталось
-- [ ] Показать на dev; README/SPEC (цвет категорий, переключатель) и CHANGELOG — с релизом.
-- [ ] Тест хранения `colouredRows` в `SettingsStore`; pitest.
+- [ ] Показать на dev. README/SPEC/CHANGELOG и тест хранения (`ThemeSettingsTest`) — сделаны.
 
 ## Вопросы
 - **Жильё и Путешествия** попадают в золотисто-оранжевые (их синие оттенки уводятся от ледяного цвета кнопки
