@@ -84,6 +84,8 @@ fun ThemeScreen(
     onMode: (String) -> Unit,
     onSave: (String) -> Unit,
     onForget: (String) -> Unit,
+    spacing: String = Spacing.NORMAL.name,
+    onSpacing: (String) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
@@ -127,6 +129,19 @@ fun ThemeScreen(
                         ThemeMode.SYSTEM -> tr("Как система", "System")
                         ThemeMode.LIGHT -> tr("Светлая", "Light")
                         ThemeMode.DARK -> tr("Тёмная", "Dark")
+                    },
+                )
+            }
+            // How much air the lists have: one setting for every list, like the mode for every theme.
+            VSpace(Gap.l)
+            GroupLabel(tr("Плотность списков", "List density"))
+            VSpace(Gap.s)
+            ChoiceGroup(Spacing.entries, Spacing.of(spacing), { onSpacing(it.name) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
+                ChoiceText(
+                    when (it) {
+                        Spacing.COMPACT -> tr("Плотно", "Compact")
+                        Spacing.NORMAL -> tr("Обычно", "Normal")
+                        Spacing.ROOMY -> tr("Просторно", "Roomy")
                     },
                 )
             }

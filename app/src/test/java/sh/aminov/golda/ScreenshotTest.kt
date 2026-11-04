@@ -67,9 +67,9 @@ class ScreenshotTest {
         I18n.russian = true
     }
 
-    private fun shot(name: String, palette: String = "golda", mode: String = "SYSTEM", content: @Composable () -> Unit) {
+    private fun shot(name: String, palette: String = "golda", mode: String = "SYSTEM", spacing: String? = null, content: @Composable () -> Unit) {
         // The page's own background, as the app's scaffold gives it: a screen alone is transparent.
-        compose.setContent { GoldaTheme(palette, mode) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
+        compose.setContent { GoldaTheme(palette, mode, spacing) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
         compose.onRoot().captureRoboImage(
             "src/test/screenshots/$name.png",
             roborazziOptions = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.002f)),
@@ -90,6 +90,11 @@ class ScreenshotTest {
 
     @Test fun entryDark() = shot("entry_dark", palette = "midnight", mode = "DARK") { EntrySheet(demo(), EntryRequest(), {}, {}, {}) }
 
+    /** The two other list densities; the rest is drawn at the default, "Обычно". */
+    @Test fun accountsCompact() = shot("accounts_compact", spacing = "COMPACT") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
+
+    @Test fun accountsRoomy() = shot("accounts_roomy", spacing = "ROOMY") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
+
     @Test fun accountsDark() = shot("accounts_dark", palette = "midnight", mode = "DARK") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
 
     @Test fun settings() = shot("settings") {
@@ -97,7 +102,7 @@ class ScreenshotTest {
     }
 
     /** The demo of `Demo.samples`, built in memory: a ruble salary, money moved abroad, two weeks of lari. */
-    internal fun demo(): AppData {
+    private fun demo(): AppData {
         val zone = ZoneId.of("UTC")
         val now = today.atTime(19, 0).atZone(zone).toInstant().toEpochMilli()
         val hour = 3_600_000L

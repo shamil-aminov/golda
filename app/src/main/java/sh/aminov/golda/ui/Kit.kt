@@ -295,7 +295,7 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = LocalAir.current.underHeader)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = LocalSpacing.current.underLabel)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
@@ -353,8 +353,8 @@ fun GroupRow(
         trailing
     }
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
-    // TEMPORARY (docs/tasks/air.md): the mock-ups' extra air over and under a row's text.
-    val air = LocalAir.current.row
+    // The air the person picked, over and under the text: Material's own padding plus it.
+    val air = LocalSpacing.current.row
     val layout = LocalLayoutDirection.current
     val padding = ListItemDefaults.ContentPadding.let {
         PaddingValues(
@@ -741,11 +741,25 @@ fun <T : Any> FormPageHost(target: T?, content: @Composable (T) -> Unit) {
  */
 val LocalTextInset = staticCompositionLocalOf { 0.dp }
 
-/** TEMPORARY (docs/tasks/air.md): extra air for the mock-ups: over and under a row's text, under a group's header. */
-class Air(val row: Dp = 0.dp, val underHeader: Dp = 0.dp)
+/**
+ * How much air the lists have, picked on the Theme page: added over and under every row's text
+ * ([row]; a row grows only past Material's own 56 and 72), under a group's title inside its card
+ * ([underHeader], on top of 8) and under a label over a card ([underLabel]).
+ */
+enum class Spacing(val row: Dp, val underHeader: Dp, val underLabel: Dp) {
+    COMPACT(0.dp, 0.dp, 0.dp),
+    NORMAL(8.dp, 8.dp, 8.dp),
+    ROOMY(12.dp, 16.dp, 16.dp),
+    ;
 
-/** TEMPORARY (docs/tasks/air.md): none in the app; the mock-up test sets it. */
-val LocalAir = staticCompositionLocalOf { Air() }
+    companion object {
+        /** The stored name, [NORMAL] for none or an unknown one. */
+        fun of(name: String?): Spacing = entries.firstOrNull { it.name == name } ?: NORMAL
+    }
+}
+
+/** The [Spacing] in use: GoldaTheme provides the setting. */
+val LocalSpacing = staticCompositionLocalOf { Spacing.NORMAL }
 
 /** Whether the page or sheet around has finished coming in. Outside one, always. */
 val LocalShown = staticCompositionLocalOf<() -> Boolean> { { true } }
@@ -1163,7 +1177,7 @@ fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier:
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalAir.current.underHeader),
+            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

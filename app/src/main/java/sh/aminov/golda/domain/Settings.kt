@@ -37,6 +37,8 @@ data class Settings(
     val palette: String = "golda",
     /** Light or dark for every theme: "SYSTEM" follows the phone, "LIGHT" and "DARK" stay put. */
     val themeMode: String = "SYSTEM",
+    /** How much air the lists have (see ui.Spacing): "COMPACT", "NORMAL" or "ROOMY". */
+    val spacing: String = "NORMAL",
     /** The folder a weekly backup goes to (a document tree the person picked); null: none. */
     val autoBackupFolder: String? = null,
     /** When the last weekly backup was written, epoch millis; 0: never. */

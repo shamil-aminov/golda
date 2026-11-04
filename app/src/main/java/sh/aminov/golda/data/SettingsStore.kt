@@ -35,6 +35,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val reconcileReminder = booleanPreferencesKey("reconcileReminder")
         val palette = stringPreferencesKey("palette")
         val themeMode = stringPreferencesKey("themeMode")
+        val spacing = stringPreferencesKey("spacing")
         val autoBackupFolder = stringPreferencesKey("autoBackupFolder")
         val lastAutoBackup = longPreferencesKey("lastAutoBackup")
         val savedThemes = stringPreferencesKey("savedThemes")
@@ -78,6 +79,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             palette = this[K.palette] ?: d.palette,
             // Before the mode was one setting, some themes were dark (or light) only: keep them so.
             themeMode = this[K.themeMode] ?: legacyThemeMode(this[K.palette]),
+            spacing = this[K.spacing] ?: d.spacing,
             autoBackupFolder = this[K.autoBackupFolder],
             lastAutoBackup = this[K.lastAutoBackup] ?: d.lastAutoBackup,
             savedThemes = this[K.savedThemes]?.split('|')?.filter { it.isNotBlank() } ?: d.savedThemes,
@@ -102,6 +104,7 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         this[K.reconcileReminder] = s.reconcileReminder
         this[K.palette] = s.palette
         this[K.themeMode] = s.themeMode
+        this[K.spacing] = s.spacing
         if (s.autoBackupFolder != null) this[K.autoBackupFolder] = s.autoBackupFolder else remove(K.autoBackupFolder)
         this[K.lastAutoBackup] = s.lastAutoBackup
         this[K.savedThemes] = s.savedThemes.joinToString("|")

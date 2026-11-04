@@ -80,7 +80,8 @@ class CurrencyCardsPreviewTest {
         .distinct().filter { it !in picked }.sortedBy { currencyName(it) }
 
     private fun shot(name: String, mode: String, content: @Composable () -> Unit) {
-        compose.setContent { GoldaTheme("golda", mode) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
+        // Drawn as they were shown to the owner, before the list density setting.
+        compose.setContent { GoldaTheme("golda", mode, "COMPACT") { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
         compose.onRoot().captureRoboImage(
             "../docs/tasks/currency-cards/$name.png",
             roborazziOptions = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.002f)),

@@ -91,7 +91,8 @@ loud is the moment you notice you are spending.
   a dark half, one switch for light, dark or the system's, and a generator that
   builds a whole theme from one colour, a style and a contrast. "Ясная" is made
   for colour-vision deficiency; every theme keeps text at 7:1 contrast. Category
-  colours follow the theme.
+  colours follow the theme. List density — compact, normal or roomy — is set
+  on the same page.
 - **Russian and English.** Material 3 Expressive, one card per group, one
   accent for the one action to take.
 
