@@ -11,6 +11,8 @@ import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -162,16 +164,15 @@ fun AmountColumn(
     secondary: String? = null,
     approximate: Boolean = false,
     color: Color = MaterialTheme.colorScheme.onSurface,
+    /** Keep the second line's room when there is no [secondary]: every row of a list two lines high. */
+    reserve: Boolean = false,
 ) {
     Column(horizontalAlignment = Alignment.End) {
-        Text(main, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = color, maxLines = 1)
-        if (secondary != null) {
-            Text(
-                (if (approximate) "≈ " else "") + secondary,
-                style = MaterialTheme.typography.bodyMedium.merge(Tnum),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
+        // The amount a row's name's size, what it came to a caption a text's step under it.
+        Text(main, style = TextRole.rowName.merge(Tnum), color = color, maxLines = 1)
+        if (secondary != null || reserve) {
+            Spacer(Modifier.height(Space.text))
+            Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), style = TextRole.caption, maxLines = 1)
         }
     }
 }
@@ -191,7 +192,7 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
         item(key = "day-$date") {
             // The date opens the day's card, a step under a section's title; its sum at the end.
             CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), quiet = true) {
-                total?.let { Text(it, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+                total?.let { Text(it, style = TextRole.rowName.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
             }
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
@@ -290,6 +291,10 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
     val op = full.op
     val category = op.categoryId?.let { data.categoryById[it] }
     val line = operationLine(data, full, accountId)
+    // Every row two lines on each side. On Home a row with nothing more to say names its account;
+    // on an account's page that is the page itself, so the line stays empty.
+    val out = full.postings.firstOrNull { it.amountMinor < 0 } ?: full.postings.first()
+    val second = line.supporting ?: if (accountId == null) data.accountById[out.accountId]?.name.orEmpty() else ""
     // A transfer is neither spent nor earned: a neutral color.
     val color = if (line.transfer) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
@@ -304,9 +309,9 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
                 GlyphCircle(operationIcon(category, op.type))
             }
         },
-        supporting = line.supporting?.let { text -> { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-        trailing = { AmountColumn(line.main, line.secondary, line.approximate, color) },
-    ) { Text(line.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        supporting = { Text(second, style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        trailing = { AmountColumn(line.main, line.secondary, line.approximate, color, reserve = true) },
+    ) { Text(line.title, style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 /**

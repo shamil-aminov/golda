@@ -141,6 +141,10 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.layout
+import kotlin.math.roundToInt
+import androidx.compose.ui.layout.AlignmentLine
+import androidx.compose.ui.layout.LastBaseline
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -413,7 +417,10 @@ fun GroupRow(
             verticalAlignment = if (onTitle) Alignment.Top else Alignment.CenterVertically,
         ) {
             leading?.let {
-                CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { it() }
+                // In the middle of the row: it halves a two-line row's height.
+                Box(Modifier.align(Alignment.CenterVertically)) {
+                    CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { it() }
+                }
                 Spacer(Modifier.width(Space.card))
             }
             Column(Modifier.weight(1f).let { if (onTitle) it else it.align(Alignment.CenterVertically) }) {
@@ -1218,8 +1225,12 @@ object TextRole {
     /** What leads: a group's title, the figures in a header. */
     val Accent = FontWeight(700)
 
-    /** A word beside a figure, a caption, a row's second line: 14. */
-    val caption: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyMedium.merge(Tnum).copy(fontWeight = Base)
+    /**
+     * A word beside a figure, a caption, a row's second line: 14, the base, in the surface's second ink —
+     * on a plate its own (HeroTile hands the plate's onPlateMuted down as onSurfaceVariant).
+     */
+    val caption: TextStyle @Composable @ReadOnlyComposable get() =
+        MaterialTheme.typography.bodyMedium.merge(Tnum).copy(fontWeight = Base, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
     /** A row's name: 16. */
     val rowName: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyLarge.copy(fontWeight = Base)
@@ -1232,6 +1243,27 @@ object TextRole {
 
     /** The figures under a header's big one: 22, the accent. */
     val headerFigures: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = Accent)
+}
+
+/** The height of a capital in Inter, of its size. */
+private const val CAP = 0.727f
+
+/**
+ * A text's box cut to its letters, so the [Space] over and under it is measured from the ink, not
+ * from the line's empty room: from the capitals' top ([size] × the cap height over the first
+ * baseline) to the last baseline; [top] false keeps the top (the first thing on a tile). A box with no
+ * baseline is left as it is. In the headers for now; the rows and group titles move to it next.
+ */
+fun Modifier.letters(size: TextUnit, top: Boolean = true): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val first = placeable[FirstBaseline]
+    val last = placeable[LastBaseline]
+    if (first == AlignmentLine.Unspecified || last == AlignmentLine.Unspecified) {
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    } else {
+        val from = if (top) (first - (size.toPx() * CAP).roundToInt()).coerceAtLeast(0) else 0
+        layout(placeable.width, last - from) { placeable.place(0, -from) }
+    }
 }
 
 /**
@@ -1275,14 +1307,15 @@ fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = fal
             Modifier.padding(start = Space.card, end = 12.dp, top = Space.card, bottom = if (alone) Space.card else Space.half).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // A quiet title and what stands at its end (a day's sum) share a baseline.
             Text(
-                title, Modifier.weight(1f).semantics { heading() },
-                style = if (quiet) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold) else TextRole.groupTitle,
+                title, Modifier.weight(1f).semantics { heading() }.let { if (quiet) it.alignByBaseline() else it },
+                style = if (quiet) TextRole.rowName.copy(fontWeight = TextRole.Accent) else TextRole.groupTitle,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             trailing?.let {
                 Spacer(Modifier.width(Gap.s))
-                it()
+                Box(if (quiet) Modifier.alignByBaseline() else Modifier) { it() }
             }
         }
     }
