@@ -74,6 +74,20 @@ class DesignRulesTest {
     }
 
     @Test
+    fun theMovedScreensTakeTheirTypeFromTheRoles() {
+        // Four sizes and two weights (TextRole); screen by screen, starting with the regular payments.
+        val moved = listOf("ui/RegularsScreen.kt")
+        report(
+            "Type set by hand on a screen moved to TextRole",
+            sources.filter { (path, _) -> moved.any(path::endsWith) }.flatMap { (path, text) ->
+                text.lines().withIndex()
+                    .filter { (_, line) -> Regex("""typography\.|FontWeight\.""").containsMatchIn(line) }
+                    .map { (i, line) -> "$path:${i + 1}: ${line.trim()}" }
+            },
+        )
+    }
+
+    @Test
     fun fontSizesAreOnlySetToFitText() {
         // A size in sp outside the theme is only a bound for text that shrinks to fit.
         report(

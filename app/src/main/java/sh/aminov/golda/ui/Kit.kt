@@ -1183,7 +1183,34 @@ fun Modifier.squish(interaction: InteractionSource): Modifier {
 @Composable
 fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum)
     // −6 %: the digits read as one word without touching.
-    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Medium, letterSpacing = (-0.06).em)
+    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = TextRole.Base, letterSpacing = (-0.06).em)
+
+/**
+ * The text by role: four sizes (14, 16, 22 and the big figure) and two weights, [Base] and [Accent].
+ * On Accounts for now; the other screens move to it next (docs/tasks/type-scale.md).
+ */
+object TextRole {
+    /** Every word's weight. */
+    val Base = FontWeight(500)
+
+    /** What leads: a group's title, the figures in a header. */
+    val Accent = FontWeight(700)
+
+    /** A word beside a figure, a caption, a row's second line: 14. */
+    val caption: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyMedium.merge(Tnum).copy(fontWeight = Base)
+
+    /** A row's name: 16. */
+    val rowName: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyLarge.copy(fontWeight = Base)
+
+    /** A row's amount: 22, a step over its name. */
+    val rowAmount: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = Base)
+
+    /** A group's title: 22, the accent. */
+    val groupTitle: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.copy(fontWeight = Accent)
+
+    /** The figures under a header's big one: 22, the accent. */
+    val headerFigures: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = Accent)
+}
 
 /**
  * The type steps go by the golden ratio from 14 sp: 14, 22, 36, 58, 94. A tab's figure is the top
@@ -1225,10 +1252,9 @@ fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = fal
             Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val type = MaterialTheme.typography
             Text(
                 title, Modifier.weight(1f).semantics { heading() },
-                style = (if (quiet) type.titleMedium else type.titleLarge).copy(fontWeight = FontWeight.SemiBold),
+                style = if (quiet) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold) else TextRole.groupTitle,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             trailing?.let {

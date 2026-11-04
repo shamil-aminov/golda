@@ -258,8 +258,8 @@ fun AccountsScreen(
             // Two colours, the tile and its ink, and three sizes on the golden-ratio steps: 14 for the
             // words, 22 semibold for the figures that follow the total, and the total itself.
             val ink = MaterialTheme.colorScheme.onPrimaryFixed
-            val words = MaterialTheme.typography.bodyMedium.merge(Tnum)
-            val figures = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = FontWeight.SemiBold)
+            val words = TextRole.caption
+            val figures = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 Text(tr("Всего на счетах", "Total in accounts"), style = words, color = ink, maxLines = 1)
                 VSpace(Gap.s)
@@ -368,11 +368,11 @@ private fun AccountRow(
         index, count, Modifier.padding(horizontal = Gap.m),
         onClick = onClick,
         // Always two lines, so the rows run evenly.
-        supporting = { Text(accountSubline(data, state), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supporting = { Text(accountSubline(data, state), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // What is on the account reads first: a step over the name, 22 against 16.
-                Text(amount, style = MaterialTheme.typography.titleLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                Text(amount, style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))
                     // One tap when the bank shows the same; a check once done.
@@ -393,7 +393,7 @@ private fun AccountRow(
         },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(state.account.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(state.account.name, Modifier.weight(1f, fill = false), style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis)
 
         }
     }
