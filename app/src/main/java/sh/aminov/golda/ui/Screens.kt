@@ -128,16 +128,17 @@ fun HomeScreen(
             // money, with whether the money goes faster than the days.
             val scheme = MaterialTheme.colorScheme
             val ink = scheme.onPrimaryFixed
-            // What it is, then how much: the caption over the figure (14, the base, the plate's second ink),
-            // the figure cut to its letters top and bottom, so the caption holds on to it a text's step away.
+            // What it is, then how much: the caption over the figure (14, the base, the plate's second ink).
+            // Every text cut to its letters and every gap a step of the header's row (HeaderSpace).
             val status = TextRole.headerFigures
-            HeroTile(Modifier.padding(horizontal = Gap.s), content = ink) {
+            HeroTile(Modifier.padding(horizontal = Gap.s), content = ink, vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
+                val cut = Modifier.letters(words.fontSize)
                 val code = envelope?.currency
                 val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
-                    Row {
+                    Row(cut) {
                         Text(tr("Можно сегодня", "Safe to spend today"), Modifier.weight(1f), style = words, maxLines = 1)
                         // The gear's top on the caption's line, its glyph's right edge on the content's; its 48 to
                         // tap spills into the padding and takes no room from the line.
@@ -146,25 +147,25 @@ fun HomeScreen(
                         }
                     }
                     if (figure != null) {
-                        VSpace(Space.text)
+                        VSpace(HeaderSpace.figureCaption)
                         BoxWithConstraints {
                             HeroAmount(figure, ink, Modifier.letters(heroFigureSize(figure, maxWidth)).testTag(Tags.HOME_BIG), signColor = ink)
                         }
                     }
                 }
                 if (envelope == null || code == null) return@HeroTile
-                VSpace(Space.block)
+                VSpace(HeaderSpace.block)
                 // The period as one bar: the days gone pale, the money gone over them, and what went
                 // past the even pace in red. The money short of the pale end is the margin.
                 val red = paceColor(Pace.OVER)
                 PeriodBar(envelope.timeShare, envelope.spentShare, paceColor(Pace.LASTS), red)
-                VSpace(Space.text)
-                // Where the bar starts and ends; no "today" here, the caption under the figure says it.
-                Row(Modifier.fillMaxWidth()) {
+                VSpace(HeaderSpace.chartCaption)
+                // Where the bar starts and ends: the chart's caption.
+                Row(Modifier.fillMaxWidth().then(cut)) {
                     Text(dayMonth(envelope.start), Modifier.weight(1f), style = words, maxLines = 1)
                     Text(dayMonth(envelope.end), style = words, maxLines = 1)
                 }
-                VSpace(Space.block)
+                VSpace(HeaderSpace.block)
                 // Against the even pace: within it, or how much past it. A tap changes the period.
                 Column(Modifier.fillMaxWidth().clickable(onClick = onPeriod).testTag(Tags.HOME_PERIOD)) {
                     val ahead = envelope.daysLeft
@@ -183,17 +184,17 @@ fun HomeScreen(
                             }
                             else -> AnnotatedString(tr("В норме", "Within the norm"))
                         },
-                        Modifier.testTag(Tags.HOME_RUNWAY),
+                        Modifier.letters(status.fontSize).testTag(Tags.HOME_RUNWAY),
                         // The tile's main statement: the header's figures, in full ink.
                         style = status,
                         color = ink,
                         maxLines = 1,
                     )
-                    VSpace(Space.text)
+                    VSpace(HeaderSpace.valueCaption)
                     // What a day was meant to be and what it actually is: its caption.
                     val plan = tr("План ${whole(envelope.perDayMinor, code)} в день", "Plan ${whole(envelope.perDayMinor, code)} a day")
                     val fact = envelope.burnMinor?.let { tr("факт ${whole(it, code)}", "actual ${whole(it, code)}") }
-                    Text(listOfNotNull(plan, fact).joinToString(" · "), style = words, maxLines = 1)
+                    Text(listOfNotNull(plan, fact).joinToString(" · "), cut, style = words, maxLines = 1)
                 }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
@@ -263,30 +264,31 @@ fun AccountsScreen(
             // 14 for the captions (in the plate's second ink), 22 for the figures under the total, the total.
             val ink = MaterialTheme.colorScheme.onPrimaryFixed
             val figures = TextRole.headerFigures
-            HeroTile(Modifier.padding(horizontal = Gap.s)) {
+            HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // What it is, then how much: each caption over its figure, a text's step away, the big figure cut
-                // to its letters top and bottom. The same money in other currencies a block under the total, a
-                // value of its own; the debt's cost a block under. Each block one TalkBack node: "caption, figure".
+                // What it is, then how much: each caption over its figure. Every text cut to its letters and every
+                // gap a step of the header's row (HeaderSpace): the caption a figure's step over the total, the
+                // other currencies a block under it, the debt's cost a group away. Each block one TalkBack node.
+                val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
-                    Text(tr("Всего на счетах", "Total in accounts"), style = words, maxLines = 1)
-                    VSpace(Space.text)
+                    Text(tr("Всего на счетах", "Total in accounts"), cut, style = words, maxLines = 1)
+                    VSpace(HeaderSpace.figureCaption)
                     val text = data.base.whole(total)
                     BoxWithConstraints {
                         HeroAmount(text, ink, Modifier.letters(heroFigureSize(text, maxWidth)).testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
                     }
-                    VSpace(Space.block)
-                    Text(data.others(total, data.base.code), style = figures, color = ink)
+                    VSpace(HeaderSpace.block)
+                    Text(data.others(total, data.base.code), Modifier.letters(figures.fontSize), style = figures, color = ink)
                 }
                 Debts.advice(data.accounts, data.states)?.let { advice ->
-                    VSpace(Space.block)
+                    VSpace(HeaderSpace.group)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
-                        Text(head, style = words)
+                        Text(head, cut, style = words)
                         tail?.let {
-                            VSpace(Space.text)
-                            Text(it, style = figures, color = ink)
+                            VSpace(HeaderSpace.valueCaption)
+                            Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
                         }
                     }
                 }
