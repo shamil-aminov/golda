@@ -60,10 +60,11 @@ loud is the moment you notice you are spending.
   that card asks "Новый месяц с …?" (on for a transfer from your own account,
   off for an income), so a friend's money never restarts the month; when the
   period ends, the next one of the same length begins.
-- **Burn from the balance.** How much a day actually leaves the card since
-  the top-up, and the day it runs out at that pace: "Spending 70 ₾ a day:
-  runs out November 20, 6 days early". Reconcile the card and it holds even
-  for days you wrote nothing down.
+- **The period in one bar.** The days gone fill it pale, the money gone over
+  them, and whatever went faster than the days in red: "Over the norm by
+  258 ₾" or "Within the norm", with the plan a day against what actually goes
+  ("Plan 43 ₾ a day · actual 67 ₾"). Measured by the card's balance:
+  reconcile the card and it holds even for days you wrote nothing down.
 - **Three buckets.** Everyday, regular (rent, phone, subscriptions) and
   one-off (clothes, travel, a pharmacy) spending, apart in insights.
 - **Regular payments**, under the accounts, with the day each is charged. Two

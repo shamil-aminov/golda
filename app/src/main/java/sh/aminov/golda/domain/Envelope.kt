@@ -55,6 +55,33 @@ data class Envelope(
      */
     fun lastsDays(today: LocalDate): Long? = runsOut(today)?.let { ChronoUnit.DAYS.between(start, it) }
 
+    /** Days in the period, the last one included: 26 October to 26 November is 32. */
+    val totalDays: Long get() = ChronoUnit.DAYS.between(start, end) + 1
+
+    /** Days of the period gone, today included: the 10th day is 10. */
+    val elapsedDays: Long get() = (totalDays - daysLeft + 1).coerceIn(1, totalDays)
+
+    /** The money of the period: what is on the card and what has gone from it since [start]. */
+    val fundsMinor: Long get() = balanceMinor + spentMinor
+
+    /**
+     * What would have gone by the end of today at an even pace: the money over the days, times the days
+     * gone. 1 800 ₾ for 32 days, on the 10th: 562 ₾.
+     */
+    val normMinor: Long get() = fundsMinor.coerceAtLeast(0) * elapsedDays / totalDays
+
+    /** Gone past the norm, "Сверх нормы 258 ₾"; zero or less is within it. */
+    val overNormMinor: Long get() = spentMinor - normMinor
+
+    /** The share of the period gone, today included, 0..1. */
+    val timeShare: Float get() = elapsedDays.toFloat() / totalDays
+
+    /** The share of the period's money gone, 0..1: all of it once nothing is left. */
+    val spentShare: Float get() = when {
+        fundsMinor <= 0 -> if (spentMinor > 0) 1f else 0f
+        else -> (spentMinor.toFloat() / fundsMinor).coerceIn(0f, 1f)
+    }
+
     /** The period's length in words when it is one of the usual ones. */
     val length: Envelopes.Length? get() = Envelopes.Length.entries.firstOrNull { Envelopes.end(start, it) == end }
 }

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golda — слова К1·а</title>
+<style>
+  /* Golda dark, Zinc (ui/Colors.kt) */
+  :root {
+    --page: #1F1F23; --card: #2A2A2F; --soft: #3F3F46; --line: #52525B;
+    --muted: #ACACB4; --text: #F4F4F5; --gold: #E2B655; --red: #F87171; --desk: #121214;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--desk); color: var(--text);
+         font-family: Roboto, "Segoe UI", system-ui, sans-serif; padding: 32px 24px 40px; }
+  h1 { font: 600 26px/1.3 inherit; margin: 0 0 6px; }
+  .lead { color: var(--muted); max-width: 1100px; margin: 0 0 24px; font-size: 15px; line-height: 1.5; }
+  .row { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  .col { width: 411px; }
+  .tag { font: 600 15px/1.3 inherit; margin: 0 0 4px; }
+  .tag b { color: var(--gold); }
+  .why { color: var(--muted); font-size: 14px; line-height: 1.45; margin: 0 0 12px; min-height: 62px; }
+  .side { color: var(--muted); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; margin: 14px 0 6px 8px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+
+  /* the K1·a card, at phone width 411 */
+  .screen { width: 411px; background: var(--page); padding: 8px; border-radius: 28px; }
+  .tile { background: var(--card); border-radius: 32px; padding: 24px 16px; }
+  .cap { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 14px; }
+  .gear { width: 22px; height: 22px; border: 2px solid currentColor; border-radius: 50%; }
+  .big { font-size: 72px; line-height: 1; letter-spacing: -1px; margin: 10px 0 18px -3px; }
+  .big span { color: var(--muted); }
+  .bar { height: 20px; border-radius: 10px; background: var(--soft); position: relative; overflow: hidden; }
+  .bar i { position: absolute; top: 0; bottom: 0; }
+  .bar .time { left: 0; background: rgba(226,182,85,.30); }
+  .bar .spent { left: 0; background: var(--gold); }
+  .bar .over { background: var(--red); }
+  .dates { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .main { font-size: 22px; font-weight: 600; margin-top: 20px; white-space: nowrap; }
+  .main em { font-style: normal; color: var(--red); }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  .notes { max-width: 1300px; margin-top: 32px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .notes b { color: var(--text); }
+</style>
+</head>
+<body>
+<h1>К1·а — как назвать перебор (и запас)</h1>
+<p class="lead">Карточка К1·а, под статусом снова «План … в день · факт …». <b>Норма</b> — сколько ушло бы при ровном темпе:
+  1 800 ₾ × прошедшие дни / дни периода. Сверху — перебор: ушло 820 ₾ при норме 562 ₾ (+258 ₾). Снизу — тот же
+  вариант в обратную сторону: ушло 440 ₾ при норме 562 ₾ (запас 122 ₾).</p>
+
+<div class="row" id="row"></div>
+
+<div class="notes">
+  <p>Полоса одна и та же: бледная заливка — время (норма к сегодня), золото — потраченное в пределах нормы, красный —
+    сверх. При запасе золото не доходит до конца бледной заливки, и бледный хвост — это запас.</p>
+</div>
+
+<script>
+const T = 31; // the share of the period gone, %
+const OVER = { S: 46, big: 31, plan: 43, fact: 67 };
+const UNDER = { S: 24, big: 48, plan: 60, fact: 44 };
+
+function card(st, main) {
+  const bar = st.S > T
+    ? `<i class="time" style="width:${T}%"></i><i class="spent" style="width:${T}%"></i><i class="over" style="left:${T}%;width:${st.S - T}%"></i>`
+    : `<i class="time" style="width:${T}%"></i><i class="spent" style="width:${st.S}%"></i>`;
+  return `<div class="screen"><div class="tile">
+    <div class="cap"><span>Можно сегодня</span><span class="gear"></span></div>
+    <div class="big tnum">${st.big} <span>₾</span></div>
+    <div class="bar">${bar}</div>
+    <div class="dates tnum"><span>26 окт</span><span>26 ноя</span></div>
+    <div class="main tnum">${main}</div>
+    <div class="sub tnum">План ${st.plan} ₾ в день · факт ${st.fact} ₾</div>
+  </div></div>`;
+}
+
+const variants = [
+  { tag: "<b>1</b> · Сверх нормы", why: "Слово пользователя. Сумма — красным, как красный отрезок. Обратная сторона — «Запас», тоже существительное с суммой.",
+    over: "Сверх нормы <em>258 ₾</em>", under: "Запас 122 ₾" },
+  { tag: "<b>2</b> · +258 ₾ сверх нормы", why: "Сумма первой, со знаком — читается как число на полосе. В обратную сторону знак «−» звучит как долг, поэтому «122 ₾ в запасе».",
+    over: "<em>+258 ₾</em> сверх нормы", under: "122 ₾ в запасе" },
+  { tag: "<b>3</b> · Тратишь больше нормы", why: "Без суммы, о поведении — мягче. Сколько именно — видно из «План 43 · факт 67» строкой ниже.",
+    over: "Тратишь больше нормы", under: "Тратишь меньше нормы" },
+  { tag: "<b>4</b> · Быстрее нормы", why: "О темпе, как полоса (время против денег). Сумма в конце. Обратная сторона естественная — «медленнее».",
+    over: "Быстрее нормы на <em>258 ₾</em>", under: "Медленнее нормы на 122 ₾" },
+  { tag: "<b>5</b> · В норме / сверх", why: "Одно слово «норма» в обе стороны: «В норме» при запасе — спокойно, без цифры; при переборе — «Сверх нормы» с суммой.",
+    over: "Сверх нормы <em>258 ₾</em>", under: "В норме" },
+];
+
+document.getElementById("row").innerHTML = variants.map(v => `
+  <div class="col">
+    <p class="tag">${v.tag}</p>
+    <p class="why">${v.why}</p>
+    <p class="side">Перебор</p>${card(OVER, v.over)}
+    <p class="side">Запас</p>${card(UNDER, v.under)}
+  </div>`).join("");
+</script>
+</body>
+</html>
