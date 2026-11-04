@@ -593,7 +593,7 @@ private fun interestLine(minor: Long, currency: String, today: LocalDate): Strin
 private fun whole(minor: Long, code: String): String = Fmt.whole(minor, code) + " " + Currencies.symbol(code)
 
 /** "26 окт", "Oct 26": the ends of the period under its bar. Java's own Russian is "нояб.", hence the list. */
-private fun dayMonth(date: LocalDate): String =
+internal fun dayMonth(date: LocalDate): String =
     if (I18n.russian) "${date.dayOfMonth} " + listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")[date.monthValue - 1]
     else date.format(DateTimeFormatter.ofPattern("MMM d", I18n.locale))
 
@@ -602,7 +602,7 @@ private fun dayMonth(date: LocalDate): String =
  * them in [color] as far as the days and in [over] past them. Gliding to new values with a little give.
  */
 @Composable
-private fun PeriodBar(time: Float, spent: Float, color: Color, over: Color) {
+internal fun PeriodBar(time: Float, spent: Float, color: Color, over: Color) {
     val spec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
     val t by animateFloatAsState(time.coerceIn(0f, 1f), spec, label = "time")
     val s by animateFloatAsState(spent.coerceIn(0f, 1f), spec, label = "spent")
