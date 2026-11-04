@@ -266,12 +266,12 @@ private fun HeroSurface(modifier: Modifier, container: Color, content: Color, on
     val shape = MaterialTheme.shapes.extraLargeIncreased
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
+            Column(Modifier.padding(horizontal = Gap.m + LocalCardInset.current, vertical = Gap.l), content = body)
         }
     } else {
         Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
             // Placed 8 from the screen's edge, 16 inside: the text 24 from the edge, like every row's.
-            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
+            Column(Modifier.padding(horizontal = Gap.m + LocalCardInset.current, vertical = Gap.l), content = body)
         }
     }
 }
@@ -376,7 +376,7 @@ fun GroupRow(
     val layout = LocalLayoutDirection.current
     val padding = ListItemDefaults.ContentPadding.let {
         PaddingValues(
-            start = it.calculateStartPadding(layout), end = it.calculateEndPadding(layout),
+            start = it.calculateStartPadding(layout) + LocalCardInset.current, end = it.calculateEndPadding(layout) + LocalCardInset.current,
             top = it.calculateTopPadding() + air, bottom = it.calculateBottomPadding() + air,
         )
     }
@@ -784,6 +784,9 @@ enum class Spacing(val row: Dp, val underHeader: Dp, val underLabel: Dp) {
         fun of(name: String?): Spacing = entries.firstOrNull { it.name == name } ?: NORMAL
     }
 }
+
+/** TEMPORARY (docs/tasks/accounts-screen.md): extra room inside the cards' sides, for the inset mock-ups; none in the app. */
+val LocalCardInset = staticCompositionLocalOf { 0.dp }
 
 /** The [Spacing] in use: GoldaTheme provides the setting. */
 val LocalSpacing = staticCompositionLocalOf { Spacing.NORMAL }
@@ -1221,7 +1224,7 @@ fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = fal
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
+            Modifier.padding(start = Gap.m + LocalCardInset.current, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val type = MaterialTheme.typography
