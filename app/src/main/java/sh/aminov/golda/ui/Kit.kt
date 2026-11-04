@@ -236,11 +236,24 @@ fun circleColor(): Color = MaterialTheme.colorScheme.surface
 fun HeroTile(
     modifier: Modifier = Modifier,
     // The one card on a tab: the top block, set off the flat page under it.
-    container: Color = tileColor(),
+    container: Color = MaterialTheme.colorScheme.primaryFixed,
     content: Color = MaterialTheme.colorScheme.onPrimaryFixed,
     onClick: (() -> Unit)? = null,
     body: @Composable ColumnScope.() -> Unit,
 ) {
+    // On a plate of colour its own inks, so whatever inside asks for the plain ones reads on it.
+    val scheme = MaterialTheme.colorScheme
+    if (container == scheme.primaryFixed && container != scheme.surfaceContainer) {
+        MaterialTheme(colorScheme = scheme.copy(onSurface = scheme.onPrimaryFixed, onSurfaceVariant = scheme.onPrimaryFixedVariant)) {
+            HeroSurface(modifier, container, content, onClick, body)
+        }
+    } else {
+        HeroSurface(modifier, container, content, onClick, body)
+    }
+}
+
+@Composable
+private fun HeroSurface(modifier: Modifier, container: Color, content: Color, onClick: (() -> Unit)?, body: @Composable ColumnScope.() -> Unit) {
     val color by animateColorAsState(container, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "hero")
     val ink by animateColorAsState(content, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "heroInk")
     val shape = MaterialTheme.shapes.extraLargeIncreased

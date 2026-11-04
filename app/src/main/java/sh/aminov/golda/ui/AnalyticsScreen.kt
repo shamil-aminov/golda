@@ -185,7 +185,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                             span.startsWith("с ") -> tr("Траты ", "Spent ") + span
                             else -> tr("Траты за ", "Spent in ") + span
                         },
-                        Modifier.weight(1f), style = text, color = quiet, maxLines = 1,
+                        Modifier.weight(1f), style = text, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
                     )
                     // The one ice-blue thing in the app: the way to Gemini's reviews.
                     Button(
@@ -199,7 +199,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                 VSpace(Gap.m)
                 HeroAmount(data.base.whole(shown.spentRub), MaterialTheme.colorScheme.onSurface, Modifier.testTag(Tags.INSIGHTS_TOTAL))
                 // The big number over the days so far: all spending, or the picked bucket's alone.
-                Text(tr("≈ ${data.base.approx(shown.averagePerDayRub)} в день", "≈ ${data.base.approx(shown.averagePerDayRub)} a day"), style = text, color = quiet)
+                Text(tr("≈ ${data.base.approx(shown.averagePerDayRub)} в день", "≈ ${data.base.approx(shown.averagePerDayRub)} a day"), style = text, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 VSpace(Gap.l)
                 Row(horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                     listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub).forEach { (bucket, rub) ->
@@ -308,7 +308,8 @@ private fun BucketChip(label: String, amount: String, on: Boolean, modifier: Mod
     val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
     // Idle on the white hero is the page's grey: one step off what it sits on.
     val container by animateColorAsState(if (on) pickedColor() else MaterialTheme.colorScheme.surface, spec, label = "bucket")
-    val ink by animateColorAsState(if (on) onPickedColor() else MaterialTheme.colorScheme.onSurface, spec, label = "bucket-ink")
+    // The page's own ink: on a plate of colour, onSurface is the plate's.
+    val ink by animateColorAsState(if (on) onPickedColor() else LocalTones.current.text, spec, label = "bucket-ink")
     Surface(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(16.dp), color = container, contentColor = ink) {
         Column(Modifier.padding(12.dp)) {
             Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1)

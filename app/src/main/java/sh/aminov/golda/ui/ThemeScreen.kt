@@ -9,6 +9,8 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
 import android.app.WallpaperManager
@@ -84,6 +86,8 @@ fun ThemeScreen(
     onMode: (String) -> Unit,
     onSave: (String) -> Unit,
     onForget: (String) -> Unit,
+    oled: Boolean = false,
+    onOled: (Boolean) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
@@ -129,6 +133,21 @@ fun ThemeScreen(
                         ThemeMode.DARK -> tr("Тёмная", "Dark")
                     },
                 )
+            }
+            // Every dark half on pure black, for OLED screens. The whole line flips the switch.
+            VSpace(Gap.s)
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(oled, role = Role.Switch) { onOled(it) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(tr("Чистый чёрный", "Pure black"), style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        tr("Тёмная тема на чёрном фоне, для OLED-экранов", "The dark theme on black, for OLED screens"),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                CheckSwitch(oled) { onOled(it) }
             }
             // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
             BoxWithConstraints(Modifier.fillMaxWidth()) {

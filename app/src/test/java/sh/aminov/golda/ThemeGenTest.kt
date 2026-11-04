@@ -62,6 +62,10 @@ class ThemeGenTest {
                 assertTrue("$name muted/card ${ratio(t.muted, t.card)}", ratio(t.muted, t.card) >= 4.5)
                 assertTrue("$name onPicked ${ratio(t.onGraphite, t.graphite)}", ratio(t.onGraphite, t.graphite) >= 4.5)
                 assertTrue("$name onAction ${ratio(t.onGold, t.gold)}", ratio(t.onGold, t.gold) >= 4.5)
+                assertTrue("$name onPlate ${ratio(t.onPlate, t.plate)}", ratio(t.onPlate, t.plate) >= 7.0)
+                assertTrue("$name onPlateMuted ${ratio(t.onPlateMuted, t.plate)}", ratio(t.onPlateMuted, t.plate) >= 4.5)
+                // OLED: the dark half on black keeps its inks.
+                if (dark) assertTrue("$name oled", ratio(t.text, tonesFor(p.key, dark = true, oled = true).page) >= 7.0)
             }
         }
         // Twenty-odd, calm first.

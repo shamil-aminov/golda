@@ -116,8 +116,8 @@ fun HomeScreen(
             // Spent past today's share, or nothing left on the card at all.
             val over = envelope != null && (envelope.leftTodayMinor < 0 || envelope.balanceMinor <= 0)
             val scheme = MaterialTheme.colorScheme
-            val ink = scheme.onSurface
-            val quiet = scheme.onSurfaceVariant
+            val ink = scheme.onPrimaryFixed
+            val quiet = scheme.onPrimaryFixedVariant
             // Two kinds of type on the tile and no more: the big number, and one style in one colour for
             // every word around it.
             // Golden-ratio steps: 14 for the words round the figure, 22 for the main line.

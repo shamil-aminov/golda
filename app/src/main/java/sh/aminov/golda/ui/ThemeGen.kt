@@ -48,9 +48,11 @@ data class ThemeSpec(val hue: Int, val style: ThemeStyle = ThemeStyle.CALM, val 
 /**
  * The tones for a palette setting in light or [dark]: a preset by key, or a generated theme. The
  * mode is the app's one setting now; a generated theme's own mode, from before, is not looked at.
+ * [oled] puts a dark half on a page of pure black.
  */
-fun tonesFor(key: String?, dark: Boolean): Tones =
-    ThemeSpec.parse(key)?.let { ThemeGen.tones(it.copy(mode = ThemeMode.SYSTEM), dark) } ?: Palette.of(key).tones(dark)
+fun tonesFor(key: String?, dark: Boolean, oled: Boolean = false): Tones =
+    (ThemeSpec.parse(key)?.let { ThemeGen.tones(it.copy(mode = ThemeMode.SYSTEM), dark) } ?: Palette.of(key).tones(dark))
+        .let { if (oled && dark) it.onPage(Color.Black) else it }
 
 /** Whether the app is dark for a theme mode setting ("SYSTEM", "LIGHT", "DARK") and the phone's own. */
 fun isDarkMode(mode: String?, systemDark: Boolean): Boolean = when (mode) {
@@ -206,7 +208,7 @@ enum class Pace { LASTS, SHORT, OVER }
 @ReadOnlyComposable
 fun paceColor(pace: Pace): Color {
     val t = LocalTones.current
-    return if (pace == Pace.OVER) oklch(t.infoL - 0.06, (t.infoC * 1.15).coerceAtLeast(0.10), 28.0) else leitmotifColor(0, t)
+    return if (pace == Pace.OVER) oklch(t.infoL - 0.06, (t.infoC * 1.15).coerceAtLeast(0.10), 28.0) else t.pace ?: leitmotifColor(0, t)
 }
 
 /**

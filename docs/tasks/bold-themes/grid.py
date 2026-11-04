@@ -35,3 +35,13 @@ for screen in ('home','insights'):
             d.text((x+j*(W+gap),y+42),cap,fill=(240,240,240),font=small)
             grid.paste(Image.open(f'{src}/{k}_{side}_{screen}.png').convert('RGB').resize((W,H),Image.LANCZOS),(x+j*(W+gap),y+head))
     grid.save(f'{out}/oled-{screen}.png',optimize=True)
+
+# The Theme page's switch: off and on.
+if __import__('os').path.exists(f'{src}/theme_oled_off.png'):
+    W=420; gap=24; head=60
+    im0=Image.open(f'{src}/theme_oled_off.png'); H=round(W*im0.height/im0.width)
+    grid=Image.new('RGB',(2*W+3*gap, H+head+2*gap),(128,128,132)); d=ImageDraw.Draw(grid)
+    for j,(side,cap) in enumerate((('off','Выкл: #121212'),('on','Вкл: #000000'))):
+        d.text((gap+j*(W+gap),gap),cap,fill=(255,255,255),font=font)
+        grid.paste(Image.open(f'{src}/theme_oled_{side}.png').convert('RGB').resize((W,H),Image.LANCZOS),(gap+j*(W+gap),gap+head))
+    grid.save(f'{out}/oled-toggle.png',optimize=True)
