@@ -130,9 +130,10 @@ fun HomeScreen(
             val ink = scheme.onPrimaryFixed
             // The figures first, each closed by its caption (14, the base, the plate's second ink). The big
             // figure is cut at its baseline; every other text keeps its box, as on Accounts.
-            val words = TextRole.caption
             val status = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s), content = ink) {
+                // Read inside the tile: on a plate the caption's second ink is the plate's own.
+                val words = TextRole.caption
                 val code = envelope?.currency
                 val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
                 BoxWithConstraints {
@@ -263,9 +264,10 @@ fun AccountsScreen(
             // The total is the hero here, as big as Home's number. Three sizes on the golden-ratio steps:
             // 14 for the captions (in the plate's second ink), 22 for the figures under the total, the total.
             val ink = MaterialTheme.colorScheme.onPrimaryFixed
-            val words = TextRole.caption
             val figures = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
+                // Read inside the tile: on a plate the caption's second ink is the plate's own.
+                val words = TextRole.caption
                 // The figures first, each block closed by its label, the sizes only going down: the total
                 // and the same money in other currencies, «Всего на счетах» under them. Each block is one
                 // node for TalkBack, read as it stands: the figures, then what they are.
@@ -384,11 +386,13 @@ private fun AccountRow(
     GroupRow(
         index, count, Modifier.padding(horizontal = Gap.m),
         onClick = onClick,
+        // A row like the feed's: the account's type in a quiet circle.
+        leading = { RowIcon(typeIcon(state.account.type)) },
         // Always two lines, so the rows run evenly.
         supporting = { Text(accountSubline(data, state), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // What is on the account reads first: a step over the name, 22 against 16.
+                // What is on the account leads by its weight, the name's size: as every amount in a row.
                 Text(amount, style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))

@@ -168,8 +168,8 @@ fun AmountColumn(
     reserve: Boolean = false,
 ) {
     Column(horizontalAlignment = Alignment.End) {
-        // The amount a row's name's size, what it came to a caption a text's step under it.
-        Text(main, style = TextRole.rowName.merge(Tnum), color = color, maxLines = 1)
+        // The amount a row's name's size in the accent, what it came to a caption a text's step under it.
+        Text(main, style = TextRole.rowAmount, color = color, maxLines = 1)
         if (secondary != null || reserve) {
             Spacer(Modifier.height(Space.text))
             Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), style = TextRole.caption, maxLines = 1)
@@ -305,23 +305,14 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
         index, count, modifier,
         onClick = { onClick(full) },
         leading = {
-            if (LocalColouredRows.current) {
-                val fill = operationColor(category?.key, op.type, LocalTones.current)
-                GlyphCircle(operationIcon(category, op.type), color = fill, ink = inkOn(fill), size = OperationIcon)
-            } else {
-                GlyphCircle(operationIcon(category, op.type), size = OperationIcon)
-            }
+            // The category's colour, unless coloured rows are off: then the quiet ink like an account's.
+            if (LocalColouredRows.current) RowIcon(operationIcon(category, op.type), operationColor(category?.key, op.type, LocalTones.current))
+            else RowIcon(operationIcon(category, op.type))
         },
         supporting = { Text(second, style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = { AmountColumn(line.main, line.secondary, line.approximate, color, reserve = true) },
     ) { Text(line.title, style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
-
-/**
- * An operation's icon: a 48 circle, the row's biggest mark, its category's colour (40 in the other lists,
- * where an icon only says what a setting is).
- */
-val OperationIcon = 48.dp
 
 /**
  * Whether a transfer's note only says what "A → B" already does: it starts with "перевод"/"transfer",
