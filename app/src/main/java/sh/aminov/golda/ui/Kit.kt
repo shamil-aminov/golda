@@ -884,14 +884,26 @@ object ListSpace {
     /** A row's name and its second line, and an amount and what it came to: 16. */
     val line: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
 
-    /** A card's title to the top of its first row (the circle, or the letters): 26. */
-    val titleToRow: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
+    /**
+     * A card's title to the top of its first row (the circle, or the letters): 32, an optical correction
+     * to the row's 26 — the title is bigger and heavier than a row, so it needs more room to stand off;
+     * the owner set it so by eye. φ and an explicit correction only where his eye differs this much.
+     */
+    val titleToRow: Dp @Composable @ReadOnlyComposable get() = corrected(32f)
 
     /** A card's edge over its first letters and under its last circle or letters: 26. */
     val edge: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.edge
 
-    /** Card from card, and a header from its first card: 42. */
-    val cards: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.group
+    /**
+     * Card from card, and a header from its first card: 30, an optical correction to the row's 42 — the
+     * page's own tone between the cards already parts them, so a smaller gap is enough; set by eye.
+     */
+    val cards: Dp @Composable @ReadOnlyComposable get() = corrected(30f)
+
+    /** An owner's value at «Просторно», scaled to the density in use like the row. */
+    @Composable
+    @ReadOnlyComposable
+    private fun corrected(roomy: Float): Dp = (roomy * LocalSpacing.current.factor / Spacing.ROOMY.factor).roundToInt().dp
 }
 
 /** The [Spacing] in use: GoldaTheme provides the setting. */
