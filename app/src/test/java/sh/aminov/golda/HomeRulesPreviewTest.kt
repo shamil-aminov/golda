@@ -94,10 +94,10 @@ class HomeRulesPreviewTest(private val variant: String, private val spacing: Str
         I18n.russian = true
     }
 
-    private fun shot(theme: String, palette: String) {
+    private fun shot(theme: String, palette: String, mode: String = "DARK") {
         val data = ScreenshotTest().demo()
         compose.setContent {
-            GoldaTheme(palette, "DARK", spacing) {
+            GoldaTheme(palette, mode, spacing) {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     if (variant == "now" && !painted) HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
                     else Mock(data, variant, painted)
@@ -112,6 +112,7 @@ class HomeRulesPreviewTest(private val variant: String, private val spacing: Str
 
     @Test fun marathonDark() = shot("marathon_dark", "marathon")
     @Test fun midnightDark() = shot("midnight_dark", "midnight")
+    @Test fun goldaLight() = shot("golda_light", "golda", "LIGHT")
 }
 
 private val levelColors = listOf(Color(0xCCFF4D9D), Color(0xCCFF9F1C), Color(0xCC2EC4B6), Color(0xCC3A86FF))
