@@ -1,6 +1,5 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -96,7 +95,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.HorizontalDivider
@@ -104,7 +102,6 @@ import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.ui.window.PopupProperties
-import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -126,9 +123,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.calculateEndPadding
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.ProvideTextStyle
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.clip
@@ -164,9 +161,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /*
- * The design system in one place. Spacing runs 4 · 8 · 16 · 24 · 40; corners are 32 for the one
- * hero tile on a screen, 28 for tiles and grouped lists (4 between rows), 16 for fields and full
- * pills for buttons. Text on a container always takes that container's "on" role.
+ * The design system in one place. Spacing runs 4 · 8 · 16 · 24 · 40; corners are [CardCorner], 20,
+ * for every card (the hero tile, tiles, grouped lists), 16 for fields and full pills for buttons. Text on a container always takes that container's "on" role.
  */
 
 object Gap {
@@ -188,6 +184,35 @@ object Gap {
 
 /** Rows of a grouped list sit this far apart. */
 val GroupGap = 2.dp
+
+/**
+ * Space by level, one progression: φ from 16, 4 · 6 · 10 · 16 · 26 · 42, the type's golden steps
+ * again. Inside a group always less than between groups: text from text (6) < block from block (20,
+ * 10 over and under a row) < card from card (26). The card's own padding (16) and the screen's margin
+ * (8) stay outside the chain. The list density scales the levels, never 16 or 8. On Accounts for now
+ * (docs/tasks/spacing.md); the other screens move to it next.
+ */
+object Space {
+    /** The card's own padding, every side: 16. */
+    val card = Gap.m
+
+    /** Level 0: one text from the next in a block (a row's name and its second line, a label and its figure). */
+    val text: Dp @Composable @ReadOnlyComposable get() = scaled(6.dp)
+
+    /** Half of level 1: over and under each row. */
+    val half: Dp @Composable @ReadOnlyComposable get() = scaled(10.dp)
+
+    /** Level 1: block from block in a card, 2 × [half] (row from row, a title from its first row). */
+    val block: Dp @Composable @ReadOnlyComposable get() = half * 2
+
+    /** Level 3: card from card. */
+    val cards: Dp @Composable @ReadOnlyComposable get() = scaled(26.dp)
+
+    /** [base] times the density, to the nearest 2. */
+    @Composable
+    @ReadOnlyComposable
+    private fun scaled(base: Dp): Dp = (kotlin.math.round(base.value * LocalSpacing.current.factor / 2) * 2).dp
+}
 
 @Composable
 @ReadOnlyComposable
@@ -263,15 +288,15 @@ fun HeroTile(
 private fun HeroSurface(modifier: Modifier, container: Color, content: Color, onClick: (() -> Unit)?, body: @Composable ColumnScope.() -> Unit) {
     val color by animateColorAsState(container, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "hero")
     val ink by animateColorAsState(content, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "heroInk")
-    val shape = MaterialTheme.shapes.extraLargeIncreased
+    val shape = RoundedCornerShape(CardCorner)
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
+            Column(Modifier.padding(Space.card), content = body)
         }
     } else {
         Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
             // Placed 8 from the screen's edge, 16 inside: the text 24 from the edge, like every row's.
-            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
+            Column(Modifier.padding(Space.card), content = body)
         }
     }
 }
@@ -287,7 +312,7 @@ fun Tile(
     padding: PaddingValues = PaddingValues(Gap.m),
     body: @Composable ColumnScope.() -> Unit,
 ) {
-    val shape = MaterialTheme.shapes.extraLarge
+    val shape = RoundedCornerShape(CardCorner)
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier, shape = shape, color = container, contentColor = content) {
             Column(Modifier.padding(padding), content = body)
@@ -311,7 +336,7 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = LocalSpacing.current.underLabel)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = Space.text)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
@@ -329,10 +354,12 @@ fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? 
     }
 }
 
-/** Corner 28 at the ends of a grouped list, 4 between its rows. */
-fun groupShape(index: Int, count: Int): Shape {
+/** Every card's corner: the hero, a tile, the ends of a grouped list. */
+val CardCorner = 20.dp
+
+/** [CardCorner] at the ends of a grouped list, square between its rows. */
+fun groupShape(index: Int, count: Int, outer: Dp = CardCorner): Shape {
     // One card per group: round at its ends, square where its rows meet.
-    val outer = 28.dp
     val inner = 0.dp
     return RoundedCornerShape(
         topStart = if (index == 0) outer else inner,
@@ -343,10 +370,13 @@ fun groupShape(index: Int, count: Int): Shape {
 }
 
 /**
- * One row of a grouped list. [onClick] null makes it a plain row. The gap under it is part of the
- * row, so a LazyColumn can lay rows out one item each.
+ * One row of a grouped list. [onClick] null makes it a plain row. Our own row, not Material's list
+ * item: that one holds a two-line row at 72 at least, which broke the spacing progression and the
+ * density. Here a row is its text and [Space] only: half a block over and under it, the card's 16 at
+ * the group's ends and its sides, the second line a text's step under the first. One node for
+ * TalkBack (the caller's role and state included), 48 at least to tap, the ripple in the row's shape.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun GroupRow(
     index: Int,
@@ -363,50 +393,44 @@ fun GroupRow(
     trailingOnTitle: Boolean = true,
     headline: @Composable () -> Unit,
 ) {
-    // Lifted by half the second line, so its centre sits on the title's.
-    val lift = with(LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() }
-    val end: (@Composable () -> Unit)? = if (trailingOnTitle && supporting != null && trailing != null) {
-        { Box(Modifier.padding(bottom = lift)) { trailing() } }
-    } else {
-        trailing
-    }
-    val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
-    // The air the person picked, over and under the text: Material's own padding plus it.
-    val air = LocalSpacing.current.row
-    val layout = LocalLayoutDirection.current
-    val padding = ListItemDefaults.ContentPadding.let {
-        PaddingValues(
-            start = it.calculateStartPadding(layout), end = it.calculateEndPadding(layout),
-            top = it.calculateTopPadding() + air, bottom = it.calculateBottomPadding() + air,
-        )
-    }
-    val colors = ListItemDefaults.segmentedColors(containerColor = container)
+    val shape = groupShape(index, count)
+    val scheme = MaterialTheme.colorScheme
+    val type = MaterialTheme.typography
     // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
-    val spaced = modifier.bleed(Gap.s)
-    if (onClick != null) {
-        SegmentedListItem(
-            onClick = onClick,
-            shapes = shapes,
-            modifier = spaced,
-            leadingContent = leading,
-            trailingContent = end,
-            supportingContent = supporting,
-            onLongClick = onLongClick,
-            colors = colors,
-            contentPadding = padding,
-            content = headline,
-        )
+    val tap = if (onClick != null || onLongClick != null) {
+        Modifier.clip(shape).combinedClickable(onClick = onClick ?: {}, onLongClick = onLongClick)
     } else {
-        SegmentedListItem(
-            shapes = shapes,
-            modifier = spaced,
-            leadingContent = leading,
-            trailingContent = end,
-            supportingContent = supporting,
-            colors = colors,
-            contentPadding = padding,
-            content = headline,
-        )
+        Modifier.semantics(mergeDescendants = true) {}
+    }
+    Surface(modifier.bleed(Gap.s).then(tap), shape = shape, color = container, contentColor = scheme.onSurface) {
+        // On the title's line when it has a second line under it; else in the middle, like a switch.
+        val onTitle = trailingOnTitle && supporting != null && trailing != null
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(
+                start = Space.card, end = Space.card,
+                top = if (index == 0) Space.card else Space.half, bottom = if (index == count - 1) Space.card else Space.half,
+            ),
+            verticalAlignment = if (onTitle) Alignment.Top else Alignment.CenterVertically,
+        ) {
+            leading?.let {
+                CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { it() }
+                Spacer(Modifier.width(Space.card))
+            }
+            Column(Modifier.weight(1f).let { if (onTitle) it else it.align(Alignment.CenterVertically) }) {
+                ProvideTextStyle(type.bodyLarge) { headline() }
+                supporting?.let {
+                    Spacer(Modifier.height(Space.text))
+                    CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { ProvideTextStyle(type.bodyMedium) { it() } }
+                }
+            }
+            trailing?.let {
+                Spacer(Modifier.width(Space.card))
+                CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) {
+                    // On the title's line it starts with the name (an amount and, under it, what it became).
+                    it()
+                }
+            }
+        }
     }
 }
 
@@ -769,14 +793,13 @@ fun <T : Any> FormPageHost(target: T?, content: @Composable (T) -> Unit) {
 val LocalTextInset = staticCompositionLocalOf { 0.dp }
 
 /**
- * How much air the lists have, picked on the Theme page: added over and under every row's text
- * ([row]; a row grows only past Material's own 56 and 72), under a group's title inside its card
- * ([underHeader], on top of 8) and under a label over a card ([underLabel]).
+ * How much air the lists have, picked on the Theme page: one [factor] on every level of [Space], so
+ * the progression keeps its order; the card's 16 and the screen's 8 do not change.
  */
-enum class Spacing(val row: Dp, val underHeader: Dp, val underLabel: Dp) {
-    COMPACT(0.dp, 0.dp, 0.dp),
-    NORMAL(8.dp, 8.dp, 8.dp),
-    ROOMY(12.dp, 16.dp, 16.dp),
+enum class Spacing(val factor: Float) {
+    COMPACT(0.75f),
+    NORMAL(1f),
+    ROOMY(1.25f),
     ;
 
     companion object {
@@ -1182,7 +1205,34 @@ fun Modifier.squish(interaction: InteractionSource): Modifier {
 @Composable
 fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLargeEmphasized.merge(Tnum)
     // −6 %: the digits read as one word without touching.
-    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = FontWeight.Medium, letterSpacing = (-0.06).em)
+    .copy(fontSize = size, lineHeight = size * 1.15f, fontWeight = TextRole.Base, letterSpacing = (-0.06).em)
+
+/**
+ * The text by role: four sizes (14, 16, 22 and the big figure) and two weights, [Base] and [Accent].
+ * On Accounts for now; the other screens move to it next (docs/tasks/type-scale.md).
+ */
+object TextRole {
+    /** Every word's weight. */
+    val Base = FontWeight(500)
+
+    /** What leads: a group's title, the figures in a header. */
+    val Accent = FontWeight(700)
+
+    /** A word beside a figure, a caption, a row's second line: 14. */
+    val caption: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyMedium.merge(Tnum).copy(fontWeight = Base)
+
+    /** A row's name: 16. */
+    val rowName: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.bodyLarge.copy(fontWeight = Base)
+
+    /** A row's amount: 22, a step over its name. */
+    val rowAmount: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = Base)
+
+    /** A group's title: 22, the accent. */
+    val groupTitle: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.copy(fontWeight = Accent)
+
+    /** The figures under a header's big one: 22, the accent. */
+    val headerFigures: TextStyle @Composable @ReadOnlyComposable get() = MaterialTheme.typography.titleLarge.merge(Tnum).copy(fontWeight = Accent)
+}
 
 /**
  * The type steps go by the golden ratio from 14 sp: 14, 22, 36, 58, 94. A tab's figure is the top
@@ -1194,7 +1244,7 @@ const val ENTRY_FIGURE_SP = 58f
 /**
  * A group with an action, headed inside its own card: the title 22 semibold on the rows' text line, the
  * round tonal "+" (Material's way of adding to a list) in the top corner, 12 in from the top and the
- * end, 32 across, so its circle is concentric with the card's 28 corner (28 − 12 = 16). The rows under
+ * end, 32 across (it sat concentric with the old 28 corner; with 20 it keeps its place). The rows under
  * it count it as their first: index + 1 of count + 1. [alone] while the group has no rows: round all
  * over. [description] is what TalkBack says for the "+" ("Добавить счёт").
  */
@@ -1221,13 +1271,13 @@ fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = fal
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
+            // The card's 16 over the title's line, half a block under it (the first row adds the other half).
+            Modifier.padding(start = Space.card, end = 12.dp, top = Space.card, bottom = if (alone) Space.card else Space.half).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val type = MaterialTheme.typography
             Text(
                 title, Modifier.weight(1f).semantics { heading() },
-                style = (if (quiet) type.titleMedium else type.titleLarge).copy(fontWeight = FontWeight.SemiBold),
+                style = if (quiet) MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold) else TextRole.groupTitle,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
             trailing?.let {

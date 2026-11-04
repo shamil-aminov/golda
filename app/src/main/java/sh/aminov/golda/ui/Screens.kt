@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.layout.layout
@@ -254,23 +255,25 @@ fun AccountsScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
         item(key = "total") {
             // The total is the hero here, as big as Home's number.
-            val scheme = MaterialTheme.colorScheme
-            // Like Home's tile: the big number, and one style in one colour for every word around it.
-            // Golden-ratio steps: 14 for the words round the figure, 22 for the main line.
-            val text = MaterialTheme.typography.bodyMedium.merge(Tnum)
-            val quiet = scheme.onPrimaryFixedVariant
+            // Two colours, the tile and its ink, and three sizes on the golden-ratio steps: 14 for the
+            // words, 22 semibold for the figures that follow the total, and the total itself.
+            val ink = MaterialTheme.colorScheme.onPrimaryFixed
+            val words = TextRole.caption
+            val figures = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
-                Text(tr("Всего на счетах", "Total in accounts"), style = text, color = quiet, maxLines = 1)
-                VSpace(Gap.s)
-                HeroAmount(data.base.whole(total), scheme.onPrimaryFixed, Modifier.testTag(Tags.ACCOUNTS_TOTAL))
-                VSpace(Gap.s)
-                Text(data.others(total, data.base.code), style = text, color = quiet)
-                // What the debt costs: the label quiet, the money it eats semibold, like Home's main line.
+                // One block, the total: its label, the figure and the figure in other currencies a text apart.
+                Text(tr("Всего на счетах", "Total in accounts"), style = words, color = ink, maxLines = 1)
+                VSpace(Space.text)
+                HeroAmount(data.base.whole(total), ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
+                VSpace(Space.text)
+                Text(data.others(total, data.base.code), style = figures, color = ink)
+                // What the debt costs, a block under: its label like the total's, the money it eats like the line above.
                 Debts.advice(data.accounts, data.states)?.let { advice ->
-                    VSpace(Gap.m)
+                    VSpace(Space.block)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
-                    Text(head, style = text, color = quiet)
-                    tail?.let { Text(it, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = scheme.onPrimaryFixed) }
+                    Text(head, style = words, color = ink)
+                    VSpace(Space.text)
+                    tail?.let { Text(it, style = figures, color = ink) }
                 }
             }
         }
@@ -289,7 +292,7 @@ fun AccountsScreen(
             if (!reconcileMode) {
                 GroupHeader(
                     tr("Счета", "Accounts"), tr("Добавить счёт", "Add an account"), onAdd,
-                    Modifier.padding(horizontal = Gap.m).padding(top = Gap.xl), alone = data.accounts.isEmpty(),
+                    Modifier.padding(horizontal = Gap.m).padding(top = Space.cards), alone = data.accounts.isEmpty(),
                 )
             }
         }
@@ -326,10 +329,11 @@ fun AccountsScreen(
 }
 
 /**
- * "Карта · ≈ 16 001 ₽" (the equivalent in the main currency, unless the account is in it), or for
- * savings with a rate just "+1 605 ₽ за октябрь" in the account's own currency: that says what it is.
+ * "Карта · ≈ 16 001 ₽" (the equivalent in the main currency, unless the account is in it), for
+ * savings with a rate just "+1 605 ₽ за октябрь" in the account's own currency: that says what it is;
+ * a debt with a rate carries it ("29,9 %"). Never empty, so every row has two lines: at the least the type.
  */
-private fun accountSubline(data: AppData, state: AccountState): String {
+internal fun accountSubline(data: AppData, state: AccountState): String {
     val account = state.account
     val today = data.today
     val forecast = if (account.type == AccountType.SAVINGS && account.interestRate != null) {
@@ -343,8 +347,10 @@ private fun accountSubline(data: AppData, state: AccountState): String {
     // The type only when the name does not already say it: no "Кредитка / Кредитка".
     val kind = forecast ?: if (spendCard) tr("Карта трат", "Spending card") else typeLabel(account.type).takeUnless { account.name.contains(it, ignoreCase = true) }
     val parts = listOfNotNull(kind).toMutableList()
+    val debt = account.type == AccountType.CREDIT || account.type == AccountType.LOAN
+    if (debt) account.interestRate?.let { parts += Fmt.percent(it / 100) }
     if (state.currency != data.base.code) parts += "≈ " + data.base.approx(state.rubMinor)
-    return parts.joinToString(" · ")
+    return parts.joinToString(" · ").ifEmpty { typeLabel(account.type) }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -363,11 +369,12 @@ private fun AccountRow(
     GroupRow(
         index, count, Modifier.padding(horizontal = Gap.m),
         onClick = onClick,
-        supporting = accountSubline(data, state).takeIf { it.isNotEmpty() }?.let { line -> { Text(line, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+        // Always two lines, so the rows run evenly.
+        supporting = { Text(accountSubline(data, state), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Like every amount in a list (payments, operations): one size, one ink, cents and all.
-                Text(amount, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
+                // What is on the account reads first: a step over the name, 22 against 16.
+                Text(amount, style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
                 if (reconcileMode) {
                     Spacer(Modifier.width(Gap.s))
                     // One tap when the bank shows the same; a check once done.
@@ -388,7 +395,7 @@ private fun AccountRow(
         },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(state.account.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(state.account.name, Modifier.weight(1f, fill = false), style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis)
 
         }
     }
@@ -615,7 +622,7 @@ val HeroDescent = 10.dp
  * bigger, as big as the width allows up to 72 sp. No smaller sign, no trimmed line box.
  */
 @Composable
-fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
+fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         // Tabular figures run about 0.6 em wide; keep a little air at the edge.
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
@@ -625,7 +632,7 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         // muted ink, so the digits are read first.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
         val style = bigFigure(size)
-        val muted = MaterialTheme.colorScheme.onSurfaceVariant
+        val muted = signColor.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
         val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
         // Optically flush left: big digits carry their own side bearing, which at 94 sp reads as an
         // indent against the caption above; pulled back by the first glyph's measured ink.

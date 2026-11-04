@@ -43,7 +43,7 @@ fun LazyListScope.regularPayments(data: AppData, onEdit: (Obligation) -> Unit) {
         GroupHeader(
             tr("Регулярные платежи", "Regular payments"), tr("Добавить платёж", "Add a payment"),
             onAdd = { onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth)) },
-            modifier = Modifier.padding(horizontal = Gap.m).padding(top = Gap.xl),
+            modifier = Modifier.padding(horizontal = Gap.m).padding(top = Space.cards),
             alone = payments.isEmpty(),
         )
     }
@@ -58,18 +58,19 @@ private fun PaymentRow(payment: Obligation, index: Int, count: Int, modifier: Mo
     GroupRow(
         index, count, modifier,
         onClick = onClick,
-        supporting = { Text(dayOfMonth(payment.dayOfMonth)) },
+        // Like an account's row: the same three roles.
+        supporting = { Text(dayOfMonth(payment.dayOfMonth), style = TextRole.caption) },
         trailing = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
                 Text(
                     if (payment.amountMinor == 0L) tr("пробный", "trial") else Fmt.amount(payment.amountMinor, payment.currency),
-                    style = MaterialTheme.typography.titleMedium.merge(Tnum),
+                    style = TextRole.rowAmount,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
             }
         },
-    ) { Text(payment.name, style = MaterialTheme.typography.titleMedium) }
+    ) { Text(payment.name, style = TextRole.rowName) }
 }
 
 /** "5 числа" — the day of every month a payment is charged. */
