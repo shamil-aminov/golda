@@ -875,8 +875,8 @@ object HeaderSpace {
  * Accounts (docs/tasks/screen-rhythm.md): each role is one token here, to move as the owner sees it.
  */
 object ListSpace {
-    /** Circle from circle in rows with an icon: 16. */
-    val circles: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
+    /** Circle from circle in rows with an icon: a block, 26 (the owner's tool measures rows by their circles). */
+    val circles: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
 
     /** Letters from letters in rows without one: 26. */
     val letters: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
