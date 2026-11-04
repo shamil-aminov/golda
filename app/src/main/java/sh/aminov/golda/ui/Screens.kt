@@ -128,32 +128,30 @@ fun HomeScreen(
             // money, with whether the money goes faster than the days.
             val scheme = MaterialTheme.colorScheme
             val ink = scheme.onPrimaryFixed
-            // The figures first, each closed by its caption (14, the base, the plate's second ink). The big
-            // figure is cut at its baseline; every other text keeps its box, as on Accounts.
+            // What it is, then how much: the caption over the figure (14, the base, the plate's second ink),
+            // the figure cut to its letters top and bottom, so the caption holds on to it a text's step away.
             val status = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s), content = ink) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
                 val code = envelope?.currency
                 val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
-                BoxWithConstraints {
-                    // The gear stands on the digits' top line, its glyph's right edge on the content's (16 from
-                    // the plate), its 48 to tap spilling into the padding; the figure fits what is left.
-                    val gear = 48.dp
-                    val size = figure?.let { heroFigureSize(it, maxWidth - gear) } ?: BIG_FIGURE_SP.sp
-                    val cap = with(LocalDensity.current) { (size.toPx() * 0.727f).roundToInt() + 12.dp.roundToPx() }
+                Column(Modifier.semantics(mergeDescendants = true) {}) {
                     Row {
-                        Box(Modifier.weight(1f).alignBy(FirstBaseline)) {
-                            // No account to spend from (or the data is still loading): the tile stays quiet.
-                            if (figure != null) HeroAmount(figure, ink, Modifier.letters(BIG_FIGURE_SP.sp, top = false).testTag(Tags.HOME_BIG), signColor = ink)
-                        }
-                        IconButton(onClick = onSettings, modifier = Modifier.offset(x = 12.dp).alignBy { cap }) {
+                        Text(tr("Можно сегодня", "Safe to spend today"), Modifier.weight(1f), style = words, maxLines = 1)
+                        // The gear's top on the caption's line, its glyph's right edge on the content's; its 48 to
+                        // tap spills into the padding and takes no room from the line.
+                        IconButton(onClick = onSettings, modifier = Modifier.hang()) {
                             Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onPrimaryFixedVariant)
                         }
                     }
+                    if (figure != null) {
+                        VSpace(Space.text)
+                        BoxWithConstraints {
+                            HeroAmount(figure, ink, Modifier.letters(heroFigureSize(figure, maxWidth)).testTag(Tags.HOME_BIG), signColor = ink)
+                        }
+                    }
                 }
-                if (envelope != null) VSpace(Space.text)
-                Text(tr("Можно сегодня", "Safe to spend today"), style = words, maxLines = 1)
                 if (envelope == null || code == null) return@HeroTile
                 VSpace(Space.block)
                 // The period as one bar: the days gone pale, the money gone over them, and what went
@@ -268,28 +266,28 @@ fun AccountsScreen(
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // The figures first, each block closed by its label, the sizes only going down: the total
-                // and the same money in other currencies, «Всего на счетах» under them. Each block is one
-                // node for TalkBack, read as it stands: the figures, then what they are.
-                // The figure cut at its baseline (the empty band under its digits would lift the line under it
-                // to a block's distance); every other text by its box. The captions in the plate's second ink.
+                // What it is, then how much: each caption over its figure, a text's step away, the big figure cut
+                // to its letters top and bottom. The same money in other currencies a block under the total, a
+                // value of its own; the debt's cost a block under. Each block one TalkBack node: "caption, figure".
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
-                    HeroAmount(data.base.whole(total), ink, Modifier.letters(BIG_FIGURE_SP.sp, top = false).testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
-                    VSpace(Space.text)
-                    Text(data.others(total, data.base.code), style = figures, color = ink)
-                    VSpace(Space.text)
                     Text(tr("Всего на счетах", "Total in accounts"), style = words, maxLines = 1)
+                    VSpace(Space.text)
+                    val text = data.base.whole(total)
+                    BoxWithConstraints {
+                        HeroAmount(text, ink, Modifier.letters(heroFigureSize(text, maxWidth)).testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
+                    }
+                    VSpace(Space.block)
+                    Text(data.others(total, data.base.code), style = figures, color = ink)
                 }
-                // What the debt costs, a block under: the money it eats, then its label.
                 Debts.advice(data.accounts, data.states)?.let { advice ->
                     VSpace(Space.block)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
-                        tail?.let {
-                            Text(it, style = figures, color = ink)
-                            VSpace(Space.text)
-                        }
                         Text(head, style = words)
+                        tail?.let {
+                            VSpace(Space.text)
+                            Text(it, style = figures, color = ink)
+                        }
                     }
                 }
             }

@@ -1205,6 +1205,17 @@ fun Modifier.overhang(nudge: Dp = 12.dp): Modifier = layout { measurable, constr
     layout(placeable.width - nudge.roundToPx(), 0) { placeable.place(0, -placeable.height / 2) }
 }
 
+/**
+ * A 48 icon button hung from a line's top right corner: its 24 glyph's top on the line's top and its
+ * right edge on the line's end, the rest of its 48 to tap spilling up and right into the padding,
+ * taking none of the line's height.
+ */
+fun Modifier.hang(): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity))
+    val inset = (placeable.width - 24.dp.roundToPx()) / 2
+    layout(placeable.width - inset, 0) { placeable.place(0, -inset) }
+}
+
 /** Wider than the space given by [x] at each side, and drawn from [x] further left. */
 fun Modifier.bleed(x: Dp): Modifier = layout { measurable, constraints ->
     val px = x.roundToPx()
