@@ -199,6 +199,47 @@ class DebtsEnvelopePropertiesTest {
     }
 
     @Test
+    fun theNormIsTheMoneyAtAnEvenPace() {
+        // 1 800 for 26 October to 26 November, 32 days; on the 10th 820 is gone where 562,50 would have.
+        val today = start.plusDays(9)
+        val ops = listOf(op(1, OpType.INCOME, start, card to 180_000), op(2, OpType.EXPENSE, today, card to -82_000))
+        val e = Envelopes.of(card, start, start.plusDays(31), ops, today, zone)
+        assertEquals(32L, e.totalDays)
+        assertEquals(10L, e.elapsedDays)
+        assertEquals(180_000L, e.fundsMinor)
+        assertEquals(56_250L, e.normMinor)
+        assertEquals(25_750L, e.overNormMinor)
+        assertEquals(10f / 32, e.timeShare)
+        assertEquals(82_000f / 180_000, e.spentShare)
+        // Spent less than the norm: within it.
+        val slow = Envelopes.of(card, start, start.plusDays(31), listOf(ops[0], op(2, OpType.EXPENSE, today, card to -44_000)), today, zone)
+        assertEquals(44_000L - 56_250, slow.overNormMinor)
+    }
+
+    @Test
+    fun theNormRunsFromADayToAllTheMoney() = prop {
+        checkAll(Arb.long(0L..10_000_000L), Arb.long(0L..10_000_000L), Arb.int(0..40), Arb.int(0..40)) { topUp, spend, daysIn, after ->
+            val today = start.plusDays(daysIn.toLong())
+            val end = today.plusDays(after.toLong())
+            val ops = listOf(op(1, OpType.INCOME, start, card to topUp), op(2, OpType.EXPENSE, today, card to -spend))
+            val e = Envelopes.of(card, start, end, ops, today, zone)
+            assertEquals(daysIn + after + 1L, e.totalDays)
+            assertEquals(daysIn + 1L, e.elapsedDays)
+            assertEquals(topUp, e.fundsMinor)
+            assertEquals(spend, e.normMinor + e.overNormMinor)
+            assertTrue(e.normMinor in 0..topUp)
+            assertTrue(e.timeShare > 0f && e.timeShare <= 1f)
+            assertTrue(e.spentShare in 0f..1f)
+            // The last day the norm is all of it; the first, a day's worth.
+            if (after == 0) assertEquals(topUp, e.normMinor)
+            if (daysIn == 0) assertEquals(topUp / e.totalDays, e.normMinor)
+            // Nothing on the card and something spent: the money is all gone.
+            if (spend > 0 && topUp == 0L) assertEquals(1f, e.spentShare)
+            if (spend == 0L) assertEquals(0f, e.spentShare)
+        }
+    }
+
+    @Test
     fun theUsualLengths() {
         assertEquals(LocalDate.of(2026, 10, 22), Envelopes.end(start, Envelopes.Length.WEEK))
         assertEquals(LocalDate.of(2026, 10, 29), Envelopes.end(start, Envelopes.Length.TWO_WEEKS))

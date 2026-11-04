@@ -1,6 +1,14 @@
 package sh.aminov.golda.ui
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import java.time.format.DateTimeFormatter
+import sh.aminov.golda.domain.I18n
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.drawWithContent
@@ -110,11 +118,8 @@ fun HomeScreen(
     val envelope = data.envelope
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = padding.aboveActions()) {
         item(key = "hero") {
-            // One vivid tile holds the day: what may go today, what is on the card until when, and
-            // whether it lasts at the pace it actually goes. Spent past today's share, the whole tile
-            // turns to the error container.
-            // Spent past today's share, or nothing left on the card at all.
-            val over = envelope != null && (envelope.leftTodayMinor < 0 || envelope.balanceMinor <= 0)
+            // One vivid tile holds the day: what may go today, and the period as one bar, time against
+            // money, with whether the money goes faster than the days.
             val scheme = MaterialTheme.colorScheme
             val ink = scheme.onSurface
             val quiet = scheme.onSurfaceVariant
@@ -141,40 +146,32 @@ fun HomeScreen(
                 // caption, caption to figures, figures to bar, bar to text, under the text. The figures'
                 // line keeps its empty descent under the digits, so the spacer here is that much shorter.
                 VSpace(Gap.m - HeroDescent)
-                // What is still left of today's share; flat and full once it is spent.
-                val share = when {
-                    over -> 1f
-                    envelope.perDayMinor > 0 -> (left.toFloat() / envelope.perDayMinor).coerceIn(0f, 1f)
-                    else -> 0f
+                // The period as one bar: the days gone pale, the money gone over them, and what went
+                // past the even pace in red. The money short of the pale end is the margin.
+                val red = paceColor(Pace.OVER)
+                PeriodBar(envelope.timeShare, envelope.spentShare, paceColor(Pace.LASTS), red)
+                VSpace(Gap.xs)
+                // Where the bar starts and ends; no "today" here, the caption over the figure says it.
+                Row(Modifier.fillMaxWidth()) {
+                    Text(dayMonth(envelope.start), Modifier.weight(1f), style = text, color = quiet, maxLines = 1)
+                    Text(dayMonth(envelope.end), style = text, color = quiet, maxLines = 1)
                 }
-                // The one colour on the screen: how it goes. Green while the money lasts the period,
-                // ochre when it runs out sooner, muted red once today is overspent.
-                val pace = when {
-                    over -> Pace.OVER
-                    envelope.lasts(today) -> Pace.LASTS
-                    else -> Pace.SHORT
-                }
-                PaceCapsule(share, paceColor(pace))
                 VSpace(Gap.m)
-                // Looking ahead from today: the days still to get through, and the days the money lasts
-                // at the pace it really goes. Worked out again every day. A tap changes the period.
+                // Against the even pace: within it, or how much past it. A tap changes the period.
                 Column(Modifier.fillMaxWidth().clickable(onClick = onPeriod).testTag(Tags.HOME_PERIOD)) {
                     val ahead = envelope.daysLeft
                     fun days(n: Long) = plural(n, "день", "дня", "дней", "day", "days")
-                    // "из 13 дней", "из 21 дня": the genitive after "из".
-                    val ofDays = plural(ahead, "дня", "дней", "дней", "day", "days")
-                    val lasts = envelope.runwayDays
+                    val beyond = envelope.overNormMinor
                     Text(
                         when {
-                            envelope.balanceMinor <= 0 -> tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go")
-                            left < 0 -> tr("Сегодня сверх плана на ${whole(-left, code)}", "${whole(-left, code)} over today's plan")
-                            ahead <= 1L -> tr("Последний день", "The last day")
-                            lasts == null -> tr("Впереди $ahead ${days(ahead)}", "$ahead ${days(ahead)} to go")
-                            envelope.lasts(today) -> (lasts - ahead).let { spare ->
-                                // A week or more to spare is worth saying; a day or two is noise.
-                                tr("Хватит на все $ahead ${days(ahead)}", "Lasts all $ahead ${days(ahead)}") + if (spare >= 7) ", +$spare" else ""
+                            envelope.balanceMinor <= 0 -> AnnotatedString(tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go"))
+                            // Less than half a unit past it still reads "0 ₾": that is within it.
+                            beyond > 0 && Fmt.whole(beyond, code) != "0" -> buildAnnotatedString {
+                                append(tr("Сверх нормы ", "Over the norm by "))
+                                // The bar's red is too pale for words; the error ink reads in both themes.
+                                withStyle(SpanStyle(color = scheme.onErrorContainer)) { append(whole(beyond, code)) }
                             }
-                            else -> tr("Хватит на $lasts из $ahead $ofDays", "Lasts $lasts of $ahead $ofDays")
+                            else -> AnnotatedString(tr("В норме", "Within the norm"))
                         },
                         Modifier.testTag(Tags.HOME_RUNWAY),
                         // The tile's main statement: the one semibold line, in full ink, a size up.
@@ -575,15 +572,33 @@ private fun interestLine(minor: Long, currency: String, today: LocalDate): Strin
 /** "20 ₾": whole units only, for the numbers around the big one, which should be read at a glance. */
 private fun whole(minor: Long, code: String): String = Fmt.whole(minor, code) + " " + Currencies.symbol(code)
 
+/** "26 окт", "Oct 26": the ends of the period under its bar. Java's own Russian is "нояб.", hence the list. */
+private fun dayMonth(date: LocalDate): String =
+    if (I18n.russian) "${date.dayOfMonth} " + listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек")[date.monthValue - 1]
+    else date.format(DateTimeFormatter.ofPattern("MMM d", I18n.locale))
+
 /**
- * Today's share as a chunky capsule: the pace's colour filling a pale track of the same colour,
- * gliding to a new value with a little give.
+ * The period as one wide bar with small corners: the days gone in a pale [color], the money gone over
+ * them in [color] as far as the days and in [over] past them. Gliding to new values with a little give.
  */
 @Composable
-private fun PaceCapsule(share: Float, color: Color) {
-    val shown by animateFloatAsState(share.coerceIn(0f, 1f), MaterialTheme.motionScheme.slowSpatialSpec(), label = "capsule")
-    Box(Modifier.fillMaxWidth().height(20.dp).clip(CircleShape).background(color.copy(alpha = 0.22f))) {
-        if (shown > 0f) Box(Modifier.fillMaxHeight().fillMaxWidth(shown.coerceAtLeast(0.06f)).clip(CircleShape).background(color))
+private fun PeriodBar(time: Float, spent: Float, color: Color, over: Color) {
+    val spec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
+    val t by animateFloatAsState(time.coerceIn(0f, 1f), spec, label = "time")
+    val s by animateFloatAsState(spent.coerceIn(0f, 1f), spec, label = "spent")
+    val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Canvas(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(6.dp))) {
+        fun band(from: Float, to: Float, paint: Color) {
+            if (to <= from) return
+            val x = size.width * from
+            val w = size.width * (to - from)
+            drawRect(paint, Offset(if (rtl) size.width - x - w else x, 0f), Size(w, size.height))
+        }
+        drawRect(track)
+        band(0f, t, color.copy(alpha = 0.32f))
+        band(0f, minOf(s, t), color)
+        band(t, s, over)
     }
 }
 
