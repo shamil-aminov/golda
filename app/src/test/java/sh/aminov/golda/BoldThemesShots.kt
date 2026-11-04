@@ -23,6 +23,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.ui.AccountsScreen
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.HomeScreen
@@ -78,6 +79,25 @@ class BoldThemesShots {
             home = h
             compose.waitForIdle()
             compose.onRoot().captureRoboImage("src/test/screenshots/bold/marathon_oled_${if (h) "home" else "insights"}.png", roborazziOptions = options)
+        }
+    }
+
+    /** Счета in Марафон, both halves and on black: the plate's words over the accounts. */
+    @Test
+    fun marathonAccounts() {
+        val data = ScreenshotTest().demo()
+        var tones by mutableStateOf(Palette.MARATHON.light)
+        compose.setContent {
+            GoldaTheme(tones) {
+                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> })
+                }
+            }
+        }
+        listOf("light" to Palette.MARATHON.light, "dark" to Palette.MARATHON.dark, "oled" to Palette.MARATHON.dark.onPage(Color.Black)).forEach { (half, t) ->
+            tones = t
+            compose.waitForIdle()
+            compose.onRoot().captureRoboImage("src/test/screenshots/bold/marathon_${half}_accounts.png", roborazziOptions = options)
         }
     }
 

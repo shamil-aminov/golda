@@ -249,7 +249,9 @@ fun HeroTile(
     // On a plate of colour its own inks, so whatever inside asks for the plain ones reads on it.
     val scheme = MaterialTheme.colorScheme
     if (container == scheme.primaryFixed && container != scheme.surfaceContainer) {
-        MaterialTheme(colorScheme = scheme.copy(onSurface = scheme.onPrimaryFixed, onSurfaceVariant = scheme.onPrimaryFixedVariant)) {
+        // Bad news in red where red reads on the plate (4.5:1), else in the plate's ink: the words still say it.
+        val error = if (contrast(scheme.error, container) >= 4.5) scheme.error else scheme.onPrimaryFixed
+        MaterialTheme(colorScheme = scheme.copy(onSurface = scheme.onPrimaryFixed, onSurfaceVariant = scheme.onPrimaryFixedVariant, error = error)) {
             HeroSurface(modifier, container, content, onClick, body)
         }
     } else {

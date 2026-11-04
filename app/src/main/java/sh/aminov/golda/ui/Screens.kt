@@ -270,7 +270,7 @@ fun AccountsScreen(
                     VSpace(Gap.m)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Text(head, style = text, color = quiet)
-                    tail?.let { Text(it, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = scheme.onSurface) }
+                    tail?.let { Text(it, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold), color = scheme.onPrimaryFixed) }
                 }
             }
         }
