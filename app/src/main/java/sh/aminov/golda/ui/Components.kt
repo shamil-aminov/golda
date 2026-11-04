@@ -169,10 +169,11 @@ fun AmountColumn(
 ) {
     Column(horizontalAlignment = Alignment.End) {
         // The amount a row's name's size in the accent, what it came to a caption a text's step under it.
-        Text(main, style = TextRole.rowAmount, color = color, maxLines = 1)
+        // Each cut to its letters, so the step between them is the second line's on the left.
+        Text(main, Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = color, maxLines = 1)
         if (secondary != null || reserve) {
             Spacer(Modifier.height(Space.text))
-            Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), style = TextRole.caption, maxLines = 1)
+            Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1)
         }
     }
 }
