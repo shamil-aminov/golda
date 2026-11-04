@@ -204,8 +204,18 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
     }
 }
 
-@Composable
-fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: (OperationFull) -> Unit, index: Int, count: Int, modifier: Modifier = Modifier) {
+/** What a row of the feed says: its title and second line, the amount and what it came to. */
+internal class OperationLine(
+    val title: String,
+    val supporting: String?,
+    val main: String,
+    val secondary: String?,
+    val approximate: Boolean,
+    val transfer: Boolean,
+)
+
+/** The words of [full]'s row: on Home with [accountId] null, else as that account's page shows it. */
+internal fun operationLine(data: AppData, full: OperationFull, accountId: Long?): OperationLine {
     val op = full.op
     val category = op.categoryId?.let { data.categoryById[it] }
     val out = full.postings.firstOrNull { it.amountMinor < 0 } ?: full.postings.first()
@@ -272,11 +282,16 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
             supporting = outAccount?.takeIf { it.id != data.usualAccountId }?.name
         }
     }
-    val color = when {
-        transfer -> MaterialTheme.colorScheme.onSurfaceVariant
-        op.type == OpType.INCOME || (own ?: out).amountMinor > 0 -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.onSurface
-    }
+    return OperationLine(title, supporting, main, secondary, approximate, transfer)
+}
+
+@Composable
+fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: (OperationFull) -> Unit, index: Int, count: Int, modifier: Modifier = Modifier) {
+    val op = full.op
+    val category = op.categoryId?.let { data.categoryById[it] }
+    val line = operationLine(data, full, accountId)
+    // A transfer is neither spent nor earned: a neutral color.
+    val color = if (line.transfer) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
     GroupRow(
         index, count, modifier,
@@ -289,9 +304,9 @@ fun OperationRow(data: AppData, full: OperationFull, accountId: Long?, onClick: 
                 GlyphCircle(operationIcon(category, op.type))
             }
         },
-        supporting = supporting?.let { text -> { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
-        trailing = { AmountColumn(main, secondary, approximate, color) },
-    ) { Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        supporting = line.supporting?.let { text -> { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+        trailing = { AmountColumn(line.main, line.secondary, line.approximate, color) },
+    ) { Text(line.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 /**
