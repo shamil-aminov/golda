@@ -345,7 +345,7 @@ private fun CategoryPurchases(data: AppData, name: String, amount: String, span:
 }
 
 /** A category in the [Mosaic]. */
-private data class MosaicItem(
+internal data class MosaicItem(
     val name: String,
     val amount: String,
     val rub: Long,
@@ -362,7 +362,7 @@ private data class MosaicItem(
  * words are named in one quiet line under the mosaic. They settle in one after another.
  */
 @Composable
-private fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier, onOpen: (MosaicItem) -> Unit = {}) {
+internal fun Mosaic(items: List<MosaicItem>, modifier: Modifier = Modifier, onOpen: (MosaicItem) -> Unit = {}) {
     val total = items.sumOf { it.rub }.coerceAtLeast(1)
     val gap = 4.dp
     val motion = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
@@ -549,7 +549,7 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
  * The dashed line is the daily budget.
  */
 @Composable
-private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>) {
+internal fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>) {
     // The picked day's dot in the ink of its label: it marks the pick, it does not compete with the bars.
     val accent = MaterialTheme.colorScheme.onSurface
     if (days.isEmpty()) return
