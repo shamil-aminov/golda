@@ -541,8 +541,8 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
  */
 @Composable
 private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>) {
-    // The picked day's dot in the theme's own colour, like the other leading marks.
-    val accent = leitmotifColor(0, LocalTones.current)
+    // The picked day's dot in the ink of its label: it marks the pick, it does not compete with the bars.
+    val accent = MaterialTheme.colorScheme.onSurface
     if (days.isEmpty()) return
     // The last day with spending, so the pill opens on something, not on an empty today.
     val start = days.indexOfLast { it.second > 0 }.takeIf { it >= 0 } ?: days.lastIndex
@@ -628,7 +628,8 @@ private fun DayBars(days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: P
                     drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
                 }
             }
-            VSpace(Gap.s)
+            // Room for the dot under the picked bar (6 dp down, 3 dp round) and air between it and the date.
+            VSpace(Gap.m)
             // A week names its days; a month marks the 1st, 10th, 20th and today.
             Box(Modifier.fillMaxWidth().height(16.dp)) {
                 days.forEachIndexed { i, (d, _) ->
