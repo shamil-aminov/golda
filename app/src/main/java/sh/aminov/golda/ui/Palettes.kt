@@ -7,8 +7,8 @@ import sh.aminov.golda.domain.tr
  * The colour themes to pick from in Settings, each light and dark: the app's one mode setting (or the
  * phone's) decides which half is drawn. The calm ones first, then the bold ones: bold in colour, never
  * in readability, every half keeps its inks as legible as the calm ones (see ThemeGenTest). The
- * hand-drawn halves are the first themes'; their other halves and the new themes come from
- * [ThemeGen.recipe] in the same hues.
+ * calm hand-drawn halves are the first themes'; their other halves come from [ThemeGen.recipe] in the
+ * same hues. The bold ones are drawn by hand, both halves ([boldSet]).
  */
 enum class Palette(val key: String, private val ru: String, private val en: String, val bold: Boolean, light: () -> Tones, dark: () -> Tones) {
     GOLDA("golda", "Golda", "Golda", false, { GoldaLight }, { GoldaDark }),
@@ -24,17 +24,32 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
     OCEAN("ocean", "Океан", "Ocean", false, { recipe(false, 225.0, 0.02, 210.0, 0.05, 200.0, 0.12) }, { recipe(true, 225.0, 0.025, 210.0, 0.05, 200.0, 0.12) }),
     DESERT("desert", "Пустыня", "Desert", false, { recipe(false, 70.0, 0.025, 50.0, 0.05, 40.0, 0.13) }, { recipe(true, 60.0, 0.025, 50.0, 0.05, 45.0, 0.13) }),
 
-    // The bold ones: tinted pages and a second colour against the first.
-    SUNSET("sunset", "Закат", "Sunset", true, { recipe(false, 45.0, 0.045, 20.0, 0.08, 350.0, 0.17, 0.12) }, { recipe(true, 15.0, 0.045, 20.0, 0.08, 350.0, 0.17, 0.12) }),
-    LAVA("lava", "Лава", "Lava", true, { recipe(false, 30.0, 0.04, 25.0, 0.09, 50.0, 0.19, 0.12) }, { recipe(true, 30.0, 0.05, 25.0, 0.09, 50.0, 0.19, 0.12) }),
-    TROPIC("tropic", "Тропики", "Tropics", true, { recipe(false, 175.0, 0.04, 175.0, 0.08, 55.0, 0.18, 0.12) }, { recipe(true, 180.0, 0.045, 175.0, 0.08, 55.0, 0.18, 0.12) }),
-    AURORA("aurora", "Аврора", "Aurora", true, { recipe(false, 190.0, 0.035, 300.0, 0.08, 150.0, 0.18, 0.12) }, { recipe(true, 200.0, 0.045, 300.0, 0.08, 150.0, 0.18, 0.12) }),
-    CANDY("candy", "Леденец", "Candy", true, { recipe(false, 345.0, 0.045, 220.0, 0.08, 220.0, 0.15, 0.12) }, { recipe(true, 340.0, 0.045, 220.0, 0.08, 220.0, 0.15, 0.12) }),
-    CYBER("cyber", "Кибер", "Cyber", true, { recipe(false, 330.0, 0.05, 200.0, 0.09, 195.0, 0.16, 0.13) }, { recipe(true, 320.0, 0.06, 200.0, 0.09, 195.0, 0.16, 0.13) }),
-    NEON("neon", "Неон", "Neon", true, { recipe(false, 300.0, 0.03, 300.0, 0.09, 135.0, 0.22, 0.13) }, { recipe(true, 300.0, 0.04, 300.0, 0.09, 135.0, 0.22, 0.13) }),
-    ACID("acid", "Кислота", "Acid", true, { recipe(false, 125.0, 0.05, 125.0, 0.1, 345.0, 0.2, 0.13) }, { recipe(true, 125.0, 0.05, 125.0, 0.1, 345.0, 0.2, 0.13) }),
-    INDIGO("indigo", "Индиго", "Indigo", true, { recipe(false, 295.0, 0.06, 295.0, 0.1, 95.0, 0.17, 0.13) }, { recipe(true, 295.0, 0.07, 295.0, 0.1, 95.0, 0.17, 0.13) }),
-    TERMINAL("terminal", "Терминал", "Terminal", true, { recipe(false, 95.0, 0.04, 145.0, 0.08, 145.0, 0.2, 0.12) }, { recipe(true, 145.0, 0.03, 145.0, 0.08, 145.0, 0.2, 0.12) }),
+    // The bold ones, after Bungie's Marathon: a white or near-black page and quiet lists, one plate of
+    // colour per tab, and on it the pace bar, the picked state and the action in the colour against it.
+    MARATHON("marathon", "Марафон", "Marathon", true,
+        { boldSet(false, 0xFFDFFF1A, 0xFF0A0A0A, 0xFF3D4500, 0xFF2233FF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF2233FF, 0xFFFFFFFF) },
+        { boldSet(true, 0xFF2233FF, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFDFFF1A, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A) }),
+    ULTRAMARINE("ultramarine", "Ультрамарин", "Ultramarine", true,
+        { boldSet(false, 0xFF2233FF, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFF2233FF, 0xFFFFFFFF, 0xFFFF4A10, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF1A2BD0, 0xFFFFFFFF, 0xFFD6DBFF, 0xFFFF9040, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A) }),
+    SIGNAL("signal", "Сигнал", "Signal", true,
+        { boldSet(false, 0xFFFF6E2E, 0xFF0A0A0A, 0xFF3A1000, 0xFF1426B8, 0xFF2233FF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFFF6E2E) },
+        { boldSet(true, 0xFFA81800, 0xFFFFFFFF, 0xFFFFD0C0, 0xFFDFFF1A, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF5A1F, 0xFF0A0A0A) }),
+    PIXEL("pixel", "Пиксель", "Pixel", true,
+        { boldSet(false, 0xFFFF6ACB, 0xFF0A0A0A, 0xFF5A0040, 0xFF1426B8, 0xFF2233FF, 0xFFFFFFFF, 0xFFDFFF1A, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF8A0068, 0xFFFFFFFF, 0xFFFFC8EE, 0xFFDFFF1A, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFFF3DBE, 0xFF0A0A0A) }),
+    HOLOGRAM("hologram", "Голограмма", "Hologram", true,
+        { boldSet(false, 0xFF3DE8FF, 0xFF0A0A0A, 0xFF00434D, 0xFFE0007A, 0xFF0A0A0A, 0xFF3DE8FF, 0xFFFF2EA6, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF005A66, 0xFFFFFFFF, 0xFFA8EEF7, 0xFFFF6EC0, 0xFFFF2EA6, 0xFF0A0A0A, 0xFF2EE6FF, 0xFF0A0A0A) }),
+    TERMINAL("terminal", "Терминал", "Terminal", true,
+        { boldSet(false, 0xFF7CFF4F, 0xFF0A0A0A, 0xFF164A00, 0xFFC8102E, 0xFF0A0A0A, 0xFF7CFF4F, 0xFFFF4A10, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF0F4A14, 0xFFFFFFFF, 0xFF9BE88F, 0xFFFF4FD8, 0xFF39FF14, 0xFF000000, 0xFF39FF14, 0xFF000000) }),
+    VIOLET("violet", "Фиолет", "Violet", true,
+        { boldSet(false, 0xFF5B14FF, 0xFFFFFFFF, 0xFFDCD0FF, 0xFFFFE500, 0xFF0A0A0A, 0xFFFFE500, 0xFFFFE500, 0xFF0A0A0A) },
+        { boldSet(true, 0xFF3A1290, 0xFFFFFFFF, 0xFFD8C6FF, 0xFFFFE500, 0xFFFFFFFF, 0xFF2A0A6B, 0xFFFFE500, 0xFF0A0A0A) }),
+    PLATE("plate", "Плашка", "Plate", true,
+        { boldSet(false, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFBDBDBD, 0xFFDFFF1A, 0xFF0A0A0A, 0xFFDFFF1A, 0xFFFF4A10, 0xFF0A0A0A) },
+        { boldSet(true, 0xFFF2F2F2, 0xFF0A0A0A, 0xFF4A4A4A, 0xFFE03000, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFDFFF1A, 0xFF0A0A0A) }),
     ;
 
     val light: Tones by lazy(light)
@@ -46,8 +61,15 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
     fun tones(dark: Boolean): Tones = if (dark) this.dark else light
 
     companion object {
-        /** By its key; "clear-night", once a theme of its own, is Ясная's dark half now. */
-        fun of(key: String?): Palette = if (key == "clear-night") CLEAR else entries.firstOrNull { it.key == key } ?: GOLDA
+        /** The bold themes before 0.20, each on the new one nearest in colour, so a pick never falls back to Golda. */
+        private val retired = mapOf(
+            "clear-night" to "clear",
+            "sunset" to "signal", "lava" to "signal", "tropic" to "hologram", "aurora" to "violet", "candy" to "pixel",
+            "cyber" to "pixel", "neon" to "violet", "acid" to "marathon", "indigo" to "ultramarine",
+        )
+
+        /** By its key; "clear-night", once a theme of its own, is Ясная's dark half now, and a retired bold one its heir. */
+        fun of(key: String?): Palette = (retired[key] ?: key).let { k -> entries.firstOrNull { it.key == k } ?: GOLDA }
     }
 }
 
@@ -97,3 +119,23 @@ private fun graphite() = darkSet(0xFF121212, 0xFF1E1E1E, 0xFF2C2C2C, 0xFF3A3A3A,
 private fun clear() = lightSet(0xFFF5F5F4, 0xFFFFFFFF, 0xFFE7E5E4, 0xFFD6D3D1, 0xFF57534E, 0xFF1C1917, 0xFFBFDBFE, 0xFF1E3A8A, 0xFFFDBA74, 0xFF431407, clear = true)
 
 private fun clearNight() = darkSet(0xFF121212, 0xFF1E1E1E, 0xFF2C2C2C, 0xFF3A3A3A, 0xFFB0B0B0, 0xFFF5F5F5, 0xFF1E3A8A, 0xFFDBEAFE, 0xFFFDBA74, 0xFF431407, clear = true)
+
+/**
+ * A bold half: the page white or near black and the lists a step off it, every ink neutral; the colour
+ * on the [plate] (the hero tiles) with its own inks, the [pace] bar against it, and the picked state
+ * and the action.
+ */
+private fun boldSet(
+    dark: Boolean, plate: Long, onPlate: Long, onPlateMuted: Long, pace: Long,
+    picked: Long, onPicked: Long, action: Long, onAction: Long,
+) = Tones(
+    dark = dark,
+    page = Color(if (dark) 0xFF121212 else 0xFFFFFFFF), card = Color(if (dark) 0xFF1E1E1E else 0xFFF3F3F3),
+    soft = Color(if (dark) 0xFF2C2C2C else 0xFFE6E6E6), line = Color(if (dark) 0xFF3A3A3A else 0xFFD4D4D4),
+    muted = Color(if (dark) 0xFFB0B0B0 else 0xFF555555), text = Color(if (dark) 0xFFFFFFFF else 0xFF0A0A0A),
+    graphite = Color(picked), onGraphite = Color(onPicked), gold = Color(action), onGold = Color(onAction),
+    error = Color(if (dark) 0xFFF87171 else 0xFFDC2626), onError = Color(if (dark) 0xFF450A0A else 0xFFFFFFFF),
+    errorSoft = Color(if (dark) 0xFF4C1D1D else 0xFFFEE2E2), onErrorSoft = Color(if (dark) 0xFFFECACA else 0xFF991B1B),
+    infoL = 0.70f, infoC = 0.17f,
+    plate = Color(plate), onPlate = Color(onPlate), onPlateMuted = Color(onPlateMuted), pace = Color(pace),
+)

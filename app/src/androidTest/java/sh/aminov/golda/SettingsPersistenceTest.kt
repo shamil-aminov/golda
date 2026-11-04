@@ -33,7 +33,8 @@ class SettingsPersistenceTest {
         val firstScope = CoroutineScope(firstJob + Dispatchers.IO)
         val first = SettingsStore(context, PreferenceDataStoreFactory.create(scope = firstScope) { context.preferencesDataStoreFile(file) })
         first.update {
-            it.copy(localCurrency = "THB", displayCurrencies = listOf("RUB", "THB"), periodStart = 20_400, periodEnd = 20_430, spendAccountId = 7, markup = 0.125)
+            it.copy(localCurrency = "THB", displayCurrencies = listOf("RUB", "THB"), periodStart = 20_400, periodEnd = 20_430, spendAccountId = 7, markup = 0.125,
+                palette = "marathon", themeMode = "DARK", oled = true, colouredRows = false)
         }
         firstJob.cancelAndJoin()
 
@@ -50,6 +51,10 @@ class SettingsPersistenceTest {
         assertEquals(20_430L, again.periodEnd)
         assertEquals(7L, again.spendAccountId)
         assertEquals(0.125, again.markup, 1e-9)
+        assertEquals("marathon", again.palette)
+        assertEquals("DARK", again.themeMode)
+        assertEquals(true, again.oled)
+        assertEquals(false, again.colouredRows)
     }
 
     companion object {
