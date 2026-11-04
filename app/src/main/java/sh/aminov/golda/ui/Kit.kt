@@ -125,6 +125,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.clip
@@ -292,7 +295,7 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = LocalAir.current.underHeader)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
@@ -350,6 +353,15 @@ fun GroupRow(
         trailing
     }
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
+    // TEMPORARY (docs/tasks/air.md): the mock-ups' extra air over and under a row's text.
+    val air = LocalAir.current.row
+    val layout = LocalLayoutDirection.current
+    val padding = ListItemDefaults.ContentPadding.let {
+        PaddingValues(
+            start = it.calculateStartPadding(layout), end = it.calculateEndPadding(layout),
+            top = it.calculateTopPadding() + air, bottom = it.calculateBottomPadding() + air,
+        )
+    }
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
     // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
     val spaced = modifier.bleed(Gap.s)
@@ -363,6 +375,7 @@ fun GroupRow(
             supportingContent = supporting,
             onLongClick = onLongClick,
             colors = colors,
+            contentPadding = padding,
             content = headline,
         )
     } else {
@@ -373,6 +386,7 @@ fun GroupRow(
             trailingContent = end,
             supportingContent = supporting,
             colors = colors,
+            contentPadding = padding,
             content = headline,
         )
     }
@@ -726,6 +740,12 @@ fun <T : Any> FormPageHost(target: T?, content: @Composable (T) -> Unit) {
  * edge and the words 24, as a page's labels stand 16 in from its cards. Nothing elsewhere.
  */
 val LocalTextInset = staticCompositionLocalOf { 0.dp }
+
+/** TEMPORARY (docs/tasks/air.md): extra air for the mock-ups: over and under a row's text, under a group's header. */
+class Air(val row: Dp = 0.dp, val underHeader: Dp = 0.dp)
+
+/** TEMPORARY (docs/tasks/air.md): none in the app; the mock-up test sets it. */
+val LocalAir = staticCompositionLocalOf { Air() }
 
 /** Whether the page or sheet around has finished coming in. Outside one, always. */
 val LocalShown = staticCompositionLocalOf<() -> Boolean> { { true } }
@@ -1143,7 +1163,7 @@ fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier:
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s),
+            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalAir.current.underHeader),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
