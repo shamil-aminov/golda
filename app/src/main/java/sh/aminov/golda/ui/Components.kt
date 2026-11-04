@@ -169,10 +169,11 @@ fun AmountColumn(
 ) {
     Column(horizontalAlignment = Alignment.End) {
         // The amount a row's name's size in the accent, what it came to a caption a text's step under it.
-        Text(main, style = TextRole.rowAmount, color = color, maxLines = 1)
+        // Each cut to its letters, a line's step apart, as the name and its second line on the left.
+        Text(main, Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = color, maxLines = 1)
         if (secondary != null || reserve) {
-            Spacer(Modifier.height(Space.text))
-            Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), style = TextRole.caption, maxLines = 1)
+            Spacer(Modifier.height(ListSpace.line))
+            Text(secondary?.let { (if (approximate) "≈ " else "") + it }.orEmpty(), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1)
         }
     }
 }
@@ -187,7 +188,7 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
     operations.groupBy { Ledger.localDate(it.op.timestamp, data.zone) }.forEach { (date, list) ->
         item(key = "day-$date") {
             // The date alone opens the day's card, a group's title like Accounts'; a card from the last.
-            CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Space.cards))
+            CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = ListSpace.cards))
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
             // New entries slide in, the rest make room.

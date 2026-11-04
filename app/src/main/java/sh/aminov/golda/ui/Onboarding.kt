@@ -103,7 +103,7 @@ fun Onboarding(
                         // Adding is the group's action, in the header that opens its card, as on Accounts.
                         GroupHeader(
                             tr("Счета", "Accounts"), tr("Добавить счёт", "Add an account"), { adding = true },
-                            Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), alone = data.accounts.isEmpty(),
+                            Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), alone = data.accounts.isEmpty(), icons = false,
                         )
                         val count = data.accounts.size + 1
                         data.accounts.forEachIndexed { i, account ->

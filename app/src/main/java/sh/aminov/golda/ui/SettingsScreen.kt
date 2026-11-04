@@ -323,7 +323,7 @@ private class SettingItem(
 @Composable
 private fun SettingsGroup(title: String?, vararg items: SettingItem) {
     // The page has its own big title, so a group's is the quieter step.
-    if (title != null) CardTitle(title, Modifier.padding(top = Gap.l), quiet = true)
+    if (title != null) CardTitle(title, Modifier.padding(top = Gap.l), quiet = true, icons = false)
     val head = if (title != null) 1 else 0
     items.forEachIndexed { i, item ->
         val checked = item.checked
