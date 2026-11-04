@@ -317,8 +317,8 @@ fun GoldaToolbar(
 private val ToolbarItemWidth = 72.dp
 private val PillWidth = ToolbarItemWidth
 private val ToolbarItemHeight = 48.dp
-/** The bar and the mic: 56, the 48 targets and [ToolbarInset] round them. */
-internal val ToolbarHeight = 56.dp
+/** The bar and the mic: 60, the 48 targets and [ToolbarInset] (6) round them on every side. */
+internal val ToolbarHeight = 60.dp
 private val ToolbarInset = (ToolbarHeight - ToolbarItemHeight) / 2
 
 /** A circle that keeps turning into a nine-sided cookie and back, with the stop square on it. */
