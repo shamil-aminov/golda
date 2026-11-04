@@ -27,12 +27,12 @@ enum class Palette(val key: String, private val ru: String, private val en: Stri
     // The bold ones, after Bungie's Marathon: a white or near-black page and quiet lists. Two colours carry
     // each: the first on the mic (the action), the second on the plate (the hero tiles), as far apart as the
     // theme allows; the pace bar stands out on the plate, the picked state stays black or white.
-    // The game's own colours: the lime mic, a magenta plate (deep enough to carry white words), cyan for the bar.
+    // The game's own colours: the lime mic, the ultramarine plate with white words, cyan for the bar.
     MARATHON("marathon", "Марафон", "Marathon", true,
-        { boldSet(false, 0xFFA8006A, 0xFFFFFFFF, 0xFFFFC0E4, 0xFF01FFFF, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFC2FE0C, 0xFF0A0A0A, swatches = marathonRest) },
+        { boldSet(false, 0xFF3601FB, 0xFFFFFFFF, 0xFFC8C0FF, 0xFF01FFFF, 0xFF0A0A0A, 0xFFFFFFFF, 0xFFC2FE0C, 0xFF0A0A0A, swatches = marathonRest) },
         {
             boldSet(
-                true, 0xFFA8006A, 0xFFFFFFFF, 0xFFFFC0E4, 0xFF01FFFF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF0A0A0A,
+                true, 0xFF3601FB, 0xFFFFFFFF, 0xFFC8C0FF, 0xFF01FFFF, 0xFFFFFFFF, 0xFF0A0A0A, 0xFFC2FE0C, 0xFF0A0A0A,
                 page = 0xFF07090F, card = 0xFF29324F, soft = 0xFF3A4566, line = 0xFF4A5578, swatches = marathonRest,
             )
         }),
@@ -149,5 +149,5 @@ private fun boldSet(
     plate = Color(plate), onPlate = Color(onPlate), onPlateMuted = Color(onPlateMuted), pace = Color(pace), swatches = swatches,
 )
 
-/** Marathon's other colours for the categories, quieter than the mic and the plate: ultramarine, orange, cyan, in turn. */
-private val marathonRest = listOf(0xFF3601FB, 0xFFFF5500, 0xFF01FFFF).map { Color(it) }
+/** Marathon's other colours for the categories, apart from the mic's and the plate's: magenta, orange, cyan, in turn. */
+private val marathonRest = listOf(0xFFEA027E, 0xFFFF5500, 0xFF01FFFF).map { Color(it) }
