@@ -1,10 +1,8 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.ui.draw.alpha
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -639,7 +637,7 @@ fun FormPage(
             val pad = remember { AmountPadState() }
             CompositionLocalProvider(LocalTextInset provides Gap.s, LocalAmountPad provides pad) {
                 Column(
-                    Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
+                    Modifier.weight(1f).fillMaxWidth().tapToDismissKeyboard().verticalScroll(rememberScrollState()).padding(horizontal = Gap.m)
                         .padding(top = Gap.s, bottom = Gap.l),
                     content = content,
                 )
@@ -775,7 +773,7 @@ fun FormSheet(
             val pad = remember { AmountPadState() }
             CompositionLocalProvider(LocalShown provides shown, LocalTextInset provides Gap.s, LocalAmountPad provides pad) {
                 Column(
-                    Modifier.weight(1f, fill = false).verticalScroll(scroll).padding(horizontal = Gap.m)
+                    Modifier.weight(1f, fill = false).tapToDismissKeyboard().verticalScroll(scroll).padding(horizontal = Gap.m)
                         .padding(top = Gap.s, bottom = Gap.l),
                     content = content,
                 )
@@ -900,8 +898,6 @@ fun HeroAmountField(
                 Row {
                     // The cursor stands before the grey "0", not on top of it.
                     Box(Modifier.width(IntrinsicSize.Max).alignByBaseline()) { field() }
-                    // On the keypad the field draws no cursor of its own: a thin blinking bar instead.
-                    if (pad?.focused == true) Caret(big, Modifier.alignByBaseline())
                     if (text.isEmpty()) Text(placeholder, Modifier.alignByBaseline(), style = big, color = placeholderColor, maxLines = 1)
                     Box(Modifier.alignByBaseline()) {
                         Row(
@@ -920,14 +916,6 @@ fun HeroAmountField(
         }
     }
     }
-}
-
-/** The keypad field's cursor: a thin bar in the figure's own type, blinking like the system one. */
-@Composable
-private fun Caret(style: TextStyle, modifier: Modifier) {
-    val blink = rememberInfiniteTransition(label = "caret")
-    val alpha by blink.animateFloat(1f, 0f, infiniteRepeatable(keyframes { durationMillis = 1000; 1f at 499; 0f at 500 }), label = "caret")
-    Text("|", modifier.alpha(alpha), style = style.copy(fontWeight = FontWeight.Thin), color = MaterialTheme.colorScheme.onSurface, maxLines = 1)
 }
 
 /** A bare field that is just its text, big: a name in a form, a small amount. */
@@ -1233,4 +1221,14 @@ fun amountInput(typed: String): String {
         }
     }
     return out.toString()
+}
+
+/**
+ * A tap on the form's empty space puts the keyboard away, the system one or the keypad: focus is
+ * cleared. Taps on rows, tiles and fields are theirs and never get here.
+ */
+@Composable
+fun Modifier.tapToDismissKeyboard(): Modifier {
+    val focus = LocalFocusManager.current
+    return pointerInput(Unit) { detectTapGestures { focus.clearFocus() } }
 }
