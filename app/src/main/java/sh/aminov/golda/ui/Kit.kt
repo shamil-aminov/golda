@@ -1198,21 +1198,39 @@ const val ENTRY_FIGURE_SP = 58f
  */
 @Composable
 fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier: Modifier = Modifier, alone: Boolean = false) {
+    val plus: @Composable () -> Unit = {
+        FilledTonalIconButton(onClick = onAdd, modifier = Modifier.size(32.dp)) {
+            Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+        }
+    }
+    CardTitle(title, modifier, alone, trailing = plus)
+}
+
+/**
+ * The one rule for a group of rows: its title opens its card, on the rows' text line, in a 32 row 12
+ * from the top with whatever belongs to the group at its end (the "+", the day's sum). A tab's section
+ * ("Счета", "Регулярные платежи") is 22 semibold; [quiet], one step down at 16, for a day in the feed
+ * and for the groups of a page that has its own big title (Settings, Currencies). The rows under it
+ * count it as their first: index + 1 of count + 1; [alone] while there are none.
+ */
+@Composable
+fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = false, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
     // Out to the rows' card edge, 8 from the screen, like GroupRow.
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader),
+            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            val type = MaterialTheme.typography
             Text(
                 title, Modifier.weight(1f).semantics { heading() },
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                style = (if (quiet) type.titleMedium else type.titleLarge).copy(fontWeight = FontWeight.SemiBold),
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.width(Gap.s))
-            FilledTonalIconButton(onClick = onAdd, modifier = Modifier.size(32.dp)) {
-                Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+            trailing?.let {
+                Spacer(Modifier.width(Gap.s))
+                it()
             }
         }
     }

@@ -319,14 +319,16 @@ private class SettingItem(
     val onClick: (() -> Unit)? = null,
 )
 
-/** A group of settings as Accounts shows its rows: the label, then one card; no label for a row set apart. */
+/** A group of settings as Accounts shows its rows: the title opening one card; no title for a row set apart. */
 @Composable
 private fun SettingsGroup(title: String?, vararg items: SettingItem) {
-    if (title != null) GroupLabel(title, Modifier.padding(top = Gap.l))
+    // The page has its own big title, so a group's is the quieter step.
+    if (title != null) CardTitle(title, Modifier.padding(top = Gap.l), quiet = true)
+    val head = if (title != null) 1 else 0
     items.forEachIndexed { i, item ->
         val checked = item.checked
         GroupRow(
-            i, items.size,
+            i + head, items.size + head,
             if (checked != null) Modifier.semantics { role = Role.Switch; toggleableState = ToggleableState(checked) } else Modifier,
             onClick = item.onClick,
             supporting = item.summary?.let { { Text(it) } },

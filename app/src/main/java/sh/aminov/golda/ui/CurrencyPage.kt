@@ -94,12 +94,12 @@ fun CurrencyPage(data: AppData, pick: CurrencyPick, onChange: ((Settings) -> Set
             val shownTop = top.filter(::matches)
             val shownRest = rest.filter(::matches)
             if (shownTop.isNotEmpty()) {
-                item(key = "top-label") { GroupLabel(if (pick == CurrencyPick.SHOWN) tr("Выбраны", "Picked") else tr("Сейчас", "Now"), Modifier.padding(top = Gap.l)) }
-                itemsIndexed(shownTop, key = { _, c -> "top-$c" }) { i, code -> CurrencyRow(code, picked(code), i, shownTop.size) { choose(code) } }
+                item(key = "top-label") { CardTitle(if (pick == CurrencyPick.SHOWN) tr("Выбраны", "Picked") else tr("Сейчас", "Now"), Modifier.padding(top = Gap.l), quiet = true) }
+                itemsIndexed(shownTop, key = { _, c -> "top-$c" }) { i, code -> CurrencyRow(code, picked(code), i + 1, shownTop.size + 1) { choose(code) } }
             }
             if (shownRest.isNotEmpty()) {
-                item(key = "rest-label") { GroupLabel(tr("Все валюты", "All currencies"), Modifier.padding(top = Gap.l)) }
-                itemsIndexed(shownRest, key = { _, c -> "rest-$c" }) { i, code -> CurrencyRow(code, picked(code), i, shownRest.size) { choose(code) } }
+                item(key = "rest-label") { CardTitle(tr("Все валюты", "All currencies"), Modifier.padding(top = Gap.l), quiet = true) }
+                itemsIndexed(shownRest, key = { _, c -> "rest-$c" }) { i, code -> CurrencyRow(code, picked(code), i + 1, shownRest.size + 1) { choose(code) } }
             }
         }
     }

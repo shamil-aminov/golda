@@ -283,8 +283,6 @@ fun AccountsScreen(
         }
         // One list: one bank, one account, so there is nothing to group.
         // Adding one is the group's action, in the header that opens its card; reconciling has none.
-        val head = if (reconcileMode) 0 else 1
-        val count = data.accounts.size + head
         item(key = "gap") {
             if (!reconcileMode) {
                 GroupHeader(
@@ -296,8 +294,10 @@ fun AccountsScreen(
         data.accounts.forEachIndexed { i, account ->
             item(key = account.id) {
                 val state = data.states.getValue(account.id)
+                // Reconciling has no header: the rows are the whole card.
+                val head = if (reconcileMode) 0 else 1
                 AccountRow(
-                    data, state, i + head, count,
+                    data, state, i + head, data.accounts.size + head,
                     reconcileMode = reconcileMode,
                     checked = checked[account.id],
                     onClick = { if (reconcileMode) reconciling = state else onOpen(account.id) },

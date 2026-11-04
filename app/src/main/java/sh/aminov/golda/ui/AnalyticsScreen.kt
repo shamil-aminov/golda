@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -272,12 +273,20 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
             }
         }
         item(key = "more") {
-            Tile(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
+            val rows: @Composable ColumnScope.() -> Unit = {
                 LabelAmount(tr("Доходы", "Income"), data.base.approx(report.incomeRub))
                 if (report.fxVolumeRub > 0) {
                     VSpace(Gap.m)
                     LabelAmount(tr("Потери на обмене", "Exchange losses"), data.base.approx(report.fxLossRub))
                 }
+            }
+            // A section of the tab, titled like every group: the title opens the card.
+            Column(Modifier.padding(top = Gap.l)) {
+                CardTitle(tr("Доходы и обмен", "Income and exchange"), Modifier.padding(horizontal = Gap.m))
+                Surface(
+                    Modifier.fillMaxWidth().padding(horizontal = Gap.s),
+                    shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp), color = tileColor(),
+                ) { Column(Modifier.padding(start = Gap.m, end = Gap.m, bottom = Gap.m), content = rows) }
             }
         }
     }

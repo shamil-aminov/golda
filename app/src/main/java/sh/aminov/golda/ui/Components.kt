@@ -189,14 +189,15 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
         val spent = if (accountId == null) list.filter { it.op.type == OpType.EXPENSE }.sumOf { full -> -full.postings.sumOf { p -> p.rubMinor } } else 0
         val total = spent.takeIf { it > 0 }?.let { rub -> data.dayTotal(rub) }
         item(key = "day-$date") {
-            GroupLabel(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                total?.let { Text(it, style = MaterialTheme.typography.labelLarge.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+            // The date opens the day's card, a step under a section's title; its sum at the end.
+            CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), quiet = true) {
+                total?.let { Text(it, style = MaterialTheme.typography.titleMedium.merge(Tnum), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
             }
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
             // New entries slide in, the rest make room.
             OperationRow(
-                data, it, accountId, onClick, i, list.size,
+                data, it, accountId, onClick, i + 1, list.size + 1,
                 Modifier.padding(horizontal = Gap.m).animateItem(placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec()),
             )
         }
