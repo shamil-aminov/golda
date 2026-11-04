@@ -398,8 +398,20 @@ fun IconCircle(modifier: Modifier = Modifier, color: Color = circleColor(), cont
 
 /** An icon in its neutral circle: a category, a transfer. */
 @Composable
-fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
-    IconCircle(modifier) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+fun GlyphCircle(@DrawableRes icon: Int, modifier: Modifier = Modifier, color: Color = circleColor(), ink: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+    IconCircle(modifier, color) { Icon(painterResource(icon), null, Modifier.size(24.dp), tint = ink) }
+}
+
+/**
+ * A draft, not on yet (docs/tasks/category-colours.md): each spending's circle in its category's
+ * mosaic colour, by category key. Null: the neutral circles.
+ */
+val LocalCategoryCircles = staticCompositionLocalOf<Map<String?, Color>?> { null }
+
+/** Black or white, whichever stands out more on [fill]. */
+fun inkOn(fill: Color): Color {
+    val l = fill.luminance()
+    return if ((l + 0.05f) / 0.05f >= 1.05f / (l + 0.05f)) Color(0xFF0A0A0A) else Color.White
 }
 
 /** The tonal text field: corner 16, surfaceContainerHighest, no underline. */

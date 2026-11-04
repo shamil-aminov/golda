@@ -140,13 +140,7 @@ fun ThemeScreen(
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(oled, role = Role.Switch) { onOled(it) },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text(tr("Чистый чёрный", "Pure black"), style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        tr("Тёмная тема на чёрном фоне, для OLED-экранов", "The dark theme on black, for OLED screens"),
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(tr("Чистый чёрный", "Pure black"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                 CheckSwitch(oled) { onOled(it) }
             }
             // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.

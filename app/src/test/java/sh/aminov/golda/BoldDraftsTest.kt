@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -23,12 +24,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.domain.PeriodKind
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.HomeScreen
+import sh.aminov.golda.ui.LocalCategoryCircles
 import sh.aminov.golda.ui.ThemeScreen
 import sh.aminov.golda.ui.Tones
+import sh.aminov.golda.ui.inkOn
+import sh.aminov.golda.ui.leitmotifColor
 import java.util.TimeZone
 
 /**
@@ -184,6 +190,76 @@ class BoldDraftsShots {
             oled = on
             compose.waitForIdle()
             compose.onRoot().captureRoboImage("src/test/screenshots/bold/theme_oled_${if (on) "on" else "off"}.png")
+        }
+    }
+}
+
+/**
+ * Spending's circles in the category's mosaic colour, before and after, on a tall Home so the list
+ * shows: docs/tasks/category-colours.md. recordRoborazziDebug with --tests "*CategoryCirclesShots*".
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h1500dp-xxhdpi")
+class CategoryCirclesShots {
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test
+    fun beforeAndAfter() {
+        val data = ScreenshotTest().demo()
+        // The mosaic's own colours: each category by its rank in the month's spending, as Аналитика opens.
+        val period = Analytics.period(PeriodKind.MONTH, data.today, null)
+        val report = Analytics.report(data.operations, data.accountById, data.categoryById, period, data.today, data.zone, data.rates)
+        fun colours(t: Tones) = report.categories.withIndex().associate { (rank, spend) ->
+            val key = spend.categoryId?.let { data.categoryById[it]?.key }
+            key to leitmotifColor(if (key == null) null else rank, t)
+        }
+        var tones by mutableStateOf(BoldDrafts.all[0].light)
+        var on by mutableStateOf(false)
+        compose.setContent {
+            GoldaTheme(tones) {
+                CompositionLocalProvider(LocalCategoryCircles provides if (on) colours(tones) else null) {
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                        HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
+                    }
+                }
+            }
+        }
+        BoldDrafts.all.filter { it.key in CIRCLE_KEYS }.forEach { d ->
+            listOf(d.light, d.dark).forEach { t ->
+                listOf(false, true).forEach { after ->
+                    tones = t
+                    on = after
+                    compose.waitForIdle()
+                    val name = "${d.key}_${if (t.dark) "dark" else "light"}_${if (after) "after" else "before"}"
+                    compose.onRoot().captureRoboImage("src/test/screenshots/bold/circles_$name.png")
+                }
+            }
+        }
+    }
+
+    companion object {
+        val CIRCLE_KEYS = listOf("marathon", "ultramarine", "plate")
+    }
+}
+
+class CategoryCirclesContrastTest {
+    /** An icon on its category's colour stands out 3:1, WCAG's bar for a mark that is not text. */
+    @Test
+    fun theIconReadsOnItsColour() {
+        BoldDrafts.all.flatMap { listOf(it.light, it.dark) }.forEach { t ->
+            (0 until 12).forEach { rank ->
+                val fill = leitmotifColor(rank, t)
+                val ink = inkOn(fill)
+                val (hi, lo) = listOf(fill.luminance(), ink.luminance()).sortedDescending()
+                assertTrue("rank $rank on ${t.plate}", (hi + 0.05) / (lo + 0.05) >= 3.0)
+            }
         }
     }
 }
