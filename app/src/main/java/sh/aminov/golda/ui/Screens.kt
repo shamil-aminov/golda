@@ -261,16 +261,18 @@ fun AccountsScreen(
             val words = TextRole.caption
             val figures = TextRole.headerFigures
             HeroTile(Modifier.padding(horizontal = Gap.s)) {
+                // One block, the total: its label, the figure and the figure in other currencies a text apart.
                 Text(tr("Всего на счетах", "Total in accounts"), style = words, color = ink, maxLines = 1)
-                VSpace(Gap.s)
+                VSpace(Space.text)
                 HeroAmount(data.base.whole(total), ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
-                VSpace(Gap.s)
+                VSpace(Space.text)
                 Text(data.others(total, data.base.code), style = figures, color = ink)
-                // What the debt costs: its label like the total's, the money it eats like the line above.
+                // What the debt costs, a block under: its label like the total's, the money it eats like the line above.
                 Debts.advice(data.accounts, data.states)?.let { advice ->
-                    VSpace(Gap.m)
+                    VSpace(Space.block)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Text(head, style = words, color = ink)
+                    VSpace(Space.text)
                     tail?.let { Text(it, style = figures, color = ink) }
                 }
             }
@@ -290,7 +292,7 @@ fun AccountsScreen(
             if (!reconcileMode) {
                 GroupHeader(
                     tr("Счета", "Accounts"), tr("Добавить счёт", "Add an account"), onAdd,
-                    Modifier.padding(horizontal = Gap.m).padding(top = Gap.xl), alone = data.accounts.isEmpty(),
+                    Modifier.padding(horizontal = Gap.m).padding(top = Space.cards), alone = data.accounts.isEmpty(),
                 )
             }
         }

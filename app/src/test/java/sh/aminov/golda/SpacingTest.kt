@@ -20,7 +20,7 @@ class SpacingTest {
     fun everyNameComesBack() = Spacing.entries.forEach { assertEquals(it, Spacing.of(it.name)) }
 
     @Test
-    fun eachStepHasAtLeastTheAirOfTheOneBefore() = Spacing.entries.zipWithNext().forEach { (a, b) ->
-        assertTrue("$a → $b", b.row >= a.row && b.underHeader >= a.underHeader && b.underLabel >= a.underLabel)
+    fun eachStepHasMoreAirThanTheOneBefore() = Spacing.entries.zipWithNext().forEach { (a, b) ->
+        assertTrue("$a → $b", b.factor > a.factor)
     }
 }

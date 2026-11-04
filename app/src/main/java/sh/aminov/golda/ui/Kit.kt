@@ -188,6 +188,35 @@ object Gap {
 /** Rows of a grouped list sit this far apart. */
 val GroupGap = 2.dp
 
+/**
+ * Space by level, one progression: φ from 16, 4 · 6 · 10 · 16 · 26 · 42, the type's golden steps
+ * again. Inside a group always less than between groups: text from text (6) < block from block (20,
+ * 10 over and under a row) < card from card (26). The card's own padding (16) and the screen's margin
+ * (8) stay outside the chain. The list density scales the levels, never 16 or 8. On Accounts for now
+ * (docs/tasks/spacing.md); the other screens move to it next.
+ */
+object Space {
+    /** The card's own padding, every side: 16. */
+    val card = Gap.m
+
+    /** Level 0: one text from the next in a block (a row's name and its second line, a label and its figure). */
+    val text: Dp @Composable @ReadOnlyComposable get() = scaled(6.dp)
+
+    /** Half of level 1: over and under each row. */
+    val half: Dp @Composable @ReadOnlyComposable get() = scaled(10.dp)
+
+    /** Level 1: block from block in a card, 2 × [half] (row from row, a title from its first row). */
+    val block: Dp @Composable @ReadOnlyComposable get() = half * 2
+
+    /** Level 3: card from card. */
+    val cards: Dp @Composable @ReadOnlyComposable get() = scaled(26.dp)
+
+    /** [base] times the density, to the nearest 2. */
+    @Composable
+    @ReadOnlyComposable
+    private fun scaled(base: Dp): Dp = (kotlin.math.round(base.value * LocalSpacing.current.factor / 2) * 2).dp
+}
+
 @Composable
 @ReadOnlyComposable
 fun isDark(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f
@@ -265,12 +294,12 @@ private fun HeroSurface(modifier: Modifier, container: Color, content: Color, on
     val shape = RoundedCornerShape(CardCorner)
     if (onClick != null) {
         Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
-            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
+            Column(Modifier.padding(Space.card), content = body)
         }
     } else {
         Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, contentColor = ink) {
             // Placed 8 from the screen's edge, 16 inside: the text 24 from the edge, like every row's.
-            Column(Modifier.padding(horizontal = Gap.m, vertical = Gap.l), content = body)
+            Column(Modifier.padding(Space.card), content = body)
         }
     }
 }
@@ -310,7 +339,7 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = LocalSpacing.current.underLabel)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = Space.text)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
@@ -364,23 +393,26 @@ fun GroupRow(
     trailingOnTitle: Boolean = true,
     headline: @Composable () -> Unit,
 ) {
-    // Lifted by half the second line, so its centre sits on the title's.
-    val lift = with(LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() }
+    // Lifted by the second line and the space over it, so its centre sits on the title's; less the 4 an
+    // amount's 28 line stands over a name's 24, so the end never makes the row taller than its two lines.
+    val lift = with(LocalDensity.current) { MaterialTheme.typography.bodyMedium.lineHeight.toDp() } + Space.text - 4.dp
     val end: (@Composable () -> Unit)? = if (trailingOnTitle && supporting != null && trailing != null) {
         { Box(Modifier.padding(bottom = lift)) { trailing() } }
     } else {
         trailing
     }
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
-    // The air the person picked, over and under the text: Material's own padding plus it.
-    val air = LocalSpacing.current.row
+    // Half a block over and under each row, so two rows' texts are a block apart; the card's own 16
+    // at its ends. The sides as Material has them (16).
     val layout = LocalLayoutDirection.current
     val padding = ListItemDefaults.ContentPadding.let {
         PaddingValues(
             start = it.calculateStartPadding(layout), end = it.calculateEndPadding(layout),
-            top = it.calculateTopPadding() + air, bottom = it.calculateBottomPadding() + air,
+            top = if (index == 0) Space.card else Space.half, bottom = if (index == count - 1) Space.card else Space.half,
         )
     }
+    // The second line a text's step under the first.
+    val second: (@Composable () -> Unit)? = supporting?.let { { Box(Modifier.padding(top = Space.text)) { it() } } }
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
     // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
     val spaced = modifier.bleed(Gap.s)
@@ -391,7 +423,7 @@ fun GroupRow(
             modifier = spaced,
             leadingContent = leading,
             trailingContent = end,
-            supportingContent = supporting,
+            supportingContent = second,
             onLongClick = onLongClick,
             colors = colors,
             contentPadding = padding,
@@ -403,7 +435,7 @@ fun GroupRow(
             modifier = spaced,
             leadingContent = leading,
             trailingContent = end,
-            supportingContent = supporting,
+            supportingContent = second,
             colors = colors,
             contentPadding = padding,
             content = headline,
@@ -770,14 +802,13 @@ fun <T : Any> FormPageHost(target: T?, content: @Composable (T) -> Unit) {
 val LocalTextInset = staticCompositionLocalOf { 0.dp }
 
 /**
- * How much air the lists have, picked on the Theme page: added over and under every row's text
- * ([row]; a row grows only past Material's own 56 and 72), under a group's title inside its card
- * ([underHeader], on top of 8) and under a label over a card ([underLabel]).
+ * How much air the lists have, picked on the Theme page: one [factor] on every level of [Space], so
+ * the progression keeps its order; the card's 16 and the screen's 8 do not change.
  */
-enum class Spacing(val row: Dp, val underHeader: Dp, val underLabel: Dp) {
-    COMPACT(0.dp, 0.dp, 0.dp),
-    NORMAL(8.dp, 8.dp, 8.dp),
-    ROOMY(12.dp, 16.dp, 16.dp),
+enum class Spacing(val factor: Float) {
+    COMPACT(0.75f),
+    NORMAL(1f),
+    ROOMY(1.25f),
     ;
 
     companion object {
@@ -1249,7 +1280,8 @@ fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = fal
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
             // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader).heightIn(min = 32.dp),
+            // The card's 16 over the title's line, half a block under it (the first row adds the other half).
+            Modifier.padding(start = Space.card, end = 12.dp, top = Space.card, bottom = if (alone) Space.card else Space.half).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
