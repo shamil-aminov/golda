@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.layout.layout
@@ -329,7 +330,7 @@ fun AccountsScreen(
  * "Карта · ≈ 16 001 ₽" (the equivalent in the main currency, unless the account is in it), or for
  * savings with a rate just "+1 605 ₽ за октябрь" in the account's own currency: that says what it is.
  */
-private fun accountSubline(data: AppData, state: AccountState): String {
+internal fun accountSubline(data: AppData, state: AccountState): String {
     val account = state.account
     val today = data.today
     val forecast = if (account.type == AccountType.SAVINGS && account.interestRate != null) {
@@ -615,7 +616,7 @@ val HeroDescent = 10.dp
  * bigger, as big as the width allows up to 72 sp. No smaller sign, no trimmed line box.
  */
 @Composable
-fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
+fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         // Tabular figures run about 0.6 em wide; keep a little air at the edge.
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.6f)).toSp().value }
@@ -625,7 +626,7 @@ fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier) {
         // muted ink, so the digits are read first.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
         val style = bigFigure(size)
-        val muted = MaterialTheme.colorScheme.onSurfaceVariant
+        val muted = signColor.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
         val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
         // Optically flush left: big digits carry their own side bearing, which at 94 sp reads as an
         // indent against the caption above; pulled back by the first glyph's measured ink.
