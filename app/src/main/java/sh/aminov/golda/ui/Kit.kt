@@ -206,7 +206,7 @@ object Space {
     val text: Dp @Composable @ReadOnlyComposable get() = Rhythm.valueCaption
 
     /** Over and under each row: half of [block], so two rows' letters are a row's step (21) apart. */
-    val half: Dp @Composable @ReadOnlyComposable get() = Rhythm.row / 2
+    val half: Dp @Composable @ReadOnlyComposable get() = (LocalRowGap.current ?: Rhythm.row) / 2
 
     /** Row from row: 21. */
     val block: Dp @Composable @ReadOnlyComposable get() = Rhythm.row
@@ -217,6 +217,9 @@ object Space {
     /** A card's edge over its first letters and under its last: 24. */
     val edge: Dp @Composable @ReadOnlyComposable get() = Rhythm.edge
 }
+
+/** TEMPORARY (docs/tasks/screen-rhythm.md): row from row's letters for the mock-ups; null in the app. */
+val LocalRowGap = staticCompositionLocalOf<Dp?> { null }
 
 /** The ×1.5 row by role, at «Просторно»; [Spacing.factor] over 1.25 scales it to the density in use. */
 object Rhythm {
