@@ -106,7 +106,9 @@ import sh.aminov.golda.domain.tr
 import java.time.LocalDate
 
 /** Keeps the last row clear of the floating toolbar (64 dp, 16 dp above the gesture bar) by 24 dp. */
-fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + Gap.s, bottom = calculateBottomPadding() + 88.dp + Gap.l)
+/** Over the floating toolbar at the end: its height, the 16 it floats above the bottom, and a card's gap. */
+@Composable
+fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + Gap.s, bottom = calculateBottomPadding() + ToolbarHeight + Gap.m + ListSpace.cards)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -309,7 +311,7 @@ fun AccountsScreen(
             if (!reconcileMode) {
                 GroupHeader(
                     tr("Счета", "Accounts"), tr("Добавить счёт", "Add an account"), onAdd,
-                    Modifier.padding(horizontal = Gap.m).padding(top = Space.cards), alone = data.accounts.isEmpty(),
+                    Modifier.padding(horizontal = Gap.m).padding(top = ListSpace.cards), alone = data.accounts.isEmpty(),
                 )
             }
         }

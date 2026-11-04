@@ -23,8 +23,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FloatingToolbarDefaults
-import androidx.compose.material3.HorizontalFloatingToolbar
+import androidx.compose.material3.Surface
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -242,17 +241,17 @@ fun GoldaToolbar(
     // The bar and the mic side by side, each with a soft shadow all round: Material's elevation
     // drops the shadow below them.
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
-    HorizontalFloatingToolbar(
-        expanded = true,
-        // A soft shadow all round, no outline: it floats over the cards without a hard edge.
-        modifier = Modifier.softShadow(CircleShape),
-        colors = FloatingToolbarDefaults.standardFloatingToolbarColors(
-            // A card in light; in dark a step up, or it melts into the cards it floats over.
-            toolbarContainerColor = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
-            toolbarContentColor = scheme.onSurfaceVariant,
-        ),
-        expandedShadowElevation = 0.dp,
+    // A pill, a soft shadow all round, no outline: it floats over the cards without a hard edge. The
+    // same room on every side of what is in it: the picked pill (48) sits [ToolbarInset] from the bar's
+    // top, bottom and end, so its round end is concentric with the bar's.
+    Surface(
+        Modifier.height(ToolbarHeight).softShadow(CircleShape),
+        shape = CircleShape,
+        // A card in light; in dark a step up, or it melts into the cards it floats over.
+        color = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
+        contentColor = scheme.onSurfaceVariant,
     ) {
+    Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
         // One pill rides under the tabs at the pager's exact position, so it follows the finger during
         // a swipe and glides on a tap. Each icon takes the pill's ink and fills as the pill reaches it.
         val picked = pickedColor()
@@ -293,6 +292,7 @@ fun GoldaToolbar(
         VerticalDivider(Modifier.align(Alignment.CenterVertically).height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
         IconButton(onClick = onAdd, Modifier.size(ToolbarItemWidth, ToolbarItemHeight)) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp)) }
     }
+    }
     // As tall as the bar beside it, so the main action is also the easiest target; it gives under the thumb.
     val micPress = remember { MutableInteractionSource() }
     FloatingActionButton(
@@ -317,7 +317,9 @@ fun GoldaToolbar(
 private val ToolbarItemWidth = 72.dp
 private val PillWidth = ToolbarItemWidth
 private val ToolbarItemHeight = 48.dp
-private val ToolbarHeight = 64.dp
+/** The bar and the mic: 56, the 48 targets and [ToolbarInset] round them. */
+internal val ToolbarHeight = 56.dp
+private val ToolbarInset = (ToolbarHeight - ToolbarItemHeight) / 2
 
 /** A circle that keeps turning into a nine-sided cookie and back, with the stop square on it. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

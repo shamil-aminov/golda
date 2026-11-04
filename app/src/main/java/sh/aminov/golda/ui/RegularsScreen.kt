@@ -43,7 +43,7 @@ fun LazyListScope.regularPayments(data: AppData, onEdit: (Obligation) -> Unit) {
         GroupHeader(
             tr("Регулярные платежи", "Regular payments"), tr("Добавить платёж", "Add a payment"),
             onAdd = { onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth)) },
-            modifier = Modifier.padding(horizontal = Gap.m).padding(top = Space.cards),
+            modifier = Modifier.padding(horizontal = Gap.m).padding(top = ListSpace.cards),
             alone = payments.isEmpty(),
         )
     }

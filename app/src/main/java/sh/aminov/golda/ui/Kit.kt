@@ -412,32 +412,39 @@ fun GroupRow(
     Surface(modifier.bleed(Gap.s).then(tap), shape = shape, color = container, contentColor = scheme.onSurface) {
         // On the title's line when it has a second line under it; else in the middle, like a switch.
         val onTitle = trailingOnTitle && supporting != null && trailing != null
+        // Every text cut to its letters. A row with an icon is its circle's height and is spaced by it
+        // (half the circles' gap over and under); one without, by its letters. The card's edge at the ends.
+        val half = (if (leading != null) ListSpace.circles else ListSpace.letters) / 2
+        val name = Modifier.letters(TextRole.rowName.fontSize)
+        val caption = Modifier.letters(TextRole.caption.fontSize)
         Row(
             Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(
                 start = Space.card, end = Space.card,
-                top = if (index == 0) Space.card else Space.half, bottom = if (index == count - 1) Space.card else Space.half,
+                top = if (index == 0) ListSpace.edge else half, bottom = if (index == count - 1) ListSpace.edge else half,
             ),
-            verticalAlignment = if (onTitle) Alignment.Top else Alignment.CenterVertically,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             leading?.let {
-                // In the middle of the row: it halves a two-line row's height.
-                Box(Modifier.align(Alignment.CenterVertically)) {
+                Box(Modifier.heightIn(min = RowIconSize), contentAlignment = Alignment.Center) {
                     CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { it() }
                 }
                 Spacer(Modifier.width(Space.card))
             }
-            Column(Modifier.weight(1f).let { if (onTitle) it else it.align(Alignment.CenterVertically) }) {
-                ProvideTextStyle(type.bodyLarge) { headline() }
-                supporting?.let {
-                    Spacer(Modifier.height(Space.text))
-                    CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { ProvideTextStyle(type.bodyMedium) { it() } }
+            // The two lines and the end as one block in the middle of the row; on the title's line the end
+            // starts with the name (an amount and, under it, what it became).
+            Row(Modifier.weight(1f), verticalAlignment = if (onTitle) Alignment.Top else Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Box(name) { ProvideTextStyle(type.bodyLarge) { headline() } }
+                    supporting?.let {
+                        Spacer(Modifier.height(ListSpace.line))
+                        Box(caption) { CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) { ProvideTextStyle(type.bodyMedium) { it() } } }
+                    }
                 }
-            }
-            trailing?.let {
-                Spacer(Modifier.width(Space.card))
-                CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) {
-                    // On the title's line it starts with the name (an amount and, under it, what it became).
-                    it()
+                trailing?.let {
+                    Spacer(Modifier.width(Space.card))
+                    CompositionLocalProvider(LocalContentColor provides scheme.onSurfaceVariant) {
+                        Box(if (onTitle) name else Modifier) { it() }
+                    }
                 }
             }
         }
@@ -860,6 +867,31 @@ object HeaderSpace {
     @Composable
     @ReadOnlyComposable
     private fun step(normal: Float): Dp = (normal * LocalSpacing.current.factor).roundToInt().dp
+}
+
+/**
+ * A list's gaps by role, on the header's φ row (values at «Просторно»), measured from the letters or, in a
+ * row with an icon, from its circle — the circles are what the eye reads as the rows. A trial on Home and
+ * Accounts (docs/tasks/screen-rhythm.md): each role is one token here, to move as the owner sees it.
+ */
+object ListSpace {
+    /** Circle from circle in rows with an icon: 16. */
+    val circles: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
+
+    /** Letters from letters in rows without one: 26. */
+    val letters: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
+
+    /** A row's name and its second line, and an amount and what it came to: 16. */
+    val line: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
+
+    /** A card's title to the top of its first row (the circle, or the letters): 26. */
+    val titleToRow: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
+
+    /** A card's edge over its first letters and under its last circle or letters: 26. */
+    val edge: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.edge
+
+    /** Card from card, and a header from its first card: 42. */
+    val cards: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.group
 }
 
 /** The [Spacing] in use: GoldaTheme provides the setting. */
@@ -1339,13 +1371,13 @@ const val ENTRY_FIGURE_SP = 58f
  * over. [description] is what TalkBack says for the "+" ("Добавить счёт").
  */
 @Composable
-fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier: Modifier = Modifier, alone: Boolean = false) {
+fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier: Modifier = Modifier, alone: Boolean = false, icons: Boolean = true) {
     val plus: @Composable () -> Unit = {
         FilledTonalIconButton(onClick = onAdd, modifier = Modifier.size(32.dp)) {
             Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
         }
     }
-    CardTitle(title, modifier, alone, trailing = plus)
+    CardTitle(title, modifier, alone, icons = icons, trailing = plus)
 }
 
 /**
@@ -1356,24 +1388,29 @@ fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier:
  * count it as their first: index + 1 of count + 1; [alone] while there are none.
  */
 @Composable
-fun CardTitle(title: String, modifier: Modifier = Modifier, alone: Boolean = false, quiet: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
+fun CardTitle(
+    title: String,
+    modifier: Modifier = Modifier,
+    alone: Boolean = false,
+    quiet: Boolean = false,
+    /** The rows under it have icons: they add half the circles' gap over their circle, not the letters'. */
+    icons: Boolean = true,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    val style = if (quiet) TextRole.rowName.copy(fontWeight = TextRole.Accent) else TextRole.groupTitle
+    // The first row adds its own half gap; the title gives the rest of its way to the row.
+    val rowHalf = (if (icons) ListSpace.circles else ListSpace.letters) / 2
     // Out to the rows' card edge, 8 from the screen, like GroupRow.
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
-            // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
-            // The card's 16 over the title's line, half a block under it (the first row adds the other half).
-            Modifier.padding(start = Space.card, end = 12.dp, top = Space.card, bottom = if (alone) Space.card else Space.half).heightIn(min = 32.dp),
+            Modifier.padding(start = Space.card, end = 12.dp, top = ListSpace.edge, bottom = if (alone) ListSpace.edge else ListSpace.titleToRow - rowHalf),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // A quiet title and what stands at its end (a day's sum) share a baseline.
-            Text(
-                title, Modifier.weight(1f).semantics { heading() }.let { if (quiet) it.alignByBaseline() else it },
-                style = if (quiet) TextRole.rowName.copy(fontWeight = TextRole.Accent) else TextRole.groupTitle,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
+            Text(title, Modifier.weight(1f).semantics { heading() }.letters(style.fontSize), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
             trailing?.let {
                 Spacer(Modifier.width(Gap.s))
-                Box(if (quiet) Modifier.alignByBaseline() else Modifier) { it() }
+                // Centred on the title's letters, taking none of their height ("+" is 32 to their 16).
+                Box(Modifier.height(0.dp).wrapContentHeight(unbounded = true)) { it() }
             }
         }
     }
