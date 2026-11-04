@@ -41,6 +41,8 @@ data class Settings(
     val oled: Boolean = false,
     /** Each row's circle in its category's colour; off, the neutral circles. */
     val colouredRows: Boolean = true,
+    /** How much air the lists have (see ui.Spacing): "COMPACT", "NORMAL" or "ROOMY". */
+    val spacing: String = "NORMAL",
     /** The folder a weekly backup goes to (a document tree the person picked); null: none. */
     val autoBackupFolder: String? = null,
     /** When the last weekly backup was written, epoch millis; 0: never. */

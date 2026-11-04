@@ -342,6 +342,7 @@ private fun MainScreen(
             Page.Theme -> ThemeScreen(
                 current = data.settings.palette,
                 mode = data.settings.themeMode,
+                spacing = data.settings.spacing,
                 saved = data.settings.savedThemes,
                 onBack = { page = Page.Settings },
                 onApply = { key -> change { it.copy(palette = key) } },
@@ -350,6 +351,7 @@ private fun MainScreen(
                 onOled = { on -> change { it.copy(oled = on) } },
                 colouredRows = data.settings.colouredRows,
                 onColouredRows = { on -> change { it.copy(colouredRows = on) } },
+                onSpacing = { spacing -> change { it.copy(spacing = spacing) } },
                 onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )

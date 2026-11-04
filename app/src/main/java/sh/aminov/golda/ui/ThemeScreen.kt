@@ -90,6 +90,8 @@ fun ThemeScreen(
     onOled: (Boolean) -> Unit = {},
     colouredRows: Boolean = true,
     onColouredRows: (Boolean) -> Unit = {},
+    spacing: String = Spacing.NORMAL.name,
+    onSpacing: (String) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
@@ -152,6 +154,19 @@ fun ThemeScreen(
             ) {
                 Text(tr("Цветные траты", "Coloured spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                 CheckSwitch(colouredRows) { onColouredRows(it) }
+            }
+            // How much air the lists have: one setting for every list, like the mode for every theme.
+            VSpace(Gap.l)
+            GroupLabel(tr("Плотность списков", "List density"))
+            VSpace(Gap.s)
+            ChoiceGroup(Spacing.entries, Spacing.of(spacing), { onSpacing(it.name) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
+                ChoiceText(
+                    when (it) {
+                        Spacing.COMPACT -> tr("Плотно", "Compact")
+                        Spacing.NORMAL -> tr("Обычно", "Normal")
+                        Spacing.ROOMY -> tr("Просторно", "Roomy")
+                    },
+                )
             }
             // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
             BoxWithConstraints(Modifier.fillMaxWidth()) {

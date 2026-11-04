@@ -100,15 +100,16 @@ fun Onboarding(
                             Modifier.padding(horizontal = Gap.l),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        // Adding is the group's action, in its header, as on Accounts.
-                        GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                            AddAction(tr("Добавить счёт", "Add an account")) { adding = true }
-                        }
-                        val count = data.accounts.size
+                        // Adding is the group's action, in the header that opens its card, as on Accounts.
+                        GroupHeader(
+                            tr("Счета", "Accounts"), tr("Добавить счёт", "Add an account"), { adding = true },
+                            Modifier.padding(horizontal = Gap.m).padding(top = Gap.l), alone = data.accounts.isEmpty(),
+                        )
+                        val count = data.accounts.size + 1
                         data.accounts.forEachIndexed { i, account ->
                             val state = data.states.getValue(account.id)
                             GroupRow(
-                                i, count, Modifier.padding(horizontal = Gap.m),
+                                i + 1, count, Modifier.padding(horizontal = Gap.m),
                                 onClick = { editing = account },
                                 supporting = typeLabel(account.type).takeUnless { account.name.contains(it, ignoreCase = true) }?.let { { Text(it) } },
                                 trailing = { AmountColumn(Fmt.amount(state.balanceMinor, account.currency)) },

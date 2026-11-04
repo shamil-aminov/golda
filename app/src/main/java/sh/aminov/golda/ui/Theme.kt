@@ -57,13 +57,13 @@ private fun ColorScheme.goldOnlyByName(): ColorScheme = copy(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaTheme(palette: String? = null, mode: String? = null, oled: Boolean = false, colouredRows: Boolean = true, content: @Composable () -> Unit) =
-    GoldaTheme(tonesFor(palette, isDarkMode(mode, isSystemInDarkTheme()), oled), colouredRows, content)
+fun GoldaTheme(palette: String? = null, mode: String? = null, spacing: String? = null, oled: Boolean = false, colouredRows: Boolean = true, content: @Composable () -> Unit) =
+    GoldaTheme(tonesFor(palette, isDarkMode(mode, isSystemInDarkTheme()), oled), colouredRows, spacing, content)
 
 /** The app's theme drawn in a set of [tones] of its own, a preset's or one not yet in [Palette]. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaTheme(tones: Tones, colouredRows: Boolean = true, content: @Composable () -> Unit) {
+fun GoldaTheme(tones: Tones, colouredRows: Boolean = true, spacing: String? = null, content: @Composable () -> Unit) {
     val base = colorSchemeOf(tones)
     // The bars' icons follow the theme, not the system: dark icons on a light theme and back.
     val view = LocalView.current
@@ -76,7 +76,7 @@ fun GoldaTheme(tones: Tones, colouredRows: Boolean = true, content: @Composable 
             }
         }
     }
-    CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary), LocalTones provides tones, LocalColouredRows provides colouredRows) {
+    CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary), LocalTones provides tones, LocalColouredRows provides colouredRows, LocalSpacing provides Spacing.of(spacing)) {
         MaterialExpressiveTheme(
             colorScheme = base.goldOnlyByName(),
             motionScheme = MotionScheme.expressive(),

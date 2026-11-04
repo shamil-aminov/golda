@@ -126,6 +126,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.clip
@@ -144,6 +147,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -305,7 +309,7 @@ fun Caption(text: String, modifier: Modifier = Modifier, color: Color = Material
  */
 @Composable
 fun GroupLabel(text: String, modifier: Modifier = Modifier, supporting: String? = null, trailing: (@Composable () -> Unit)? = null) {
-    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
+    Column(modifier.fillMaxWidth().padding(horizontal = Gap.s).padding(bottom = LocalSpacing.current.underLabel)) {
         Row(Modifier.fillMaxWidth().heightIn(min = 32.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(text, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
             Spacer(Modifier.width(Gap.s))
@@ -365,6 +369,15 @@ fun GroupRow(
         trailing
     }
     val shapes = ListItemDefaults.shapes(shape = groupShape(index, count))
+    // The air the person picked, over and under the text: Material's own padding plus it.
+    val air = LocalSpacing.current.row
+    val layout = LocalLayoutDirection.current
+    val padding = ListItemDefaults.ContentPadding.let {
+        PaddingValues(
+            start = it.calculateStartPadding(layout), end = it.calculateEndPadding(layout),
+            top = it.calculateTopPadding() + air, bottom = it.calculateBottomPadding() + air,
+        )
+    }
     val colors = ListItemDefaults.segmentedColors(containerColor = container)
     // Rows reach 8 dp into the page's margin: the card's edge 8 from the screen, the text 24.
     val spaced = modifier.bleed(Gap.s)
@@ -378,6 +391,7 @@ fun GroupRow(
             supportingContent = supporting,
             onLongClick = onLongClick,
             colors = colors,
+            contentPadding = padding,
             content = headline,
         )
     } else {
@@ -388,6 +402,7 @@ fun GroupRow(
             trailingContent = end,
             supportingContent = supporting,
             colors = colors,
+            contentPadding = padding,
             content = headline,
         )
     }
@@ -750,6 +765,26 @@ fun <T : Any> FormPageHost(target: T?, content: @Composable (T) -> Unit) {
  * edge and the words 24, as a page's labels stand 16 in from its cards. Nothing elsewhere.
  */
 val LocalTextInset = staticCompositionLocalOf { 0.dp }
+
+/**
+ * How much air the lists have, picked on the Theme page: added over and under every row's text
+ * ([row]; a row grows only past Material's own 56 and 72), under a group's title inside its card
+ * ([underHeader], on top of 8) and under a label over a card ([underLabel]).
+ */
+enum class Spacing(val row: Dp, val underHeader: Dp, val underLabel: Dp) {
+    COMPACT(0.dp, 0.dp, 0.dp),
+    NORMAL(8.dp, 8.dp, 8.dp),
+    ROOMY(12.dp, 16.dp, 16.dp),
+    ;
+
+    companion object {
+        /** The stored name, [NORMAL] for none or an unknown one. */
+        fun of(name: String?): Spacing = entries.firstOrNull { it.name == name } ?: NORMAL
+    }
+}
+
+/** The [Spacing] in use: GoldaTheme provides the setting. */
+val LocalSpacing = staticCompositionLocalOf { Spacing.NORMAL }
 
 /** Whether the page or sheet around has finished coming in. Outside one, always. */
 val LocalShown = staticCompositionLocalOf<() -> Boolean> { { true } }
@@ -1154,15 +1189,32 @@ fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLarge
 const val BIG_FIGURE_SP = 94f
 const val ENTRY_FIGURE_SP = 58f
 
-/** A group's action in its header: "+ Добавить" as a small pill, its target 48 dp. */
+/**
+ * A group with an action, headed inside its own card: the title 22 semibold on the rows' text line, the
+ * round tonal "+" (Material's way of adding to a list) in the top corner, 12 in from the top and the
+ * end, 32 across, so its circle is concentric with the card's 28 corner (28 − 12 = 16). The rows under
+ * it count it as their first: index + 1 of count + 1. [alone] while the group has no rows: round all
+ * over. [description] is what TalkBack says for the "+" ("Добавить счёт").
+ */
 @Composable
-fun AddAction(description: String, onClick: () -> Unit) {
-    // A round tonal "+" at the group's end, Material's way of adding to a list: quieter than a word,
-    // and the same in every group. [description] is what TalkBack says ("Добавить счёт").
-    // A 32 dp circle, the label row's own height; lifted a little, so it keeps the same air above the card
-    // as the label does. Its right edge is the amounts' edge under it.
-    FilledTonalIconButton(onClick = onClick, modifier = Modifier.offset(y = (-4).dp).size(32.dp)) {
-        Icon(painterResource(R.drawable.ic_add), description, Modifier.size(18.dp))
+fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier: Modifier = Modifier, alone: Boolean = false) {
+    // Out to the rows' card edge, 8 from the screen, like GroupRow.
+    Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
+        Row(
+            // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
+            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s + LocalSpacing.current.underHeader),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                title, Modifier.weight(1f).semantics { heading() },
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(Gap.s))
+            FilledTonalIconButton(onClick = onAdd, modifier = Modifier.size(32.dp)) {
+                Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+            }
+        }
     }
 }
 
