@@ -39,17 +39,17 @@ import sh.aminov.golda.domain.tr
 fun LazyListScope.regularPayments(data: AppData, onEdit: (Obligation) -> Unit) {
     val payments = data.obligations
     item(key = "regulars-label") {
-        VSpace(Gap.l)
-        // Just the name; adding is the group's action, in its header.
-        GroupLabel(tr("Регулярные платежи", "Regular payments"), Modifier.padding(horizontal = Gap.m)) {
-            AddAction(tr("Добавить платёж", "Add a payment")) {
-                onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth))
-            }
-        }
+        // Adding is the group's action, in the header that opens its card.
+        GroupHeader(
+            tr("Регулярные платежи", "Regular payments"), tr("Добавить платёж", "Add a payment"),
+            onAdd = { onEdit(Obligation(name = "", amountMinor = 0, currency = data.settings.localCurrency, dayOfMonth = data.today.dayOfMonth)) },
+            modifier = Modifier.padding(horizontal = Gap.m).padding(top = Gap.xl),
+            alone = payments.isEmpty(),
+        )
     }
-    val count = payments.size
+    val count = payments.size + 1
     payments.forEachIndexed { i, payment ->
-        item(key = "regular-${payment.id}") { PaymentRow(payment, i, count, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
+        item(key = "regular-${payment.id}") { PaymentRow(payment, i + 1, count, Modifier.padding(horizontal = Gap.m)) { onEdit(payment) } }
     }
 }
 

@@ -143,6 +143,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -1129,13 +1130,32 @@ fun bigFigure(size: TextUnit): TextStyle = MaterialTheme.typography.displayLarge
 const val BIG_FIGURE_SP = 94f
 const val ENTRY_FIGURE_SP = 58f
 
-/** A group's action in its header: "+ Добавить" as a small pill, its target 48 dp. */
+/**
+ * A group with an action, headed inside its own card: the title 22 semibold on the rows' text line, the
+ * round tonal "+" (Material's way of adding to a list) in the top corner, 12 in from the top and the
+ * end, 32 across, so its circle is concentric with the card's 28 corner (28 − 12 = 16). The rows under
+ * it count it as their first: index + 1 of count + 1. [alone] while the group has no rows: round all
+ * over. [description] is what TalkBack says for the "+" ("Добавить счёт").
+ */
 @Composable
-fun AddAction(description: String, onClick: () -> Unit) {
-    // A round tonal "+" at the group's end, Material's way of adding to a list: quieter than a word,
-    // and the same in every group. [description] is what TalkBack says ("Добавить счёт").
-    FilledTonalIconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
-        Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier: Modifier = Modifier, alone: Boolean = false) {
+    // Out to the rows' card edge, 8 from the screen, like GroupRow.
+    Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
+        Row(
+            // Under the title as much air as a row's own padding adds over its text, so the title stands apart.
+            Modifier.padding(start = Gap.m, end = 12.dp, top = 12.dp, bottom = if (alone) 12.dp else Gap.s),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                title, Modifier.weight(1f).semantics { heading() },
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(Gap.s))
+            FilledTonalIconButton(onClick = onAdd, modifier = Modifier.size(32.dp)) {
+                Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+            }
+        }
     }
 }
 

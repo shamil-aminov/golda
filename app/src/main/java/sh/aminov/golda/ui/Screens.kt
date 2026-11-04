@@ -285,20 +285,22 @@ fun AccountsScreen(
             }
         }
         // One list: one bank, one account, so there is nothing to group.
-        val count = data.accounts.size
-        // A label over the accounts too, like the dates on Home; adding one is the group's action, in its header.
+        // Adding one is the group's action, in the header that opens its card; reconciling has none.
+        val head = if (reconcileMode) 0 else 1
+        val count = data.accounts.size + head
         item(key = "gap") {
             if (!reconcileMode) {
-                GroupLabel(tr("Счета", "Accounts"), Modifier.padding(horizontal = Gap.m).padding(top = Gap.l)) {
-                    AddAction(tr("Добавить счёт", "Add an account"), onAdd)
-                }
+                GroupHeader(
+                    tr("Счета", "Accounts"), tr("Добавить счёт", "Add an account"), onAdd,
+                    Modifier.padding(horizontal = Gap.m).padding(top = Gap.xl), alone = data.accounts.isEmpty(),
+                )
             }
         }
         data.accounts.forEachIndexed { i, account ->
             item(key = account.id) {
                 val state = data.states.getValue(account.id)
                 AccountRow(
-                    data, state, i, count,
+                    data, state, i + head, count,
                     reconcileMode = reconcileMode,
                     checked = checked[account.id],
                     onClick = { if (reconcileMode) reconciling = state else onOpen(account.id) },
