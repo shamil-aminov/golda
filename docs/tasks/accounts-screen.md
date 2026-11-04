@@ -53,7 +53,7 @@
 - Сравнение скругления (кадры `corner-*`, сводки `corner-compare_*.png`) — выбрано 20.
 - Сборка: токен `CardCorner = 20.dp` в `ui/Kit.kt` — `HeroTile`, `Tile`, `groupShape` (группы, `CardTitle`), «Доходы и
   обмен»; временный `LocalCardCorner` и тест убраны. Скриншоты перезаписаны (все экраны с карточками),
-  `docs/screenshots/*`, SPEC («Скругление»). Итог: `build-20_marathon_dark.png`, `build-20_golda_light.png`.
+  `docs/screenshots/*`, SPEC («Скругление»). Итог: `build-20_midnight_dark.png` (Полночь — из `accounts_dark`), `build-20_golda_light.png`.
 
 ## Осталось
 - [ ] «+» в заголовке группы: при угле 20 он остался в 12 от края (концентричен был углу 28) — показать, не поправить ли.
