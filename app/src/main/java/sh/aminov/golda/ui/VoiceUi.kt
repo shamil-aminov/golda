@@ -241,7 +241,7 @@ private fun describe(draft: Draft, data: AppData): String {
 
 /**
  * The one bar at the bottom of every tab, floating over the content: the ways of writing something
- * down as plain marks, all alike, the camera where there is one, "+" and the mic. While the mic listens
+ * down as plain marks, all alike, the camera where there is one, the pencil and the mic. While the mic listens
  * the bar stays where it is and comes alive: cancel on the left, the voice's level in the middle, and
  * stop where the mic was. While the note is worked out, the loading indicator takes the mic's place.
  */
@@ -268,7 +268,7 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
                 LevelLine(voice.level)
             } else {
                 voice.camera?.let { take -> BarMark(take) { Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(24.dp)) } }
-                BarMark(onAdd) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(24.dp)) }
+                BarMark(onAdd) { Icon(painterResource(R.drawable.ic_edit), tr("Записать вручную", "Add by hand"), Modifier.size(24.dp)) }
             }
             BarMark(voice.toggle, Modifier.semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite }) {
                 when (voice.state) {
