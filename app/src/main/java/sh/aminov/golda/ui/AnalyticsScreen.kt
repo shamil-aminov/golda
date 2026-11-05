@@ -240,17 +240,10 @@ fun AnalyticsScreen(
                     val sizedFor = data.base.whole(report.spentRub)
                     Row {
                         KindTitle(pick, Modifier.weight(1f), TextRole.groupTitle, onCard = true)
-                        PeriodMenu(pick, today, tint, Modifier.hang())
+                        PeriodMark(pick, today, tint, Modifier.hang())
                     }
                     VSpace(HeaderSpace.valueCaption)
-                    Row(Modifier.letters(TextRole.caption.fontSize)) {
-                        Text(span?.let { barCaption(it.from, it.to, bar) } ?: periodLine(period, today), Modifier.weight(1f), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (day != null) {
-                            IconButton(onClick = pick::letBarGo, modifier = Modifier.hang()) {
-                                Icon(painterResource(R.drawable.ic_close), tr("Снять выбор дня", "Clear the day"), tint = tint)
-                            }
-                        }
-                    }
+                    Text(span?.let { barCaption(it.from, it.to, bar) } ?: periodLine(period, today), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     VSpace(HeaderSpace.figureCaption)
                     BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(sizedFor, maxWidth)), signColor = ink, sizedFor = sizedFor) }
                     VSpace(HeaderSpace.block)
@@ -335,7 +328,7 @@ fun InsightsDetails(data: AppData, pick: InsightsPick, onBack: () -> Unit, onEdi
                 val expanded = style.fontSize.value > TextRole.groupTitle.fontSize.value
                 KindTitle(pick, Modifier.padding(start = Gap.s), style, onCard = false, enabled = expanded == (fold.state.collapsedFraction < 0.5f))
             }, onBack, fold) {
-                PeriodMenu(pick, today, MaterialTheme.colorScheme.onSurfaceVariant, Modifier)
+                PeriodMark(pick, today, MaterialTheme.colorScheme.onSurfaceVariant, Modifier)
             }
         },
     ) { padding ->
@@ -417,6 +410,18 @@ private fun KindTitle(pick: InsightsPick, modifier: Modifier, style: androidx.co
 }
 
 private fun kindName(kind: Bucket?): String = kind?.let(::bucketLabel) ?: tr("Все траты", "All spending")
+
+/** The corner's mark: the calendar, or while a bar is picked, in its place, the cross that lets the bar go. */
+@Composable
+private fun PeriodMark(pick: InsightsPick, today: LocalDate, tint: Color, modifier: Modifier) {
+    if (pick.bar == null) {
+        PeriodMenu(pick, today, tint, modifier)
+    } else {
+        IconButton(onClick = pick::letBarGo, modifier = modifier) {
+            Icon(painterResource(R.drawable.ic_close), tr("Снять выбор дня", "Clear the day"), tint = tint)
+        }
+    }
+}
 
 /** The calendar and what it opens: the two usual periods and a range of your own, the current one checked. */
 @Composable

@@ -159,6 +159,18 @@ class AnalyticsScreenTest {
     }
 
     @Test
+    fun theCrossStandsInTheCalendarsPlaceWhileABarIsPicked() {
+        val calendar = compose.onNodeWithContentDescription("Период").fetchSemanticsNode().boundsInRoot
+        tapLastBar()
+        compose.onAllNodesWithContentDescription("Период").assertCountEquals(0)
+        val cross = compose.onNodeWithContentDescription("Снять выбор дня").fetchSemanticsNode().boundsInRoot
+        assertEquals(calendar, cross)
+        compose.onNodeWithContentDescription("Снять выбор дня").performClick()
+        compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
+        assertEquals(calendar, compose.onNodeWithContentDescription("Период").fetchSemanticsNode().boundsInRoot)
+    }
+
+    @Test
     fun theCrossLetsTheDayGoAndTheKindStays() {
         week()
         kind("Все траты", "Ежедневные")

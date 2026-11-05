@@ -100,6 +100,15 @@ class InsightsDetailsTest {
     }
 
     @Test
+    fun theCrossStandsInTheCalendarsPlaceOnThePageToo() {
+        open(InsightsPick(PeriodKind.WEEK, bar = LocalDate.of(2026, 10, 24)))
+        compose.onAllNodesWithContentDescription("Период").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Снять выбор дня").performClick()
+        compose.onNodeWithContentDescription("Период").assertExists()
+        shown("Шаурма", 0)
+    }
+
+    @Test
     fun aWeeksCategories() {
         open(InsightsPick(bar = LocalDate.of(2026, 10, 19)))
         shown("Жильё", 0)

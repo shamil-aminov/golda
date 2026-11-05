@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Insights rebuilt around one card.** The header and the chart are one card: the kind
   as its title with a menu, the period behind a calendar, the figure, day bars over the
   legend, and the day's plan for the everyday kind by days. The average is off the
-  screen. A picked bar gives its caption and its sum, × beside it lets go. The period strip, the category mosaic and the kinds'
+  screen. A picked bar gives its caption and its sum, and × in the calendar's place lets go. The period strip, the category mosaic and the kinds'
   tiles are gone; the details page picks the kind by the same menu.
 - **Reviews on Insights.** A card closes the screen, the last three reviews by date
   with what each looked at; a "+" leads to writing one, in place of the mark.
