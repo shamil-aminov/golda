@@ -40,7 +40,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -56,7 +55,8 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import sh.aminov.golda.R
-import sh.aminov.golda.TAB_ACCOUNTS
+import sh.aminov.golda.Tab
+import sh.aminov.golda.TabOrder
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
@@ -129,7 +129,7 @@ private sealed interface Sheet {
 }
 
 @Composable
-fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: ReceiveChannel<Int>) {
+fun GoldaRoot(repo: Repo, voiceRequests: ReceiveChannel<Unit>, tabRequests: ReceiveChannel<Tab>) {
     val settings by repo.settings.flow.collectAsStateWithLifecycle(initialValue = null)
     val accounts by repo.accounts.collectAsStateWithLifecycle(initialValue = emptyList())
     val operations by repo.operations.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -167,9 +167,10 @@ private fun MainScreen(
     data: AppData,
     change: ((Settings) -> Settings) -> Unit,
     voiceRequests: ReceiveChannel<Unit>,
-    tabRequests: ReceiveChannel<Int>,
+    tabRequests: ReceiveChannel<Tab>,
 ) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    // By name, so a saved tab is the same screen whatever the order.
+    var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
     var page by rememberSaveable(stateSaver = PageSaver) { mutableStateOf<Page?>(null) }
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var periodOpen by remember { mutableStateOf(false) }
@@ -187,7 +188,7 @@ private fun MainScreen(
     // The pager is the one source of truth: [tab] only remembers where it settled, for a restart. A
     // tap or a request scrolls the pager directly, never through [tab]: an effect keyed on [tab]
     // would fire mid-swipe and pull the page back against the finger.
-    val pager = rememberPagerState(initialPage = tab) { 3 }
+    val pager = rememberPagerState(initialPage = TabOrder.indexOf(tab)) { TabOrder.size }
     // New purchases (typed, said or imported) get Gemini's precise tag a moment after they appear.
     LaunchedEffect(data.operations.size) {
         kotlinx.coroutines.delay(2_000)
@@ -195,20 +196,20 @@ private fun MainScreen(
     }
     LaunchedEffect(pager) {
         snapshotFlow { pager.settledPage }.collect { settled ->
-            tab = settled
-            if (settled != TAB_ACCOUNTS) reconciling = false
+            tab = TabOrder[settled]
+            if (tab != Tab.ACCOUNTS) reconciling = false
         }
     }
     LaunchedEffect(tabRequests) {
         for (request in tabRequests) {
             page = null
-            reconciling = request == TAB_ACCOUNTS
-            pager.animateScrollToPage(request)
+            reconciling = request == Tab.ACCOUNTS
+            pager.animateScrollToPage(TabOrder.indexOf(request))
         }
     }
     // Back on another tab goes Home first; only Home's back leaves the app.
-    BackHandler(enabled = page == null && sheet == null && pager.currentPage != 0) {
-        scope.launch { pager.animateScrollToPage(0) }
+    BackHandler(enabled = page == null && sheet == null && TabOrder[pager.currentPage] != Tab.HOME) {
+        scope.launch { pager.animateScrollToPage(TabOrder.indexOf(Tab.HOME)) }
     }
 
     /**
@@ -259,7 +260,6 @@ private fun MainScreen(
         }
     }
 
-    val titles = listOf("Golda", tr("Счета", "Accounts"), tr("Аналитика", "Insights"))
 
     // One window: the tabs or a page, and over them the form pages, so the keyboard and the insets
     // behave the same everywhere.
@@ -440,11 +440,13 @@ private fun MainScreen(
                 // No bar across the screen: one floating toolbar, centred 16 dp above the gesture bar, with
                 // the tabs, "+" and the mic. The same on every tab, so nothing moves when switching.
                 floatingActionButton = {
-                    val tabs = listOf(
-                        ToolbarTab(R.drawable.ic_home, R.drawable.ic_home_fill, tr("Главная", "Home")),
-                        ToolbarTab(R.drawable.ic_wallet, R.drawable.ic_wallet_fill, titles[1]),
-                        ToolbarTab(R.drawable.ic_chart, R.drawable.ic_chart_fill, titles[2]),
-                    )
+                    val tabs = TabOrder.map {
+                        when (it) {
+                            Tab.HOME -> ToolbarTab(R.drawable.ic_home, R.drawable.ic_home_fill, tr("Главная", "Home"))
+                            Tab.ACCOUNTS -> ToolbarTab(R.drawable.ic_wallet, R.drawable.ic_wallet_fill, tr("Счета", "Accounts"))
+                            Tab.INSIGHTS -> ToolbarTab(R.drawable.ic_chart, R.drawable.ic_chart_fill, tr("Аналитика", "Insights"))
+                        }
+                    }
                     GoldaToolbar(
                         tabs = tabs,
                         // Follows the swipe, not only where it settles.
@@ -476,12 +478,12 @@ private fun MainScreen(
                     snapAnimationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 700f),
                 ),
             ) { index ->
-                    when (index) {
-                        0 -> HomeScreen(
+                    when (TabOrder[index]) {
+                        Tab.HOME -> HomeScreen(
                             data, padding, homeList, onSettings = { page = Page.Settings }, onPeriod = { periodOpen = true },
                             onPayment = { sheet = Sheet.Entry(EntryRequest(payment = it)) },
                         ) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
-                        1 -> AccountsScreen(
+                        Tab.ACCOUNTS -> AccountsScreen(
                             data, padding,
                             onOpen = { page = Page.AccountPage(it) },
                             onAdd = { sheet = Sheet.Acc(null) },
@@ -495,7 +497,7 @@ private fun MainScreen(
                             onSavePayment = { scope.launch { repo.saveObligation(it) } },
                             onDeletePayment = { id -> scope.launch { repo.deleteObligation(id) } },
                         )
-                        else -> AnalyticsScreen(data, padding, onEdit = { sheet = Sheet.Entry(EntryRequest(editing = it)) }) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
+                        Tab.INSIGHTS -> AnalyticsScreen(data, padding, onEdit = { sheet = Sheet.Entry(EntryRequest(editing = it)) }) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
                 }
                 // Rows scroll under the clock: a band of the page's colour, over the pager, keeps them from

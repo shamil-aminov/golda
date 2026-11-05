@@ -1,6 +1,6 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Offset
@@ -9,20 +9,12 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import java.time.format.DateTimeFormatter
 import sh.aminov.golda.domain.I18n
-import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.text
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.slideInVertically
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
@@ -56,7 +48,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -76,23 +67,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.layout.FirstBaseline
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.OperationFull
@@ -611,13 +598,12 @@ internal fun dayMonth(date: LocalDate): String =
 
 /**
  * The period as one wide bar with small corners: the days gone in a pale [color], the money gone over
- * them in [color] as far as the days and in [over] past them. Gliding to new values with a little give.
+ * them in [color] as far as the days and in [over] past them.
  */
 @Composable
 internal fun PeriodBar(time: Float, spent: Float, color: Color, over: Color) {
-    val spec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
-    val t by animateFloatAsState(time.coerceIn(0f, 1f), spec, label = "time")
-    val s by animateFloatAsState(spent.coerceIn(0f, 1f), spec, label = "spent")
+    val t = time.coerceIn(0f, 1f)
+    val s = spent.coerceIn(0f, 1f)
     val track = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Canvas(Modifier.fillMaxWidth().height(28.dp).clip(RoundedCornerShape(6.dp))) {

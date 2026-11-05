@@ -14,6 +14,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import sh.aminov.golda.EXTRA_TAB
+import sh.aminov.golda.Tab
 import sh.aminov.golda.GoldaApplication
 import sh.aminov.golda.MainActivity
 import sh.aminov.golda.R
@@ -34,14 +35,14 @@ fun cancelWishReminders(context: Context) {
 }
 
 /** Posts a notification that opens the app, when notifications are allowed. */
-fun notify(context: Context, channel: String, channelName: String, id: Int, title: String, text: String, tab: Int? = null) {
+fun notify(context: Context, channel: String, channelName: String, id: Int, title: String, text: String, tab: Tab? = null) {
     // The permission exists from Android 13; before, notifications are simply allowed.
     if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
     val manager = context.getSystemService(NotificationManager::class.java)
     manager.createNotificationChannel(NotificationChannel(channel, channelName, NotificationManager.IMPORTANCE_DEFAULT))
     val open = PendingIntent.getActivity(
         context, id,
-        Intent(context, MainActivity::class.java).putExtra(EXTRA_TAB, tab ?: -1).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        Intent(context, MainActivity::class.java).putExtra(EXTRA_TAB, tab?.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
     val notification = NotificationCompat.Builder(context, channel)
