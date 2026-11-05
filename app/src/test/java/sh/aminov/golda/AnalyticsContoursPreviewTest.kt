@@ -1,5 +1,21 @@
 package sh.aminov.golda
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import sh.aminov.golda.ui.actionColor
+import sh.aminov.golda.ui.dayLabel
+import sh.aminov.golda.ui.hang
+import sh.aminov.golda.ui.onActionColor
+import sh.aminov.golda.ui.onPickedColor
+import sh.aminov.golda.ui.pickedColor
+import sh.aminov.golda.ui.softShadow
+import sh.aminov.golda.ui.tileInk
+import sh.aminov.golda.ui.wholePercent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -218,7 +234,7 @@ private fun LazyListScope.categoryRows(c: Ctx, take: Int, extraFirst: Int = 1) {
             GroupRow(
                 i + extraFirst, shown.size + extraFirst, Modifier.padding(horizontal = Gap.m), onClick = {},
                 leading = { RowIcon(categoryIcon(cat?.key), colour) },
-                supporting = { Text("${spend.rubMinor * 100 / total} %", style = TextRole.caption) },
+                supporting = { Text(wholePercent(spend.rubMinor.toDouble() / total), style = TextRole.caption) },
                 trailing = { Text(c.data.base.whole(spend.rubMinor), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface) },
             ) { Text(cat?.label() ?: "Без категории", style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
@@ -365,4 +381,268 @@ private fun DaysPage(data: AppData) {
     }
 }
 
-@Suppress("unused") private val keep = Fmt to Buckets
+/**
+ * Round two, after the owner's notes: the period behind a calendar in the header, the three kinds of
+ * spending as a compact mosaic, the review moved three ways, and «По дням» one level down, against
+ * Insights as it is, in Golda light at «Просторно», into `docs/tasks/analytics-contours/r2-*`.
+ */
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h1400dp-xxhdpi")
+class AnalyticsRound2PreviewTest(private val name: String) {
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun cases() = listOf("now", "v1", "v2", "menu", "filter", "days", "p1", "p2", "p3").map { arrayOf<Any>(it) }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Scaffold(
+                    floatingActionButton = {
+                        when (name) {
+                            "days", "p3" -> {}
+                            "p1" -> FiveSlots()
+                            else -> Island()
+                        }
+                    },
+                    floatingActionButtonPosition = FabPosition.Center,
+                ) { padding ->
+                    when (name) {
+                        "now" -> AnalyticsScreen(data, padding) {}
+                        "v1" -> Round2(data, padding, strip = true, bars = true)
+                        "v2", "p1" -> Round2(data, padding, strip = false, bars = false)
+                        "menu" -> Box { Round2(data, padding, strip = false, bars = false); PeriodMenu() }
+                        "filter" -> Round2(data, padding, strip = false, bars = false, filter = Bucket.DAILY)
+                        "days" -> DaysContour(data)
+                        "p2" -> Round2(data, padding, strip = false, bars = false, reviewRow = true)
+                        else -> CategoriesWithReview(data)
+                    }
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/r2-$name.png")
+    }
+}
+
+/** The header with no period strip: the calendar on the caption's line, as Home's gear. */
+@Composable
+private fun Header2(c: Ctx) {
+    val scheme = MaterialTheme.colorScheme
+    val ink = scheme.onPrimaryFixed
+    HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
+        val words = TextRole.caption
+        val figures = TextRole.headerFigures
+        Row(Modifier.letters(words.fontSize)) {
+            Text(if (c.title.startsWith("последние ")) "За " + c.title.substringAfter(' ') else "Траты за ${c.title}", Modifier.weight(1f), style = words)
+            IconButton(onClick = {}, modifier = Modifier.hang()) { Icon(painterResource(R.drawable.ic_calendar), null, tint = scheme.onPrimaryFixedVariant) }
+        }
+        VSpace(HeaderSpace.figureCaption)
+        val figure = c.data.base.whole(c.report.spentRub)
+        BoxWithConstraints { HeroAmount(figure, ink, Modifier.letters(heroFigureSize(figure, maxWidth)), signColor = ink) }
+        VSpace(HeaderSpace.block)
+        Text("В среднем в день", Modifier.letters(words.fontSize), style = words)
+        VSpace(HeaderSpace.valueCaption)
+        Text("≈ " + c.data.base.approx(c.report.averagePerDayRub), Modifier.letters(figures.fontSize), style = figures, color = ink)
+    }
+}
+
+/** The dropdown behind the calendar, drawn in place: a real menu is a popup, which a shot of the root leaves out. */
+@Composable
+private fun PeriodMenu() {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+    Box(Modifier.fillMaxWidth().padding(top = 62.dp, end = 24.dp), contentAlignment = Alignment.TopEnd) {
+        Surface(Modifier.width(208.dp).softShadow(shape), shape = shape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(Modifier.padding(vertical = Gap.s)) {
+                listOf("Неделя" to false, "Месяц" to true, "Выбрать даты" to false).forEach { (label, on) ->
+                    Row(Modifier.fillMaxWidth().height(48.dp).padding(horizontal = Gap.m), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, Modifier.weight(1f), style = TextRole.rowName)
+                        if (on) Icon(painterResource(R.drawable.ic_check), null, Modifier.size(24.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private class Kind(val bucket: Bucket, val rub: Long, val colour: androidx.compose.ui.graphics.Color)
+
+/** One kind of spending: its name and sum inside, the picked one in the picked colour, as a filter. */
+@Composable
+private fun KindTile(k: Kind, on: Boolean, base: sh.aminov.golda.domain.Base, modifier: Modifier) {
+    val fill = if (on) pickedColor() else k.colour
+    val ink = if (on) onPickedColor() else tileInk(k.colour)
+    Box(modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(fill).padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
+        Column {
+            Text(bucketLabel(k.bucket), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, color = ink, maxLines = 1)
+            VSpace(Gap.s)
+            Text(base.whole(k.rub), Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = ink, maxLines = 1)
+        }
+    }
+}
+
+/**
+ * The three kinds as a mosaic, the biggest first. [strip]: one row 88 high, each at least 112 wide so its
+ * words fit, the width by share above that. Else a block 136 high: the biggest on the left by its share,
+ * the two others stacked by theirs, the smaller at least 56 high.
+ */
+@Composable
+private fun KindMosaic(report: Report, base: sh.aminov.golda.domain.Base, strip: Boolean, filter: Bucket?) {
+    val tones = LocalTones.current
+    val kinds = listOf(Bucket.DAILY to report.dailyRub, Bucket.REGULAR to report.regularRub, Bucket.BIG to report.bigRub)
+        .sortedByDescending { it.second }.mapIndexed { i, (b, rub) -> Kind(b, rub, leitmotifColor(i, tones)) }
+    val total = kinds.sumOf { it.rub }.coerceAtLeast(1).toFloat()
+    val gap = 4.dp
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
+        if (strip) {
+            val room = maxWidth - gap * 2
+            val least = 112.dp
+            val free = room - least * 3
+            Row(Modifier.height(88.dp), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                kinds.forEach { KindTile(it, it.bucket == filter, base, Modifier.width(least + free * (it.rub / total)).height(88.dp)) }
+            }
+        } else {
+            val high = 136.dp
+            val left = (maxWidth - gap) * (kinds[0].rub / total)
+            val rest = (kinds[1].rub + kinds[2].rub).coerceAtLeast(1).toFloat()
+            val low = maxOf((high - gap) * (kinds[2].rub / rest), 56.dp)
+            Row(Modifier.height(high), horizontalArrangement = Arrangement.spacedBy(gap)) {
+                KindTile(kinds[0], kinds[0].bucket == filter, base, Modifier.width(left).height(high))
+                Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                    KindTile(kinds[1], kinds[1].bucket == filter, base, Modifier.fillMaxWidth().height(high - gap - low))
+                    KindTile(kinds[2], kinds[2].bucket == filter, base, Modifier.fillMaxWidth().height(low))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Round2(data: AppData, padding: PaddingValues, strip: Boolean, bars: Boolean, filter: Bucket? = null, reviewRow: Boolean = false) {
+    val all = ctx(data)
+    val only = data.operations.filter { filter == null || (it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == filter) }
+    val c = Ctx(data, Analytics.report(only, data.accountById, data.categoryById, all.report.period, data.today, data.zone, data.rates), all.title)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
+        item { Header2(c) }
+        item { VSpace(ListSpace.cards); KindMosaic(all.report, data.base, strip, filter) }
+        item { VSpace(ListSpace.cards); CardTitle("Категории", Modifier.padding(horizontal = Gap.m)) { Chevron() } }
+        categoryRows(c, 4)
+        if (bars) {
+            item { VSpace(ListSpace.cards); BodyCard("По дням") { Bars(c) } }
+        } else {
+            item {
+                VSpace(ListSpace.cards)
+                val last = c.report.days.lastOrNull { it.second > 0 }
+                GroupRow(
+                    0, 1, Modifier.padding(horizontal = Gap.m), onClick = {},
+                    leading = { RowIcon(R.drawable.ic_chart) },
+                    supporting = { Text(last?.let { dayLabel(it.first, data.today) + " " + data.base.whole(it.second) }.orEmpty(), style = TextRole.caption) },
+                    trailing = { Chevron() }, trailingOnTitle = false,
+                ) { Text("По дням", style = TextRole.rowName) }
+            }
+        }
+        if (reviewRow) {
+            item {
+                VSpace(ListSpace.cards)
+                GroupRow(
+                    0, 1, Modifier.padding(horizontal = Gap.m), onClick = {},
+                    leading = { RowIcon(R.drawable.ic_send, iceColor()) },
+                    trailing = { Chevron() }, trailingOnTitle = false,
+                ) { Text("Разбор", style = TextRole.rowName) }
+            }
+        }
+        // Income and exchange are not spending: no filter narrows them, as now.
+        incomeRows(all)
+    }
+}
+
+/** The island with a fifth slot for the review: the same width, every slot narrower. */
+@Composable
+private fun FiveSlots() {
+    val scheme = MaterialTheme.colorScheme
+    val slot = (72.dp * 4) / 5
+    Row(horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
+        Surface(Modifier.height(60.dp).softShadow(CircleShape), shape = CircleShape, color = scheme.surfaceContainerHigh, contentColor = scheme.onSurfaceVariant) {
+            Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf(R.drawable.ic_home, R.drawable.ic_wallet, R.drawable.ic_chart_fill).forEachIndexed { i, icon ->
+                    Box(Modifier.size(slot, 48.dp).background(if (i == 2) pickedColor() else androidx.compose.ui.graphics.Color.Transparent, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(painterResource(icon), null, Modifier.size(26.dp), tint = if (i == 2) onPickedColor() else scheme.onSurfaceVariant)
+                    }
+                }
+                VerticalDivider(Modifier.height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
+                Box(Modifier.size(slot, 48.dp), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_add), null, Modifier.size(26.dp)) }
+                Box(Modifier.size(slot, 48.dp), contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_send), null, Modifier.size(26.dp), tint = onIceColor()) }
+            }
+        }
+        Surface(Modifier.size(60.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(CardCorner), color = actionColor(), contentColor = onActionColor()) {
+            Box(contentAlignment = Alignment.Center) { Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(32.dp)) }
+        }
+    }
+}
+
+/** «По дням» one level down: the bars, the picked day's purchases under them, then the dearest days. */
+@Composable
+private fun DaysContour(data: AppData) {
+    val c = ctx(data)
+    val picked = c.report.days.last { it.second > 0 }.first
+    val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == picked }
+    Second("По дням") {
+        item {
+            Surface(Modifier.padding(horizontal = Gap.s).fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(CardCorner), color = tileColor()) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = ListSpace.edge)) { Bars(c) }
+            }
+        }
+        item { VSpace(ListSpace.cards); CardTitle(dayLabel(picked, data.today), Modifier.padding(horizontal = Gap.m)) }
+        ops.forEachIndexed { i, op -> item { OperationRow(data, op, null, {}, i + 1, ops.size + 1, Modifier.padding(horizontal = Gap.m)) } }
+        val dear = c.report.days.filter { it.second > 0 }.sortedByDescending { it.second }.take(3)
+        item { VSpace(ListSpace.cards); CardTitle("Дороже всего", Modifier.padding(horizontal = Gap.m), icons = false) }
+        dear.forEachIndexed { i, (d, rub) ->
+            item {
+                GroupRow(i + 1, dear.size + 1, Modifier.padding(horizontal = Gap.m), onClick = {}, trailing = { Text(data.base.whole(rub), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface) }, trailingOnTitle = false) {
+                    Text(dayLabel(d, data.today), style = TextRole.rowName)
+                }
+            }
+        }
+    }
+}
+
+/** The review as an action one level down: «Разбор» up top on «Категории». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoriesWithReview(data: AppData) {
+    val c = ctx(data)
+    val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Scaffold(
+        Modifier.nestedScroll(bar.nestedScrollConnection),
+        topBar = {
+            CollapsingHeader("Категории", {}, bar) {
+                Button(
+                    onClick = {}, colors = ButtonDefaults.buttonColors(containerColor = iceColor(), contentColor = onIceColor()),
+                    contentPadding = PaddingValues(horizontal = Gap.m), modifier = Modifier.padding(end = Gap.s).height(40.dp),
+                ) { Text("Разбор", style = MaterialTheme.typography.labelLarge) }
+            }
+        },
+    ) { padding ->
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 40.dp)) {
+            item {
+                val tones = LocalTones.current
+                val items = c.report.categories.map { s ->
+                    val cat = s.categoryId?.let { data.categoryById[it] }
+                    MosaicItem(cat?.label() ?: "Без категории", data.base.whole(s.rubMinor), s.rubMinor, cat?.key?.let { categoryColor(it, tones) } ?: leitmotifColor(null, tones), ids = listOf(s.categoryId))
+                }
+                Mosaic(items, Modifier.padding(horizontal = Gap.s))
+            }
+            item { VSpace(ListSpace.cards); CardTitle("Все категории", Modifier.padding(horizontal = Gap.m)) }
+            categoryRows(c, c.report.categories.size)
+        }
+    }
+}
