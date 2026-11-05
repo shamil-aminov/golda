@@ -85,10 +85,6 @@ data class Draft(
 )
 
 object Ledger {
-    /** When the accounts were last all checked: the oldest check, or null while any has never been. */
-    fun oldestCheck(accounts: List<Account>, checkedAt: Map<Long, Long>): Long? =
-        accounts.map { checkedAt[it.id] ?: return null }.minOrNull()
-
     fun states(accounts: List<Account>, postings: List<Posting>): Map<Long, AccountState> {
         val byAccount = postings.groupBy { it.accountId }
         return accounts.associate { account ->

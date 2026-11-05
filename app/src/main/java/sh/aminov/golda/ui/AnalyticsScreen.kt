@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.CircleShape
@@ -236,17 +238,16 @@ fun AnalyticsScreen(
                 shape = RoundedCornerShape(CardCorner), color = tileColor(),
             ) {
                 Column(Modifier.padding(horizontal = Space.card, vertical = ListSpace.edge)) {
-                    val tint = MaterialTheme.colorScheme.onSurfaceVariant
                     val ink = MaterialTheme.colorScheme.onSurface
                     val figure = data.base.whole(if (day == null) shown.spentRub else bars.firstOrNull { it.first == day }?.second ?: 0L)
                     // A kind is never more than the period: sized by the whole, a pick leaves the figure's size as it is.
                     val sizedFor = data.base.whole(report.spentRub)
-                    Row {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         KindTitle(pick, Modifier.weight(1f), TextRole.groupTitle, onCard = true)
-                        PeriodMark(pick, today, tint, Modifier.hang())
+                        Spacer(Modifier.width(Gap.s))
+                        // Centred on the title's letters, taking none of their height.
+                        Box(Modifier.height(0.dp).wrapContentHeight(unbounded = true)) { PeriodPill(pick, today, periodWords(pick, span, bar, today)) }
                     }
-                    VSpace(HeaderSpace.valueCaption)
-                    Text(span?.let { barCaption(it.from, it.to, bar) } ?: periodLine(period, today), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     VSpace(HeaderSpace.figureCaption)
                     BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(sizedFor, maxWidth)), signColor = ink, sizedFor = sizedFor) }
                     VSpace(ChartSpace.figureToBars)
@@ -331,7 +332,7 @@ fun InsightsDetails(data: AppData, pick: InsightsPick, onBack: () -> Unit, onEdi
                 val expanded = style.fontSize.value > TextRole.groupTitle.fontSize.value
                 KindTitle(pick, Modifier.padding(start = Gap.s), style, onCard = false, enabled = expanded == (fold.state.collapsedFraction < 0.5f))
             }, onBack, fold) {
-                PeriodMark(pick, today, MaterialTheme.colorScheme.onSurfaceVariant, Modifier)
+                Box(Modifier.padding(end = Gap.m)) { PeriodPill(pick, today, periodWords(pick, span, bar, today)) }
             }
         },
     ) { padding ->
@@ -357,7 +358,7 @@ private fun inPeriod(data: AppData, period: Period, filter: Bucket?, also: (Oper
             (filter == null || Buckets.of(full.op, data.categoryById) == filter) && also(full)
     }.sortedByDescending { it.op.timestamp }
 
-/** The caption names the quantity, like Можно сегодня: "Траты за октябрь", or "За 30 дней" for the last days. */
+/** The caption names the quantity: "Траты за октябрь", or "За 30 дней" for the last days. */
 private fun periodCaption(period: Period, today: LocalDate): String {
     val span = ReviewPrompt.title(period, today)
     return when {
@@ -420,26 +421,45 @@ private fun KindTitle(pick: InsightsPick, modifier: Modifier, style: androidx.co
 
 private fun kindName(kind: Bucket?): String = kind?.let(::bucketLabel) ?: tr("Все траты", "All spending")
 
-/** The corner's mark: the calendar, or while a bar is picked, in its place, the cross that lets the bar go. */
-@Composable
-private fun PeriodMark(pick: InsightsPick, today: LocalDate, tint: Color, modifier: Modifier) {
-    if (pick.bar == null) {
-        PeriodMenu(pick, today, tint, modifier)
-    } else {
-        IconButton(onClick = pick::letBarGo, modifier = modifier) {
-            Icon(painterResource(R.drawable.ic_close), tr("Снять выбор дня", "Clear the day"), tint = tint)
-        }
-    }
+/** What the corner's pill says: the period, or the picked bar. */
+private fun periodWords(pick: InsightsPick, span: Period?, bar: Analytics.Bar, today: LocalDate): String = when {
+    span == null -> ReviewPrompt.short(pick.period(today), today)
+    bar == Analytics.Bar.DAY -> ReviewPrompt.day(span.from)
+    else -> ReviewPrompt.dates(span, today)
 }
 
-/** The calendar and what it opens: the two usual periods and a range of your own, the current one checked. */
+/** The widest the pill gets, so the kind beside it keeps its word on a narrow phone. */
+private val PillMost = 150.dp
+
+/**
+ * The period in a filled pill, 32 high, 48 to tap. A tap opens its menu: the two usual periods and a
+ * range of your own, the current one checked. While a bar is picked it says the bar in the picked
+ * colour, with a cross, and a tap lets the bar go.
+ */
 @Composable
-private fun PeriodMenu(pick: InsightsPick, today: LocalDate, tint: Color, modifier: Modifier) {
+private fun PeriodPill(pick: InsightsPick, today: LocalDate, words: String) {
     var open by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
-    Box(modifier) {
-        IconButton(onClick = { open = true }) {
-            Icon(painterResource(R.drawable.ic_calendar), tr("Период", "Period"), tint = tint)
+    val picked = pick.bar != null
+    val ink = if (picked) onPickedColor() else MaterialTheme.colorScheme.onSurface
+    val press = remember { MutableInteractionSource() }
+    Box {
+        Box(
+            Modifier.height(48.dp).clickable(press, indication = null) { if (picked) pick.letBarGo() else open = true }
+                .semantics { contentDescription = if (picked) tr("Снять выбор дня", "Clear the day") else tr("Период", "Period") },
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                Modifier.height(32.dp).widthIn(max = PillMost).clip(CircleShape).background(if (picked) pickedColor() else unpickedColor()).indication(press, ripple())
+                    .padding(start = 12.dp, end = if (picked) 8.dp else 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(words, Modifier.weight(1f, fill = false), style = TextRole.caption, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (picked) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(painterResource(R.drawable.ic_close), null, Modifier.size(18.dp), tint = ink)
+                }
+            }
         }
         DropdownMenu(open, onDismissRequest = { open = false }, shape = RoundedCornerShape(16.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
             listOf(PeriodKind.WEEK to tr("Неделя", "Week"), PeriodKind.MONTH to tr("Месяц", "Month"), PeriodKind.CUSTOM to tr("Выбрать даты", "Pick dates")).forEach { (option, label) ->
@@ -536,12 +556,7 @@ private fun LazyListScope.reviewRows(data: AppData, reviews: List<Review>, onOpe
 
 /** "24 октября", with the year when it was another. */
 private fun writtenOn(review: Review, data: AppData): String {
-    return dayOf(review.createdAt, data)
-}
-
-/** The day of an instant, with the year when it was another. */
-internal fun dayOf(millis: Long, data: AppData): String {
-    val day = Instant.ofEpochMilli(millis).atZone(data.zone).toLocalDate()
+    val day = Instant.ofEpochMilli(review.createdAt).atZone(data.zone).toLocalDate()
     return shortDate(day) + if (day.year == data.today.year) "" else " " + day.year
 }
 

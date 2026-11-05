@@ -1065,7 +1065,7 @@ fun HeroAmountField(
         )
     }
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val base = bigFigure((if (maxSp > 0f) maxSp else ENTRY_FIGURE_SP).sp)
+        val base = bigFigure((if (maxSp > 0f) maxSp else BIG_FIGURE_SP).sp)
         val chars = (if (text.isEmpty()) placeholder.length else text.length + text.length / 4).coerceAtLeast(1) + 1 + symbol.length
         val fit = with(LocalDensity.current) { (maxWidth * 0.9f / (chars * 0.66f)).toSp() }
         val big = if (fit < base.fontSize) base.copy(fontSize = fit, lineHeight = fit * 1.15f) else base.copy(lineHeight = base.fontSize * 1.15f)
@@ -1380,11 +1380,10 @@ fun Modifier.letters(size: TextUnit, top: Boolean = true): Modifier = layout { m
 }
 
 /**
- * The type steps go by the golden ratio from 14 sp: 14, 22, 36, 58, 94. A tab's figure is the top
- * step, 94, smaller only when it would not fit; the entry field's is one step down.
+ * The type steps go by the golden ratio from 14 sp: 14, 22, 36, 58. The big figure is 58 on every
+ * screen, the size a seven-digit sum with its sign fits a phone at; smaller only when it would not fit.
  */
-const val BIG_FIGURE_SP = 94f
-const val ENTRY_FIGURE_SP = 58f
+const val BIG_FIGURE_SP = 58f
 
 /**
  * A group with an action, headed inside its own card: the title 22 semibold on the rows' text line, the
@@ -1460,7 +1459,7 @@ object Tags {
     /** Home's line of the day's money in the other currencies, under the big number. */
     const val HOME_OTHERS = "home-others"
 
-    /** Home's big number, "Можно сегодня". */
+    /** Home's big number, "На сегодня". */
     const val HOME_BIG = "home-big"
 
     /** Accounts' big number, "Всего". */

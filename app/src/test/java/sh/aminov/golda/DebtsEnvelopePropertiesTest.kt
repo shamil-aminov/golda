@@ -23,7 +23,8 @@ import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.Envelope
 import sh.aminov.golda.domain.Envelopes
-import sh.aminov.golda.domain.Ledger
+import sh.aminov.golda.domain.Fmt
+import sh.aminov.golda.domain.Standing
 import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
@@ -376,21 +377,42 @@ class DebtsEnvelopePropertiesTest {
     }
 
     @Test
-    fun theOldestCheckIsNoLaterThanAnyAndNeedsThemAll() = prop {
-        checkAll(Arb.list(Arb.long(1L..1_000_000L), 1..6)) { days ->
-            val accounts = days.indices.map { debt(it + 1L, null) }
-            val checked = accounts.zip(days).associate { (a, at) -> a.id to at }
-            assertEquals(days.min(), Ledger.oldestCheck(accounts, checked))
-            assertNull(Ledger.oldestCheck(accounts, checked - accounts.last().id))
-        }
-    }
-
-    @Test
     fun theMarginIsTheOtherSideOfTheOverage() = prop {
         checkAll(Arb.long(0L..1_000_000_000L), Arb.long(0L..1_000_000_000L), Arb.long(1L..60L)) { balance, spent, left ->
             val e = Envelope(debt(1, null), day, day.plusDays(60), balance, spent, 0, left, 0, 0, null, null)
             assertEquals(e.normMinor - e.spentMinor, e.marginMinor)
             assertEquals(-e.overNormMinor, e.marginMinor)
         }
+    }
+
+    private fun standing(balance: Long, spent: Long) =
+        Envelope(debt(1, null), day, day.plusDays(9), balance, spent, 0, 5, 0, 0, null, null)
+
+    @Test
+    fun theStandingFollowsTheMarginByTheUnitsShown() = prop {
+        checkAll(Arb.long(1L..1_000_000_000L), Arb.long(0L..1_000_000_000L)) { balance, spent ->
+            val e = standing(balance, spent)
+            val shown = Fmt.whole(kotlin.math.abs(e.marginMinor), e.currency) != "0"
+            assertEquals(
+                when {
+                    !shown -> Standing.EVEN
+                    e.marginMinor < 0 -> Standing.OVER
+                    else -> Standing.MARGIN
+                },
+                e.standing,
+            )
+        }
+    }
+
+    @Test
+    fun noMoneyLeftComesFirstAndHalfAUnitIsEven() {
+        assertEquals(Standing.BROKE, standing(0, 1_000).standing)
+        assertEquals(Standing.BROKE, standing(-1, 0).standing)
+        // Six days of ten gone, 600 of 1 000 spent: to the kopeck on the norm.
+        assertEquals(Standing.EVEN, standing(40_000, 60_000).standing)
+        // A quarter of a unit under it still reads "0".
+        assertEquals(Standing.EVEN, standing(40_040, 60_000).standing)
+        assertEquals(Standing.MARGIN, standing(60_000, 40_000).standing)
+        assertEquals(Standing.OVER, standing(20_000, 80_000).standing)
     }
 }

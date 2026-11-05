@@ -22,7 +22,6 @@ import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.I18n
-import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.ui.AccountsScreen
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.AppData
@@ -54,7 +53,7 @@ class HeaderGridTest {
     private fun tagged(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
 
     @Test
-    fun theFigureStandsOnOneLineOnAllThreeTabsAndTheGearWhereTheCalendarIs() {
+    fun theFigureStandsOnOneLineOnAllThreeTabs() {
         val tab = androidx.compose.runtime.mutableStateOf(0)
         val data = ScreenshotTest().demo()
         compose.setContent {
@@ -66,11 +65,9 @@ class HeaderGridTest {
                 }
             }
         }
-        val gear = bounds("Настройки")
         val home = tagged(Tags.HOME_BIG)
         tab.value = 1
         compose.waitForIdle()
-        assertEquals(gear, bounds("Период"))
         assertEquals(home.top, tagged(Tags.INSIGHTS_TOTAL).top, 1f)
         assertEquals(home.left, tagged(Tags.INSIGHTS_TOTAL).left, 1f)
         tab.value = 2
@@ -80,12 +77,12 @@ class HeaderGridTest {
     }
 
     @Test
-    fun theStatusIsTheTitleItsLineChangesThePeriodAndTheCaptionNamesTheFigure() {
+    fun theLineUnderTheBarSaysHowItGoesAndChangesThePeriod() {
         home()
-        compose.onAllNodesWithText("Сверх нормы", substring = true, useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Можно сегодня", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("План", substring = true, useUnmergedTree = true).assertCountEquals(1)
-        assertEquals(true, tagged(Tags.HOME_RUNWAY).bottom < tagged(Tags.HOME_BIG).top)
+        compose.onAllNodesWithText("На сегодня", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Перерасход", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("план", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        assertEquals(true, tagged(Tags.HOME_RUNWAY).top > tagged(Tags.HOME_BIG).bottom)
         compose.onNodeWithTag(Tags.HOME_PERIOD).performClick()
         assertEquals(1, periods)
     }
@@ -95,7 +92,7 @@ class HeaderGridTest {
         val demo = ScreenshotTest().demo()
         home(AppData(demo.settings, emptyList(), emptyList(), demo.categories, emptyList(), today = demo.today))
         compose.onNodeWithText("Период не задан", useUnmergedTree = true).assertExists()
-        compose.onAllNodesWithText("Можно сегодня", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("На сегодня", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithTag(Tags.HOME_BIG, useUnmergedTree = true).assertCountEquals(0)
         compose.onAllNodesWithTag(Tags.HOME_PERIOD).assertCountEquals(0)
     }
@@ -104,39 +101,23 @@ class HeaderGridTest {
         GoldaTheme("golda", "LIGHT", "ROOMY") { AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> }) }
     }
 
-    private fun copy(demo: AppData, accounts: List<Account> = demo.accounts, settings: Settings = demo.settings) =
-        AppData(settings, accounts, demo.operations, demo.categories, emptyList(), today = demo.today)
+    private fun copy(demo: AppData, accounts: List<Account> = demo.accounts) =
+        AppData(demo.settings, accounts, demo.operations, demo.categories, emptyList(), today = demo.today)
 
     private fun count(words: String, times: Int) =
         compose.onAllNodesWithText(words, substring = true, useUnmergedTree = true).assertCountEquals(times)
 
     @Test
-    fun accountsOpenWithTheMoneyThereTheCheckAndTheOtherCurrenciesUnderTheFigure() {
+    fun accountsOpenWithTheMoneyThereAndTheOtherCurrenciesUnderTheFigure() {
         val data = ScreenshotTest().demo()
         accounts(data)
         count("На счетах", 1)
-        count("Не сверено", 1)
+        count("Сверено", 0)
         count("Проценты по долгам", 1)
         count("Долги", 0)
         val others = data.others(Debts.heldRub(data.states.values), data.base.code)
         val under = compose.onAllNodesWithText(others, useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
         assertEquals(true, under.top > tagged(Tags.ACCOUNTS_TOTAL).bottom)
-    }
-
-    @Test
-    fun allAccountsCheckedGiveTheOldestDay() {
-        val demo = ScreenshotTest().demo()
-        val day = demo.today.minusDays(21).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
-        val all = demo.accounts.associate { it.id to day + 86_400_000 } + (demo.accounts.first().id to day)
-        accounts(copy(demo, settings = demo.settings.copy(reconciledAt = all)))
-        count("Сверено 3 октября", 1)
-    }
-
-    @Test
-    fun oneAccountNeverCheckedMeansNotChecked() {
-        val demo = ScreenshotTest().demo()
-        accounts(copy(demo, settings = demo.settings.copy(reconciledAt = demo.accounts.drop(1).associate { it.id to 0L })))
-        count("Не сверено", 1)
     }
 
     @Test

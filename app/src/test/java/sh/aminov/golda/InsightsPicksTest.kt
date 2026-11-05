@@ -161,6 +161,24 @@ class InsightsPicksTest {
     fun noDaysNoBars() = assertTrue(Analytics.bars(emptyList()).isEmpty())
 
     @Test
+    fun aPeriodAsShortAsAButton() {
+        I18n.russian = true
+        val today = LocalDate.of(2026, 10, 24)
+        fun short(from: LocalDate, to: LocalDate) = ReviewPrompt.short(Period(from, to), today)
+        assertEquals("7 дней", short(today.minusDays(6), today))
+        assertEquals("Сентябрь", short(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))
+        assertEquals("Сентябрь 2025", short(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 30)))
+        assertEquals("5–12 окт", short(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 12)))
+        assertEquals("12 сен – 3 окт", short(LocalDate.of(2026, 9, 12), LocalDate.of(2026, 10, 3)))
+        assertEquals("12 сен – 3 окт 2025", short(LocalDate.of(2025, 9, 12), LocalDate.of(2025, 10, 3)))
+        assertEquals("2021–2025", short(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)))
+        assertEquals("2025", short(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31)))
+        assertEquals("5 окт", short(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 5)))
+        assertEquals("19–24 окт", ReviewPrompt.dates(Period(today.minusDays(5), today), today))
+        assertEquals("Сб, 24 окт", ReviewPrompt.day(today))
+    }
+
+    @Test
     fun aReviewSaysWhatItLookedAt() {
         I18n.russian = true
         val day = LocalDate.of(2026, 9, 1)
