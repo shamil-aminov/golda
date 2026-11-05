@@ -1412,8 +1412,9 @@ const val ENTRY_FIGURE_SP = 58f
 @Composable
 fun GroupHeader(title: String, description: String, onAdd: () -> Unit, modifier: Modifier = Modifier, alone: Boolean = false, icons: Boolean = true) {
     val plus: @Composable () -> Unit = {
-        FilledTonalIconButton(onClick = onAdd, modifier = Modifier.size(32.dp)) {
-            Icon(painterResource(R.drawable.ic_add), description, Modifier.size(20.dp))
+        // Bare, like every action on a card or a header; its glyph's right edge on the amounts'.
+        IconButton(onClick = onAdd, modifier = Modifier.offset(x = 8.dp)) {
+            Icon(painterResource(R.drawable.ic_add), description, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     CardTitle(title, modifier, alone, icons = icons, trailing = plus)
