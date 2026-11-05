@@ -86,6 +86,27 @@ object Analytics {
         Bar.YEAR -> start.withDayOfYear(start.lengthOfYear())
     }.let { if (it.isAfter(last)) last else it }
 
+    /**
+     * How many of a bar's categories, biggest first, keep their own colour: all of three or fewer,
+     * else the two biggest, the rest going into one quiet layer. Never more than three layers.
+     */
+    fun coloured(categories: Int): Int = if (categories <= 3) categories else 2
+
+    /**
+     * Each layer's height in a bar [height] tall, by its share, none under [least] so a thin one still
+     * shows; what those take comes off the thicker ones. No room for that: plain shares.
+     */
+    fun layerHeights(amounts: List<Long>, height: Float, least: Float): List<Float> {
+        val total = amounts.sum()
+        if (total <= 0) return amounts.map { 0f }
+        val shares = amounts.map { height * it / total }
+        if (least * amounts.size > height) return shares
+        val raised = shares.map { maxOf(it, least) }
+        val over = raised.sum() - height
+        val spare = raised.sumOf { (it - least).toDouble() }.toFloat()
+        return if (over <= 0f || spare <= 0f) raised else raised.map { it - (it - least) / spare * over }
+    }
+
     /** Days summed into bars of the unit [barFor] gives. */
     fun bars(days: List<Pair<LocalDate, Long>>): List<Pair<LocalDate, Long>> {
         val first = days.firstOrNull()?.first ?: return emptyList()

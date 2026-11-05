@@ -231,6 +231,12 @@ fun tileInk(fill: Color): Color {
     return if (contrast(Color.Black, fill) >= contrast(Color.White, fill)) Color.Black else Color.White
 }
 
+/** A tile's second ink: nearer its fill than [tileInk], as quiet as still reads (4.5:1, a little over for the rounding). */
+fun tileMutedInk(fill: Color): Color {
+    val ink = tileInk(fill)
+    return listOf(0.6f, 0.7f, 0.8f, 0.9f).map { lerp(fill, ink, it) }.firstOrNull { contrast(it, fill) >= 4.7 } ?: ink
+}
+
 /** WCAG's contrast ratio of two colours. */
 fun contrast(a: Color, b: Color): Double {
     val (hi, lo) = listOf(a.luminance(), b.luminance()).sortedDescending()

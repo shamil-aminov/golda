@@ -21,4 +21,19 @@ object KindBlock {
         val rest = (middle + small).coerceAtLeast(1)
         return KindSplit(left, (tall * small / rest).coerceIn(minOf(leastHeight, tall / 2), tall / 2))
     }
+
+    /** How far apart, in points of the whole, the biggest and the smallest may be and still read as equal. */
+    const val EQUAL_POINTS = 4
+
+    /**
+     * Three columns' widths when the shares read as equal, for a block would dress them as a big one
+     * and two small; each by its share, so the area stays exact. Null otherwise, or when the smallest
+     * would be narrower than [leastWidth]: then it is the block's.
+     */
+    fun columns(big: Long, middle: Long, small: Long, width: Float, gap: Float, leastWidth: Float): List<Float>? {
+        val total = big + middle + small
+        if (total <= 0 || (big - small) * 100 > total * EQUAL_POINTS) return null
+        val room = width - gap * 2
+        return listOf(big, middle, small).map { room * it / total }.takeIf { it.last() >= leastWidth }
+    }
 }

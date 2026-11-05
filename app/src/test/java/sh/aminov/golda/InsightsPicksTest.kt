@@ -1,7 +1,9 @@
 package sh.aminov.golda
 
+import androidx.compose.ui.graphics.Color
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.int
+import io.kotest.property.arbitrary.list
 import io.kotest.property.arbitrary.long
 import io.kotest.property.checkAll
 import org.junit.Assert.assertEquals
@@ -12,6 +14,8 @@ import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.KindBlock
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.PeriodKind
+import sh.aminov.golda.ui.contrast
+import sh.aminov.golda.ui.tileMutedInk
 import java.time.LocalDate
 
 /** The rules of Insights' picks: a second tap lets go, the kinds fit their block. */
@@ -126,6 +130,64 @@ class InsightsPicksTest {
         // Fourteen calendar months, and one over.
         assertEquals(Analytics.Bar.MONTH, Analytics.barFor(LocalDate.of(2025, 1, 31), LocalDate.of(2026, 2, 1)))
         assertEquals(Analytics.Bar.YEAR, Analytics.barFor(LocalDate.of(2025, 1, 31), LocalDate.of(2026, 3, 1)))
+    }
+
+    @Test
+    fun aBarHoldsThreeLayersAtMost() {
+        assertEquals(listOf(0, 1, 2, 3, 2, 2, 2), (0..6).map { Analytics.coloured(it) })
+    }
+
+    @Test
+    fun layersFillTheirBarAndNoneVanishes() = prop {
+        checkAll(Arb.list(Arb.long(1L..10_000_000L), 1..3), Arb.int(12..96)) { amounts, height ->
+            val layers = Analytics.layerHeights(amounts, height.toFloat(), 4f)
+            assertEquals(height.toFloat(), layers.sum(), 0.01f)
+            assertTrue("$layers", layers.all { it >= 4f - 0.01f })
+        }
+    }
+
+    @Test
+    fun layersGoByShareWhereTheyCan() {
+        assertEquals(listOf(60f, 30f, 10f), Analytics.layerHeights(listOf(600, 300, 100), 100f, 4f))
+        // Too low for three of 4: plain shares.
+        assertEquals(listOf(5f, 3f, 2f), Analytics.layerHeights(listOf(500, 300, 200), 10f, 4f))
+        assertEquals(listOf(0f, 0f), Analytics.layerHeights(listOf(0, 0), 10f, 4f))
+        // The thin one's 4 comes off the two others by what they have to spare.
+        val layers = Analytics.layerHeights(listOf(899, 100, 1), 100f, 4f)
+        assertEquals(4f, layers[2], 0.01f)
+        assertEquals(100f, layers.sum(), 0.01f)
+        assertTrue(layers[0] < 89.9f && layers[1] < 10f)
+    }
+
+    @Test
+    fun columnsOnlyForSharesThatReadAsEqual() {
+        fun cols(a: Long, b: Long, c: Long, width: Float = 395f) = KindBlock.columns(a, b, c, width, 4f, 116f)
+        assertEquals(listOf(129f, 129f, 129f), cols(100, 100, 100))
+        assertEquals(listOf(139.32f, 123.84f, 123.84f), cols(36, 32, 32)!!.map { Math.round(it * 100) / 100f })
+        assertNull(cols(36, 33, 31))
+        assertNull(cols(40, 35, 25))
+        assertNull(cols(0, 0, 0))
+        // The words would not fit: the block's.
+        assertNull(cols(100, 100, 100, 304f))
+    }
+
+    @Test
+    fun columnsShareOutTheirRoom() = prop {
+        checkAll(Arb.long(1L..1_000_000L), Arb.int(0..4), Arb.int(0..4)) { base, a, b ->
+            val big = base * 100 + base * a
+            val small = base * 100
+            KindBlock.columns(big, small + base * minOf(a, b), small, 500f, 4f, 10f)?.let {
+                assertEquals(492f, it.sum(), 0.1f)
+            }
+        }
+    }
+
+    @Test
+    fun aTilesSecondInkStaysReadable() = prop {
+        checkAll(Arb.int(0..255), Arb.int(0..255), Arb.int(0..255)) { r, g, b ->
+            val fill = Color(r, g, b)
+            assertTrue("$r $g $b", contrast(tileMutedInk(fill), fill) >= 4.5)
+        }
     }
 
     @Test

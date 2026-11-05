@@ -72,7 +72,9 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -102,7 +104,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import kotlin.math.roundToInt
 
 /**
@@ -312,9 +313,16 @@ private val KindRank = mapOf(Bucket.REGULAR to 0, Bucket.DAILY to 1, Bucket.BIG 
 /** How far a kind steps back towards the page while another is picked. */
 private const val QUIET = 0.62f
 
+/** The right column's least width: a five-figure sum and its share side by side in a low tile. */
+private const val KIND_COLUMN = 144f
+
+/** A column's least width: the longest name and a sum in the millions. */
+private const val KIND_LEAST = 116f
+
 /**
- * The three kinds as a block 136 high, the area their share: the biggest on the left, the two others
- * stacked ([KindBlock]). A tile is the filter of all under it; picked, it keeps its colour and the others step back.
+ * The three kinds, 136 high, the area their share: the biggest on the left, the two others stacked,
+ * or three columns when the shares read as equal ([KindBlock]). A tile is the filter of all under it;
+ * picked, it keeps its colour and the others step back.
  */
 @Composable
 private fun KindMosaic(regular: Long, daily: Long, big: Long, base: Base, filter: Bucket?, onPick: (Bucket) -> Unit) {
@@ -324,26 +332,38 @@ private fun KindMosaic(regular: Long, daily: Long, big: Long, base: Base, filter
     // Room for two lines, grown with the font scale.
     val high = 136.dp * density.fontScale
     val tile: @Composable (Pair<Bucket, Long>, Modifier) -> Unit = { (bucket, rub), modifier ->
-        KindTile(bucket, base.whole(rub), rub == 0L, filter == bucket, filter != null && filter != bucket, modifier) { onPick(bucket) }
+        val share = if (rub == 0L) null else wholePercent(rub.toDouble() / (regular + daily + big))
+        KindTile(bucket, base.whole(rub), share, filter == bucket, filter != null && filter != bucket, modifier) { onPick(bucket) }
     }
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
-        val split = KindBlock.split(kinds[0].second, kinds[1].second, kinds[2].second, maxWidth.value, high.value, gap.value, 128f * density.fontScale, 56f * density.fontScale)
+        val columns = KindBlock.columns(kinds[0].second, kinds[1].second, kinds[2].second, maxWidth.value, gap.value, KIND_LEAST * density.fontScale)
+        val split = KindBlock.split(kinds[0].second, kinds[1].second, kinds[2].second, maxWidth.value, high.value, gap.value, KIND_COLUMN * density.fontScale, 56f * density.fontScale)
         Row(Modifier.height(high), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            tile(kinds[0], Modifier.width(split.left.dp).height(high))
-            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-                tile(kinds[1], Modifier.fillMaxWidth().height(high - gap - split.low.dp))
-                tile(kinds[2], Modifier.fillMaxWidth().height(split.low.dp))
+            if (columns != null) {
+                kinds.forEachIndexed { i, kind -> tile(kind, Modifier.width(columns[i].dp).height(high)) }
+            } else {
+                tile(kinds[0], Modifier.width(split.left.dp).height(high))
+                Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                    tile(kinds[1], Modifier.fillMaxWidth().height(high - gap - split.low.dp))
+                    tile(kinds[2], Modifier.fillMaxWidth().height(split.low.dp))
+                }
             }
         }
     }
 }
 
+/** Under this a tile's share stands level with its sum, and has to clear it sideways. */
+private val KindLevel = 68.dp
+
 /**
- * One kind: its name and sum on its colour, or on that colour stepped back when another is picked.
- * With nothing in it ([empty]) it has no colour to show: the neutral soft, still a tile to tap, or a pick could not be let go.
+ * One kind: its name and sum on its colour in the top left, its [share] quietly in the bottom right,
+ * or on that colour stepped back when another is picked. A share that would touch the sum gives way.
+ * With nothing in it ([share] null) it has no colour to show: the neutral soft, still a tile to tap,
+ * or a pick could not be let go.
  */
 @Composable
-private fun KindTile(bucket: Bucket, amount: String, empty: Boolean, on: Boolean, quiet: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun KindTile(bucket: Bucket, amount: String, share: String?, on: Boolean, quiet: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val empty = share == null
     val tones = LocalTones.current
     val colour = leitmotifColor(KindRank.getValue(bucket), tones)
     val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
@@ -354,15 +374,23 @@ private fun KindTile(bucket: Bucket, amount: String, empty: Boolean, on: Boolean
     }
     val fill by animateColorAsState(target, spec, label = "kind")
     val ink = if (empty) tones.text else tileInk(fill)
-    Box(
+    val measure = rememberTextMeasurer()
+    val density = LocalDensity.current
+    fun wide(text: String, style: TextStyle) = with(density) { measure.measure(text, style).size.width.toDp() }
+    BoxWithConstraints(
         modifier.clip(RoundedCornerShape(16.dp)).background(fill)
-            .selectable(selected = on, role = Role.Button, onClick = onClick)
-            .padding(start = 12.dp, end = 12.dp, top = 12.dp),
+            .selectable(selected = on, role = Role.Button, onClick = onClick),
     ) {
-        Column {
+        Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
             Text(bucketLabel(bucket), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, color = ink, maxLines = 1)
             VSpace(Gap.s)
             Text(amount, Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = ink, maxLines = 1)
+        }
+        if (share != null && (maxHeight >= KindLevel * density.fontScale || wide(amount, TextRole.rowAmount) + Gap.s + wide(share, TextRole.caption) <= maxWidth - 24.dp)) {
+            Text(
+                share, Modifier.align(Alignment.BottomEnd).padding(end = 12.dp, bottom = 12.dp).letters(TextRole.caption.fontSize),
+                style = TextRole.caption, color = tileMutedInk(fill), maxLines = 1,
+            )
         }
     }
 }
@@ -507,6 +535,9 @@ private val BarsHeight: Dp = 96.dp
 /** Between two bars: the mosaic's own gap. */
 private val BarGap: Dp = 4.dp
 
+/** The thinnest a layer of a bar gets: still seen, whatever its share. */
+private val BarLayer: Dp = 4.dp
+
 /** A bar's corners, at both ends. */
 private val BarCorner: Dp = 6.dp
 
@@ -527,6 +558,7 @@ private fun DayBars(
     if (days.isEmpty()) return
     val pickedIndex = days.indexOfFirst { it.first == picked }
     val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
+    val rest = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     val faint = MaterialTheme.colorScheme.outlineVariant
     val line = MaterialTheme.colorScheme.outline
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
@@ -584,15 +616,17 @@ private fun DayBars(
                     val radius = CornerRadius(minOf(BarCorner.toPx(), h / 2, barWidth / 2))
                     val path = Path().apply { addRoundRect(RoundRect(left, size.height - h, left + barWidth, size.height, radius)) }
                     val parts = stacks[day].orEmpty()
-                    val sum = parts.sumOf { it.rub }
-                    if (value > 0 && sum > 0) {
-                        // The bar's categories stacked in their colours, biggest at the bottom.
+                    if (value > 0 && parts.isNotEmpty()) {
+                        // At most three layers, biggest at the bottom: the first ones in their colours, the rest quiet.
+                        val own = Analytics.coloured(parts.size)
+                        val colours = parts.take(own).map { it.color } + if (own < parts.size) listOf(rest) else emptyList()
+                        val amounts = parts.take(own).map { it.rub } + if (own < parts.size) listOf(parts.drop(own).sumOf { it.rub }) else emptyList()
+                        val heights = Analytics.layerHeights(amounts, h, BarLayer.toPx())
                         clipPath(path) {
                             var y = size.height
-                            parts.forEach { (color, _, rub) ->
-                                val part = h * rub / sum
-                                drawRect(color, Offset(left, y - part), Size(barWidth, part))
-                                y -= part
+                            colours.forEachIndexed { n, color ->
+                                drawRect(color, Offset(left, y - heights[n]), Size(barWidth, heights[n]))
+                                y -= heights[n]
                             }
                         }
                     } else {
@@ -638,12 +672,12 @@ private fun DayBars(
     }
 }
 
-private fun monthShort(date: LocalDate): String = date.month.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).take(3)
+private fun monthShort(date: LocalDate): String = date.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, I18n.locale).take(3)
 
 /** Under a bar, as short as its width asks: "Пн", "24", "5–11 окт", "окт", "2026". */
 private fun barMark(start: LocalDate, end: LocalDate, bar: Analytics.Bar, bars: Int): String = when (bar) {
     // Two letters: "Пн Вт Ср", never the ambiguous single "В".
-    Analytics.Bar.DAY -> if (bars <= 7) start.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).take(2).replaceFirstChar { it.titlecase(I18n.locale) } else start.dayOfMonth.toString()
+    Analytics.Bar.DAY -> if (bars <= 7) start.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, I18n.locale).take(2).replaceFirstChar { it.titlecase(I18n.locale) } else start.dayOfMonth.toString()
     Analytics.Bar.WEEK -> if (start == end) dayMonth(start) else if (I18n.russian) "${start.dayOfMonth}–${dayMonth(end)}" else "${dayMonth(start)}–${end.dayOfMonth}"
     Analytics.Bar.MONTH -> monthShort(start)
     Analytics.Bar.YEAR -> start.year.toString()
@@ -664,7 +698,7 @@ private fun barSpan(start: LocalDate, end: LocalDate, bar: Analytics.Bar): Strin
 /** "Пт 26" or "Сегодня". */
 private fun dayShort(date: LocalDate, today: LocalDate): String =
     if (date == today) tr("Сегодня", "Today")
-    else date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).replaceFirstChar { it.titlecase(I18n.locale) } + " " + date.dayOfMonth
+    else date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, I18n.locale).replaceFirstChar { it.titlecase(I18n.locale) } + " " + date.dayOfMonth
 
 private fun categoryName(data: AppData, spend: CategorySpend): String =
     spend.categoryId?.let { data.categoryById[it]?.label() } ?: tr("Без категории", "No category")

@@ -18,7 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A kind with nothing in the period is a neutral tile.
 - **Bars by one rule.** Never more than 14: the finest of day, week, month and
   year that fits, so a month is weeks, a year months. Colours meet with no stripe,
-  corners are 6 at both ends. A longer bar narrows the categories to it.
+  corners are 6 at both ends, at most three layers. A longer bar narrows the
+  categories to it.
+- **Kinds that read as equal stand in three columns,** and each tile has its share
+  quietly in the bottom right corner.
 - **Eight new bold themes after Bungie's Marathon** instead of the ten pastel
   ones: Марафон, Ультрамарин, Сигнал, Пиксель, Голограмма, Терминал, Фиолет,
   Плашка. A white or near-black page and quiet lists; the colour is on one
