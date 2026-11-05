@@ -14,7 +14,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -27,6 +26,7 @@ import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.GoldaTheme
+import sh.aminov.golda.ui.InsightsPick
 import sh.aminov.golda.ui.Tags
 import java.time.LocalDate
 import java.util.TimeZone
@@ -39,14 +39,15 @@ class AnalyticsScreenTest {
     @get:Rule val compose = createComposeRule()
 
     private var reviewed: Period? = null
-    private var details: Triple<Bucket?, Period, Period?>? = null
+    private var opens = 0
+    private val pick = InsightsPick()
 
     @Before
     fun open() {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         I18n.russian = true
         val data = ScreenshotTest().demo()
-        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { AnalyticsScreen(data, PaddingValues(), { kind, period, bar -> details = Triple(kind, period, bar) }) { reviewed = it } } }
+        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { AnalyticsScreen(data, PaddingValues(), pick, { opens++ }) { reviewed = it } } }
     }
 
     private fun shown(text: String, times: Int = 1) = compose.onAllNodesWithText(text).assertCountEquals(times)
@@ -171,21 +172,20 @@ class AnalyticsScreenTest {
     @Test
     fun theTitleAndTheLegendOpenTheDetailsWithWhatIsPicked() {
         compose.onNodeWithText("Все траты", useUnmergedTree = true).performClick()
-        assertEquals(null, details!!.first)
-        assertEquals(null, details!!.third)
-        details = null
+        assertEquals(1, opens)
         compose.onNodeWithText("Ежедневные").performClick()
         tapLastBar()
         compose.onNodeWithText("Еда", useUnmergedTree = true).performClick()
-        assertEquals(Bucket.DAILY, details!!.first)
-        assertEquals(LocalDate.of(2026, 10, 19), details!!.third!!.from)
+        assertEquals(2, opens)
+        assertEquals(Bucket.DAILY, pick.filter)
+        assertEquals(LocalDate.of(2026, 10, 19), pick.bar)
     }
 
     @Test
     fun theBarsAndTheCrossDoNotOpenTheDetails() {
         tapLastBar()
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
-        assertNull(details)
+        assertEquals(0, opens)
     }
 
     @Test

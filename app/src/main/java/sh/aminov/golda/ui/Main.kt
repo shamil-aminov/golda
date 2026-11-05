@@ -67,7 +67,6 @@ import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
-import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.label
 import sh.aminov.golda.domain.plural
@@ -79,8 +78,8 @@ private sealed interface Page {
     /** Gemini's reviews, with the period insights had picked for a new one. */
     data class Reviews(val from: Long, val to: Long) : Page
     data class ReviewPage(val id: Long, val from: Long, val to: Long) : Page
-    /** Insights' card in full: what is picked on it, in epoch days. */
-    data class Spending(val filter: Bucket?, val from: Long, val to: Long, val barFrom: Long?, val barTo: Long?) : Page
+    /** Insights' card in full. */
+    data object Spending : Page
     data object Theme : Page
     /** A section of Settings, under its contents. */
     data class Section(val section: SettingsSection) : Page
@@ -97,14 +96,14 @@ private fun keyOf(page: Page?): String = when (page) {
     is Page.AccountPage -> "a:${page.id}"
     is Page.Reviews -> "rs:${page.from}:${page.to}"
     is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
-    is Page.Spending -> "sp:${page.filter?.name.orEmpty()}:${page.from}:${page.to}:${page.barFrom ?: ""}:${page.barTo ?: ""}"
+    Page.Spending -> "sp"
     null -> ""
 }
 
 /** How deep a page sits: the tabs, a page opened from them, a page opened from that one. */
 private fun depth(page: Page?): Int = when (page) {
     null -> 0
-    Page.Settings, is Page.AccountPage, is Page.Reviews, is Page.Spending -> 1
+    Page.Settings, is Page.AccountPage, is Page.Reviews, Page.Spending -> 1
     Page.Theme, is Page.Section, is Page.ReviewPage -> 2
     Page.OwnTheme -> 3
 }
@@ -122,7 +121,7 @@ private val PageSaver = Saver<Page?, String>(
             "a" -> parts.getOrNull(1)?.toLongOrNull()?.let { Page.AccountPage(it) }
             "rs" -> Page.Reviews(parts[1].toLong(), parts[2].toLong())
             "r" -> Page.ReviewPage(parts[1].toLong(), parts[2].toLong(), parts[3].toLong())
-            "sp" -> Page.Spending(Bucket.entries.firstOrNull { it.name == parts[1] }, parts[2].toLong(), parts[3].toLong(), parts[4].toLongOrNull(), parts[5].toLongOrNull())
+            "sp" -> Page.Spending
             else -> null
         }
     },
@@ -176,6 +175,8 @@ private fun MainScreen(
 ) {
     // By name, so a saved tab is the same screen whatever the order.
     var tab by rememberSaveable { mutableStateOf(Tab.HOME) }
+    // Above the pages: Insights' card and its page show one and the same pick.
+    val insights = rememberInsightsPick()
     var page by rememberSaveable(stateSaver = PageSaver) { mutableStateOf<Page?>(null) }
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var periodOpen by remember { mutableStateOf(false) }
@@ -381,10 +382,8 @@ private fun MainScreen(
                 onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )
-            is Page.Spending -> InsightsDetails(
-                data, current.filter,
-                Period(LocalDate.ofEpochDay(current.from), LocalDate.ofEpochDay(current.to)),
-                current.barFrom?.let { from -> current.barTo?.let { to -> Period(LocalDate.ofEpochDay(from), LocalDate.ofEpochDay(to)) } },
+            Page.Spending -> InsightsDetails(
+                data, insights,
                 onBack = { page = null },
                 onEdit = { sheet = Sheet.Entry(EntryRequest(editing = it)) },
             )
@@ -510,8 +509,8 @@ private fun MainScreen(
                             onDeletePayment = { id -> scope.launch { repo.deleteObligation(id) } },
                         )
                         Tab.INSIGHTS -> AnalyticsScreen(
-                            data, padding,
-                            onDetails = { filter, period, bar -> page = Page.Spending(filter, period.from.toEpochDay(), period.to.toEpochDay(), bar?.from?.toEpochDay(), bar?.to?.toEpochDay()) },
+                            data, padding, insights,
+                            onDetails = { page = Page.Spending },
                         ) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
                 }

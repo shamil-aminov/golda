@@ -59,14 +59,9 @@ class InsightsScrollTest {
     }
 
     @Test
-    fun aKindPickedAndLetGoKeepsTheCardsHeight() {
-        // The header's figure grows when it has fewer digits, so only the card itself is held to it.
-        val height = incomeTop() - barsTop()
-        compose.onNodeWithText("Разовые").performClick()
-        compose.waitForIdle()
-        assertEquals(height, incomeTop() - barsTop(), 1f)
-        compose.onNodeWithContentDescription("Снять выбор вида").performClick()
-        compose.waitForIdle()
-        assertEquals(height, incomeTop() - barsTop(), 1f)
+    fun aKindPickedAndLetGoMovesNothing() {
+        // «Разовые» has a digit less than the whole: the figure keeps its size all the same.
+        stays { compose.onNodeWithText("Разовые").performClick() }
+        stays { compose.onNodeWithContentDescription("Снять выбор вида").performClick() }
     }
 }

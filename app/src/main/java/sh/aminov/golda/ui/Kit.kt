@@ -555,6 +555,8 @@ fun <T> ChoiceGroup(
     height: Dp = 48.dp,
     minWidth: Dp = 56.dp,
     enabled: Boolean = true,
+    /** Each option's share of the width, for labels of very different lengths. */
+    weight: (T) -> Float = { 1f },
     label: @Composable RowScope.(T) -> Unit,
 ) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
@@ -568,7 +570,7 @@ fun <T> ChoiceGroup(
             ToggleButton(
                 checked = option == selected,
                 onCheckedChange = { onSelect(option) },
-                modifier = (if (fill) Modifier.weight(1f) else Modifier.widthIn(min = minWidth))
+                modifier = (if (fill) Modifier.weight(weight(option)) else Modifier.widthIn(min = minWidth))
                     // At least this tall; taller when a large font needs it.
                     .heightIn(min = height)
                     .semantics { role = Role.RadioButton },

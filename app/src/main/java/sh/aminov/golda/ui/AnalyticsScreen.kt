@@ -45,6 +45,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +103,60 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 
 /**
+ * What is picked on Insights, one state for the card and its page: the period, the kind and a bar.
+ * Another period or kind lets the bar go.
+ */
+class InsightsPick(kind: PeriodKind = PeriodKind.MONTH, range: Period? = null, filter: Bucket? = null, bar: LocalDate? = null) {
+    var kind by mutableStateOf(kind)
+        private set
+    var range by mutableStateOf(range)
+        private set
+    var filter by mutableStateOf(filter)
+        private set
+    var bar by mutableStateOf(bar)
+        private set
+
+    fun period(today: LocalDate): Period = Analytics.period(kind, today, range)
+
+    fun choosePeriod(next: PeriodKind) {
+        if (next != kind) bar = null
+        kind = next
+    }
+
+    fun chooseRange(from: LocalDate, to: LocalDate) {
+        range = Period(from, to)
+        kind = PeriodKind.CUSTOM
+        bar = null
+    }
+
+    fun chooseKind(next: Bucket?) {
+        if (next != filter) bar = null
+        filter = next
+    }
+
+    fun tapBar(tapped: LocalDate) { bar = Analytics.toggled(bar, tapped) }
+
+    fun scrubBack() { if (bar != null) bar = null else filter = null }
+
+    companion object {
+        /** As strings, so it survives the activity being recreated. */
+        val Saver = listSaver<InsightsPick, String?>(
+            save = { listOf(it.kind.name, it.range?.from?.toString(), it.range?.to?.toString(), it.filter?.name, it.bar?.toString()) },
+            restore = { (kind, from, to, filter, bar) ->
+                InsightsPick(
+                    PeriodKind.valueOf(kind!!),
+                    from?.let { start -> to?.let { end -> Period(LocalDate.parse(start), LocalDate.parse(end)) } },
+                    filter?.let(Bucket::valueOf), bar?.let(LocalDate::parse),
+                )
+            },
+        )
+    }
+}
+
+@Composable
+fun rememberInsightsPick(): InsightsPick = rememberSaveable(saver = InsightsPick.Saver) { InsightsPick() }
+
+/**
  * The period's spending on one screen: the header with the total, the mosaic of the three kinds, and
  * one card under it, bars over their legend, of one height whatever is picked, which the picked kind
  * narrows as a whole. The bars pick a bar; the rest of the card opens the details ([InsightsDetails]).
@@ -109,18 +164,11 @@ import java.time.format.TextStyle
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, Period, Period?) -> Unit = { _, _, _ -> }, onReviews: (Period) -> Unit) {
+fun AnalyticsScreen(data: AppData, padding: PaddingValues, pick: InsightsPick = rememberInsightsPick(), onDetails: () -> Unit = {}, onReviews: (Period) -> Unit) {
     val today = data.today
-    var kind by rememberSaveable { mutableStateOf(PeriodKind.MONTH) }
-    // Saved like the kind it belongs to (as two epoch days), so the two never disagree after a restart.
-    var customDays by rememberSaveable { mutableStateOf<LongArray?>(null) }
-    val custom = customDays?.let { (from, to) -> Period(LocalDate.ofEpochDay(from), LocalDate.ofEpochDay(to)) }
-    var picking by remember { mutableStateOf(false) }
     // A kind picked narrows everything under the mosaic and the header's figures; tapped again, back to all.
-    var filter by rememberSaveable { mutableStateOf<Bucket?>(null) }
-    val period = Analytics.period(kind, today, custom)
-    // Belongs to what is on the card: another kind or period lets it go.
-    var pickedDay by rememberSaveable(period, filter) { mutableStateOf<Long?>(null) }
+    val filter = pick.filter
+    val period = pick.period(today)
     val report = remember(data, period) { Analytics.report(data.operations, data.accountById, data.categoryById, period, today, data.zone, data.rates) }
     val kept = remember(data, filter) {
         val bucket = filter ?: return@remember data.operations
@@ -157,7 +205,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, 
         }
     }
     val plan = data.envelope?.let { e -> data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter == Bucket.DAILY && bar == Analytics.Bar.DAY }
-    val day = pickedDay?.let(LocalDate::ofEpochDay)
+    val day = pick.bar
     // What the picked bar spans.
     val span = day?.let { Period(it, Analytics.barEnd(it, last, bar)) }
 
@@ -167,9 +215,11 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, 
             InsightsHeader(
                 title = periodCaption(period, today),
                 figure = data.base.whole(shown.spentRub),
+                // A kind is never more than the period: sized by the whole, a pick leaves the header as it is.
+                sizedFor = data.base.whole(report.spentRub),
                 average = "≈ " + data.base.approx(shown.averagePerDayRub),
-                kind = kind,
-                onKind = { if (it == PeriodKind.CUSTOM) picking = true else kind = it },
+                pick = pick,
+                today = today,
                 onReview = { onReviews(period) },
             )
         }
@@ -181,12 +231,12 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, 
         } else {
             item(key = "kinds") {
                 VSpace(ListSpace.cards)
-                KindMosaic(report.regularRub, report.dailyRub, report.bigRub, data.base, filter) { filter = Analytics.toggled(filter, it) }
+                KindMosaic(report.regularRub, report.dailyRub, report.bigRub, data.base, filter) { pick.chooseKind(Analytics.toggled(filter, it)) }
             }
             val title = filter?.let(::bucketLabel) ?: tr("Все траты", "All spending")
             val cross: @Composable () -> Unit = {
                 // The day first, then the kind: one tap, one step back. Its glyph's right edge on the card's text.
-                IconButton(onClick = { if (day != null) pickedDay = null else filter = null }, modifier = Modifier.offset(x = 8.dp)) {
+                IconButton(onClick = pick::scrubBack, modifier = Modifier.offset(x = 8.dp)) {
                     Icon(painterResource(R.drawable.ic_close), if (day != null) tr("Снять выбор дня", "Clear the day") else tr("Снять выбор вида", "Clear the kind"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -210,7 +260,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, 
                     VSpace(ListSpace.cards)
                     // One height whatever is picked. The whole card opens the details; the bars and the cross keep their taps.
                     Surface(
-                        onClick = { onDetails(filter, period, span) },
+                        onClick = onDetails,
                         modifier = Modifier.padding(horizontal = Gap.s).fillMaxWidth().semantics { contentDescription = tr("Подробнее", "Details") },
                         shape = RoundedCornerShape(CardCorner), color = tileColor(),
                     ) {
@@ -221,7 +271,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, 
                             }
                             DayBars(
                                 bars, bar, last, plan, data.base, barStacks, day, chartLine(data, period, span, bar, today, rub),
-                                onTap = { pickedDay = Analytics.toggled(day, it)?.toEpochDay() },
+                                onTap = pick::tapBar,
                             )
                             VSpace(ChartSpace.labelsToLegend)
                             BarLegend(legend, quiet, data.base, if (day == null) tr("За эти дни трат нет", "No spending in these days") else tr("В этот день трат нет", "No spending this day"))
@@ -234,13 +284,6 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onDetails: (Bucket?, 
         incomeRows(data, report.incomeRub, report.fxLossRub.takeIf { report.fxVolumeRub > 0 })
     }
 
-    if (picking) {
-        RangeDialog(period, onDismiss = { picking = false }) { from, to ->
-            customDays = longArrayOf(from.toEpochDay(), to.toEpochDay())
-            kind = PeriodKind.CUSTOM
-            picking = false
-        }
-    }
 }
 
 /** The card's line: when and how much. */
@@ -283,27 +326,41 @@ private fun BarLegend(parts: List<DayPart>, rest: Color, base: Base, none: Strin
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun InsightsDetails(data: AppData, filter: Bucket?, period: Period, span: Period?, onBack: () -> Unit, onEdit: (OperationFull) -> Unit) {
+fun InsightsDetails(data: AppData, pick: InsightsPick, onBack: () -> Unit, onEdit: (OperationFull) -> Unit) {
     val today = data.today
+    val filter = pick.filter
+    val period = pick.period(today)
     val kept = remember(data, filter) {
         val bucket = filter ?: return@remember data.operations
         data.operations.filter { it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == bucket }
     }
     val whole = remember(kept, period) { Analytics.report(kept, data.accountById, data.categoryById, period, today, data.zone, data.rates) }
-    val scoped = remember(kept, span, whole) { span?.let { Analytics.report(kept, data.accountById, data.categoryById, it, today, data.zone, data.rates) } ?: whole }
     val bar = Analytics.barFor(whole.days.firstOrNull()?.first ?: today, whole.days.lastOrNull()?.first ?: today)
+    val span = pick.bar?.let { Period(it, Analytics.barEnd(it, whole.days.lastOrNull()?.first ?: today, bar)) }
+    val scoped = remember(kept, span, whole) { span?.let { Analytics.report(kept, data.accountById, data.categoryById, it, today, data.zone, data.rates) } ?: whole }
     val perDay = span != null && bar == Analytics.Bar.DAY
     val ops = remember(data, filter, span, perDay) { if (perDay) inPeriod(data, span!!, filter) { true } else emptyList() }
     var opened by remember { mutableStateOf<OpenedCategory?>(null) }
     val fold = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(fold.nestedScrollConnection),
-        topBar = { CollapsingHeader(filter?.let(::bucketLabel) ?: tr("Все траты", "All spending"), onBack, fold) },
+        topBar = {
+            CollapsingHeader(filter?.let(::bucketLabel) ?: tr("Все траты", "All spending"), onBack, fold) {
+                PeriodMenu(pick, today, MaterialTheme.colorScheme.onSurfaceVariant, Modifier)
+            }
+        },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l)) {
             item(key = "line") {
                 Text(chartLine(data, period, span, bar, today, scoped.spentRub), Modifier.padding(horizontal = Gap.l).letters(TextRole.caption.fontSize), style = TextRole.caption)
                 VSpace(HeaderSpace.block)
+                ChoiceGroup(
+                    listOf(null, Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), filter, pick::chooseKind,
+                    Modifier.padding(horizontal = Gap.s).fillMaxWidth(), height = 40.dp,
+                    // By their words, with the padding's share: «Все» is a third of «Ежедневные».
+                    weight = { (it?.let(::bucketLabel) ?: tr("Все", "All")).length + 3f },
+                ) { ChoiceText(it?.let(::bucketLabel) ?: tr("Все", "All")) }
+                VSpace(ListSpace.cards)
             }
             if (perDay) dayRows(data, ops, onEdit) else categoryRows(data, scoped.categories, scoped.spentRub) { opened = it }
         }
@@ -347,7 +404,7 @@ private val ReviewLift = (-4).dp
  * the way to the reviews on its own. Both marks' right edges on the content's, like Home's gear.
  */
 @Composable
-private fun InsightsHeader(title: String, figure: String, average: String, kind: PeriodKind, onKind: (PeriodKind) -> Unit, onReview: () -> Unit) {
+private fun InsightsHeader(title: String, figure: String, sizedFor: String, average: String, pick: InsightsPick, today: LocalDate, onReview: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val ink = scheme.onPrimaryFixed
     val words = TextRole.caption
@@ -355,10 +412,10 @@ private fun InsightsHeader(title: String, figure: String, average: String, kind:
     HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
         Row(Modifier.letters(words.fontSize)) {
             Text(title, Modifier.weight(1f), style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            PeriodMenu(kind, onKind, Modifier.hang())
+            PeriodMenu(pick, today, scheme.onPrimaryFixedVariant, Modifier.hang())
         }
         VSpace(HeaderSpace.figureCaption)
-        BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(figure, maxWidth)), signColor = ink) }
+        BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(sizedFor, maxWidth)), signColor = ink, sizedFor = sizedFor) }
         VSpace(HeaderSpace.block)
         Text(tr("В среднем в день", "On average a day"), Modifier.letters(words.fontSize), style = words)
         VSpace(HeaderSpace.valueCaption)
@@ -373,20 +430,27 @@ private fun InsightsHeader(title: String, figure: String, average: String, kind:
 
 /** The calendar and what it opens: the two usual periods and a range of your own, the current one checked. */
 @Composable
-private fun PeriodMenu(kind: PeriodKind, onKind: (PeriodKind) -> Unit, modifier: Modifier) {
+private fun PeriodMenu(pick: InsightsPick, today: LocalDate, tint: Color, modifier: Modifier) {
     var open by remember { mutableStateOf(false) }
+    var picking by remember { mutableStateOf(false) }
     Box(modifier) {
         IconButton(onClick = { open = true }) {
-            Icon(painterResource(R.drawable.ic_calendar), tr("Период", "Period"), tint = MaterialTheme.colorScheme.onPrimaryFixedVariant)
+            Icon(painterResource(R.drawable.ic_calendar), tr("Период", "Period"), tint = tint)
         }
         DropdownMenu(open, onDismissRequest = { open = false }, shape = RoundedCornerShape(16.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
             listOf(PeriodKind.WEEK to tr("Неделя", "Week"), PeriodKind.MONTH to tr("Месяц", "Month"), PeriodKind.CUSTOM to tr("Выбрать даты", "Pick dates")).forEach { (option, label) ->
                 DropdownMenuItem(
                     text = { Text(label, style = TextRole.rowName) },
-                    onClick = { open = false; onKind(option) },
-                    trailingIcon = { if (option == kind) Icon(painterResource(R.drawable.ic_check), null) },
+                    onClick = { open = false; if (option == PeriodKind.CUSTOM) picking = true else pick.choosePeriod(option) },
+                    trailingIcon = { if (option == pick.kind) Icon(painterResource(R.drawable.ic_check), null) },
                 )
             }
+        }
+    }
+    if (picking) {
+        RangeDialog(pick.period(today), onDismiss = { picking = false }) { from, to ->
+            pick.chooseRange(from, to)
+            picking = false
         }
     }
 }

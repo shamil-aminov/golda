@@ -626,9 +626,13 @@ internal fun PeriodBar(time: Float, spent: Float, color: Color, over: Color) {
  * bigger, as big as the width allows up to 72 sp. No smaller sign, no trimmed line box.
  */
 @Composable
-fun HeroAmount(text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified) {
+fun HeroAmount(
+    text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified,
+    /** The longest figure this one stands in for, so a shorter one keeps the size and the header its height. */
+    sizedFor: String = text,
+) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val size = heroFigureSize(text, maxWidth)
+        val size = heroFigureSize(sizedFor, maxWidth)
         // The one big thing on a tab, still: the sign as in the entry field, one space away, in the
         // muted ink, so the digits are read first.
         val sign = text.substringAfterLast(' ', "").takeIf { it.isNotEmpty() && it.none(Char::isDigit) }
