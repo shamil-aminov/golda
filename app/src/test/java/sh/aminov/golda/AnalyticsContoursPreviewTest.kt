@@ -670,7 +670,8 @@ class AnalyticsRound3PreviewTest(private val name: String) {
         @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun cases() = listOf(
             "now", "t1", "t2", "t3", "t4", "t5", "reg", "big",
-            "k1", "k1open", "k2", "k3", "d1", "d2", "o1", "o1days", "o2", "o2day",
+            "k1", "k1open", "k2", "k3", "d1", "d2", "d2reg", "o2", "o2day",
+            "c1", "c1reg", "c1daily", "c1regday", "c2", "c2reg", "c2days", "c2regdays", "c2dailydays", "c2bigdays", "c2regall", "c2bigall", "c3", "c3reg",
         ).map { arrayOf<Any>(it) }
     }
 
@@ -687,7 +688,7 @@ class AnalyticsRound3PreviewTest(private val name: String) {
         compose.setContent {
             GoldaTheme("golda", "LIGHT", "ROOMY") {
                 Scaffold(
-                    floatingActionButton = { if (name != "d2") Island() },
+                    floatingActionButton = { if (!name.startsWith("d2")) Island() },
                     floatingActionButtonPosition = FabPosition.Center,
                 ) { padding ->
                     when (name) {
@@ -704,8 +705,21 @@ class AnalyticsRound3PreviewTest(private val name: String) {
                         "k3" -> Screen3(data, padding, "Все траты", list = Rows.PAGE)
                         "d1" -> Screen3(data, padding, "Все траты", days = Days.INLINE)
                         "d2" -> Box { Screen3(data, padding, "Все траты"); DaysSheet(data) }
-                        "o1" -> Screen3(data, padding, "Все траты", days = Days.TABS)
-                        "o1days" -> Screen3(data, padding, "Все траты", days = Days.TABS, tabDays = true)
+                        "d2reg" -> Box { Screen3(data, padding, "Все траты", filter = Bucket.REGULAR); DaysSheet(data, Bucket.REGULAR) }
+                        "c1" -> Screen3(data, padding, "Все траты", days = Days.WHOLE)
+                        "c1reg" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR, days = Days.WHOLE)
+                        "c1daily" -> Screen3(data, padding, "Все траты", filter = Bucket.DAILY, days = Days.WHOLE)
+                        "c1regday" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR, days = Days.WHOLE, dayPicked = true)
+                        "c2" -> Screen3(data, padding, "Все траты", days = Days.TABS)
+                        "c2reg" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR, days = Days.TABS)
+                        "c2days" -> Screen3(data, padding, "Все траты", days = Days.TABS, tabDays = true)
+                        "c2regdays" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR, days = Days.TABS, tabDays = true)
+                        "c2dailydays" -> Screen3(data, padding, "Все траты", filter = Bucket.DAILY, days = Days.TABS, tabDays = true)
+                        "c2bigdays" -> Screen3(data, padding, "Все траты", filter = Bucket.BIG, days = Days.TABS, tabDays = true)
+                        "c2regall" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR, days = Days.TABS, tabDays = true, wholePeriod = true)
+                        "c2bigall" -> Screen3(data, padding, "Все траты", filter = Bucket.BIG, days = Days.TABS, tabDays = true, wholePeriod = true)
+                        "c3" -> Screen3(data, padding, "Все траты", days = Days.TWO)
+                        "c3reg" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR, days = Days.TWO)
                         "o2" -> Screen3(data, padding, "Все траты", days = Days.FILTER)
                         else -> Screen3(data, padding, "Все траты", days = Days.FILTER, dayPicked = true)
                     }
@@ -717,7 +731,7 @@ class AnalyticsRound3PreviewTest(private val name: String) {
 }
 
 private enum class Rows { FOUR, OPEN, ALL, PAGE }
-private enum class Days { ROW, INLINE, TABS, FILTER }
+private enum class Days { ROW, INLINE, TABS, FILTER, WHOLE, TWO }
 
 private fun narrowed(data: AppData, filter: Bucket?): Ctx {
     val all = ctx(data)
@@ -746,8 +760,10 @@ private fun dayStacks(data: AppData, filter: Bucket?): Map<java.time.LocalDate, 
 private fun LowBars(c: Ctx, filter: Bucket?, picked: java.time.LocalDate?, high: Dp) {
     val days = Analytics.bars(c.report.days)
     val stacks = dayStacks(c.data, filter)
-    val top = days.maxOf { it.second }.coerceAtLeast(1)
+    val plan = c.data.envelope?.let { e -> c.data.rates.rubMinor(e.perDayMinor, e.currency) }?.takeIf { it > 0 && filter == Bucket.DAILY }
+    val top = maxOf(days.maxOf { it.second }, plan ?: 0L).coerceAtLeast(1)
     val ink = MaterialTheme.colorScheme.onSurface
+    val line = MaterialTheme.colorScheme.outline
     val faint = MaterialTheme.colorScheme.outlineVariant
     Box(Modifier.fillMaxWidth()) {
         Column {
@@ -787,11 +803,19 @@ private fun LowBars(c: Ctx, filter: Bucket?, picked: java.time.LocalDate?, high:
                     }
                     if (day == picked) drawCircle(ink, 3.dp.toPx(), Offset(left + bar / 2, size.height + 7.dp.toPx()))
                 }
+                plan?.let {
+                    val y = size.height - size.height * it / top
+                    drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+                }
             }
             VSpace(Gap.m)
             Row(Modifier.fillMaxWidth()) {
                 Text(dayMonth(days.first().first), Modifier.weight(1f), style = TextRole.caption)
                 Text(dayMonth(days.last().first), style = TextRole.caption)
+            }
+            plan?.let {
+                VSpace(Gap.m)
+                Text("План " + c.data.base.approx(it) + " в день", style = TextRole.caption)
             }
         }
     }
@@ -857,16 +881,52 @@ private fun LazyListScope.listCard(c: Ctx, title: String, rows: Rows) {
     }
 }
 
-private fun LazyListScope.dayRows(data: AppData, day: java.time.LocalDate) {
-    val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == day }
+private fun ofKind(data: AppData, op: sh.aminov.golda.data.OperationFull, filter: Bucket?) =
+    filter == null || (op.op.type == OpType.EXPENSE && Buckets.of(op.op, data.categoryById) == filter)
+
+private fun LazyListScope.dayRows(data: AppData, day: java.time.LocalDate, filter: Bucket? = null) {
+    val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == day && ofKind(data, it, filter) }
     ops.forEachIndexed { i, op -> item { OperationRow(data, op, null, {}, i + 1, ops.size + 1, Modifier.padding(horizontal = Gap.m)) } }
+}
+
+/** Every payment of the kind in the period, the date where a day's list has its category: few enough to need no picking. */
+private fun LazyListScope.periodRows(c: Ctx, filter: Bucket?) {
+    val data = c.data
+    val from = c.report.days.first().first
+    val ops = data.visibleOperations
+        .filter { ofKind(data, it, filter) && !Ledger.localDate(it.op.timestamp, data.zone).isBefore(from) }
+        .sortedByDescending { it.op.timestamp }
+    ops.forEachIndexed { i, op ->
+        item {
+            val cat = op.op.categoryId?.let { data.categoryById[it] }
+            val colour = cat?.key?.let { categoryColor(it, LocalTones.current) } ?: leitmotifColor(null, LocalTones.current)
+            GroupRow(
+                i + 1, ops.size + 1, Modifier.padding(horizontal = Gap.m), onClick = {},
+                leading = { RowIcon(categoryIcon(cat?.key), colour) },
+                supporting = { Text(dayLabel(Ledger.localDate(op.op.timestamp, data.zone), data.today), style = TextRole.caption) },
+                trailing = { Text(data.base.whole(-op.postings.sumOf { p -> p.rubMinor }), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface) },
+            ) { Text(op.op.note.ifBlank { cat?.label() ?: "Без категории" }, style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+    }
+}
+
+/** Four categories and «Ещё», or all of them when there are no more than that. */
+private fun LazyListScope.listRows(c: Ctx) {
+    val n = c.report.categories.size
+    if (n > 4) { rowsOf(c, 4, 1); more(c, n - 4, 5, 6, open = false) } else rowsOf(c, n, 0)
+}
+
+/** The bars inside a card, with the air a row keeps from them. */
+@Composable
+private fun BarsInCard(c: Ctx, filter: Bucket?, picked: java.time.LocalDate?) {
+    Middle { Box(Modifier.padding(top = ListSpace.titleToRow, bottom = Gap.m)) { LowBars(c, filter, picked, 96.dp) } }
 }
 
 /** Everything under the accepted top, one way or another; «Разбор» a row and income at the end throughout. */
 @Composable
 private fun Screen3(
     data: AppData, padding: PaddingValues, title: String, filter: Bucket? = null, list: Rows = Rows.FOUR,
-    days: Days = Days.ROW, tabDays: Boolean = false, dayPicked: Boolean = false,
+    days: Days = Days.ROW, tabDays: Boolean = false, dayPicked: Boolean = false, wholePeriod: Boolean = false,
 ) {
     val all = ctx(data)
     val c = narrowed(data, filter)
@@ -880,16 +940,26 @@ private fun Screen3(
                 item { VSpace(ListSpace.cards); CardTitle(shownTitle, Modifier.padding(horizontal = Gap.m)) }
                 item {
                     Middle {
-                        ChoiceGroup(listOf("Категории", "Дни"), if (tabDays) "Дни" else "Категории", {}, Modifier.fillMaxWidth(), height = 40.dp) { ChoiceText(it) }
+                        ChoiceGroup(listOf("Категории", "По дням"), if (tabDays) "По дням" else "Категории", {}, Modifier.fillMaxWidth(), height = 40.dp) { ChoiceText(it) }
                     }
                 }
                 if (tabDays) {
-                    item { Middle { Box(Modifier.padding(top = ListSpace.titleToRow)) { LowBars(c, filter, last, 96.dp) } } }
-                    dayRows(data, last)
+                    item { BarsInCard(c, filter, if (wholePeriod) null else last) }
+                    if (wholePeriod) periodRows(c, filter) else dayRows(data, last, filter)
                 } else {
-                    rowsOf(c, 4, 1)
-                    more(c, (c.report.categories.size - 4).coerceAtLeast(0), 5, 6, open = false)
+                    listRows(c)
                 }
+            }
+            Days.WHOLE -> {
+                item { VSpace(ListSpace.cards); CardTitle(shownTitle, Modifier.padding(horizontal = Gap.m)) }
+                item { BarsInCard(c, filter, if (dayPicked) last else null) }
+                if (dayPicked) dayRows(data, last, filter) else listRows(c)
+            }
+            Days.TWO -> {
+                listCard(c, "$shownTitle по категориям", Rows.FOUR)
+                item { VSpace(ListSpace.cards); CardTitle("$shownTitle по дням", Modifier.padding(horizontal = Gap.m)) }
+                item { BarsInCard(c, filter, last) }
+                dayRows(data, last, filter)
             }
             Days.FILTER -> {
                 item {
@@ -939,8 +1009,8 @@ private fun Screen3(
 
 /** Д2: «По дням» as a sheet from below, drawn in place: a real sheet is its own window, which a shot of the root leaves out. */
 @Composable
-private fun DaysSheet(data: AppData) {
-    val c = ctx(data)
+private fun DaysSheet(data: AppData, filter: Bucket? = null) {
+    val c = narrowed(data, filter)
     val last = c.report.days.last { it.second > 0 }.first
     val top = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0x66000000)), contentAlignment = Alignment.BottomCenter) {
@@ -949,11 +1019,11 @@ private fun DaysSheet(data: AppData) {
                 Box(Modifier.fillMaxWidth().padding(vertical = Gap.m), contentAlignment = Alignment.Center) {
                     Box(Modifier.size(32.dp, 4.dp).background(MaterialTheme.colorScheme.outlineVariant, CircleShape))
                 }
-                Text("По дням", Modifier.padding(horizontal = 24.dp).letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle)
+                Text(filter?.let { bucketLabel(it) } ?: "По дням", Modifier.padding(horizontal = 24.dp).letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle)
                 VSpace(ListSpace.titleToRow)
-                Box(Modifier.padding(horizontal = 24.dp)) { LowBars(c, null, last, 140.dp) }
+                Box(Modifier.padding(horizontal = 24.dp)) { LowBars(c, filter, last, 140.dp) }
                 VSpace(ListSpace.titleToRow)
-                val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == last }
+                val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == last && ofKind(data, it, filter) }
                 ops.forEachIndexed { i, op -> OperationRow(data, op, null, {}, i + 1, ops.size + 1, Modifier.padding(horizontal = Gap.m)) }
             }
         }
