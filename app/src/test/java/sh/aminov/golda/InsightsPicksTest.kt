@@ -1,6 +1,5 @@
 package sh.aminov.golda
 
-import androidx.compose.ui.graphics.Color
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.int
 import io.kotest.property.arbitrary.list
@@ -14,8 +13,6 @@ import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.KindBlock
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.PeriodKind
-import sh.aminov.golda.ui.contrast
-import sh.aminov.golda.ui.tileMutedInk
 import java.time.LocalDate
 
 /** The rules of Insights' picks: a second tap lets go, the kinds fit their block. */
@@ -179,14 +176,6 @@ class InsightsPicksTest {
             KindBlock.columns(big, small + base * minOf(a, b), small, 500f, 4f, 10f)?.let {
                 assertEquals(492f, it.sum(), 0.1f)
             }
-        }
-    }
-
-    @Test
-    fun aTilesSecondInkStaysReadable() = prop {
-        checkAll(Arb.int(0..255), Arb.int(0..255), Arb.int(0..255)) { r, g, b ->
-            val fill = Color(r, g, b)
-            assertTrue("$r $g $b", contrast(tileMutedInk(fill), fill) >= 4.5)
         }
     }
 

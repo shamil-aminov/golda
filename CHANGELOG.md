@@ -20,8 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   year that fits, so a month is weeks, a year months. Colours meet with no stripe,
   corners are 6 at both ends, at most three layers. A longer bar narrows the
   categories to it.
-- **Kinds that read as equal stand in three columns,** and each tile has its share
-  quietly in the bottom right corner.
+- **Kinds that read as equal stand in three columns.**
 - **Eight new bold themes after Bungie's Marathon** instead of the ten pastel
   ones: Марафон, Ультрамарин, Сигнал, Пиксель, Голограмма, Терминал, Фиолет,
   Плашка. A white or near-black page and quiet lists; the colour is on one
