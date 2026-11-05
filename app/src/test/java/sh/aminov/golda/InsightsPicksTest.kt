@@ -10,9 +10,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import sh.aminov.golda.domain.Analytics
-import sh.aminov.golda.domain.KindBlock
+import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.PeriodKind
+import sh.aminov.golda.domain.ReviewPrompt
 import java.time.LocalDate
 
 /** The rules of Insights' picks: a second tap lets go, the kinds fit their block. */
@@ -157,54 +158,17 @@ class InsightsPicksTest {
     }
 
     @Test
-    fun columnsOnlyForSharesThatReadAsEqual() {
-        fun cols(a: Long, b: Long, c: Long, width: Float = 395f) = KindBlock.columns(a, b, c, width, 4f, 116f)
-        assertEquals(listOf(129f, 129f, 129f), cols(100, 100, 100))
-        assertEquals(listOf(139.32f, 123.84f, 123.84f), cols(36, 32, 32)!!.map { Math.round(it * 100) / 100f })
-        assertNull(cols(36, 33, 31))
-        assertNull(cols(40, 35, 25))
-        assertNull(cols(0, 0, 0))
-        // The words would not fit: the block's.
-        assertNull(cols(100, 100, 100, 304f))
-    }
-
-    @Test
-    fun columnsShareOutTheirRoom() = prop {
-        checkAll(Arb.long(1L..1_000_000L), Arb.int(0..4), Arb.int(0..4)) { base, a, b ->
-            val big = base * 100 + base * a
-            val small = base * 100
-            KindBlock.columns(big, small + base * minOf(a, b), small, 500f, 4f, 10f)?.let {
-                assertEquals(492f, it.sum(), 0.1f)
-            }
-        }
-    }
-
-    @Test
     fun noDaysNoBars() = assertTrue(Analytics.bars(emptyList()).isEmpty())
 
     @Test
-    fun theKindsFitTheirBlockAndStayReadable() = prop {
-        checkAll(Arb.long(0L..10_000_000L), Arb.long(0L..10_000_000L), Arb.long(0L..10_000_000L), Arb.int(300..1_000)) { a, b, c, width ->
-            val (big, middle, small) = listOf(a, b, c).sortedDescending()
-            val w = width.toFloat()
-            val split = KindBlock.split(big, middle, small, w, 136f, 4f, 128f, 56f)
-            val right = w - 4f - split.left
-            assertTrue("$split", split.left > 0 && right >= 128f - 0.01f)
-            assertTrue("$split", split.low >= 56f - 0.01f && 132f - split.low >= split.low - 0.01f)
-        }
-    }
-
-    @Test
-    fun theAreasFollowTheSharesWhenNothingIsTooSmall() {
-        val split = KindBlock.split(600, 300, 100, 1004f, 136f, 4f, 128f, 20f)
-        assertEquals(600f, split.left, 0.01f)
-        assertEquals(33f, split.low, 0.01f)
-    }
-
-    @Test
-    fun nothingSpentStillGivesThreeTiles() {
-        val split = KindBlock.split(0, 0, 0, 400f, 136f, 4f, 128f, 56f)
-        assertEquals(132f, split.left, 0.01f)
-        assertEquals(56f, split.low, 0.01f)
+    fun aReviewSaysWhatItLookedAt() {
+        I18n.russian = true
+        val day = LocalDate.of(2026, 9, 1)
+        assertEquals("за сентябрь", ReviewPrompt.looked(Period(day, day.withDayOfMonth(30))))
+        assertEquals("за 29 дней", ReviewPrompt.looked(Period(day, day.withDayOfMonth(29))))
+        assertEquals("за 7 дней", ReviewPrompt.looked(Period(day.withDayOfMonth(2), day.withDayOfMonth(8))))
+        // A month's days that start elsewhere are days, not a month.
+        assertEquals("за 30 дней", ReviewPrompt.looked(Period(day.plusDays(1), day.plusDays(30))))
+        assertEquals("за 1 день", ReviewPrompt.looked(Period(day, day)))
     }
 }

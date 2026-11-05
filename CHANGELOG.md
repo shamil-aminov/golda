@@ -10,15 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - **Tabs in a new order: Home, Insights, Accounts,** in the toolbar and the swipe.
-- **Insights rebuilt around one filter.** The header carries the period behind a
-  calendar and the review behind a mark on the average's line; the period strip
-  and the category mosaic are gone. A mosaic of the three kinds narrows
-  everything under it: one card titled «Все траты» or the kind, day bars over
-  all the categories. A tap on a bar swaps the categories for that day's
-  purchases. A line under the title says when and how much; the × beside the title lets go of the bar, then the kind.
+- **Insights rebuilt around one card.** The header and the chart are one card: the kind
+  as its title with a menu, the period behind a calendar, the figure, day bars over the
+  legend, and the day's plan for the everyday kind by days. The average is off the
+  screen. A picked bar gives its caption and its sum, and × in the calendar's place lets go. The period strip, the category mosaic and the kinds'
+  tiles are gone; the details page picks the kind by the same menu.
+- **Reviews on Insights.** A card closes the screen, the last three reviews by date
+  with what each looked at; a "+" leads to writing one, in place of the mark.
+- **Rows of a group stand one step apart to the last,** however short they are.
 - **Insights' card keeps its height.** Under the bars, a legend of three at most;
   the rest of the card opens a page with all the categories or the day's purchases.
-  A kind with nothing in the period is a neutral tile.
 - **Bars by one rule.** Never more than 14: the finest of day, week, month and
   year that fits, so a month is weeks, a year months. Colours meet with no stripe,
   corners are 6 at both ends, at most three layers. A longer bar narrows the

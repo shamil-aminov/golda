@@ -405,10 +405,7 @@ fun GroupRow(
         val name = Modifier.letters(TextRole.rowName.fontSize)
         val caption = Modifier.letters(TextRole.caption.fontSize)
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(
-                start = Space.card, end = Space.card,
-                top = if (index == 0) ListSpace.edge else half, bottom = if (index == count - 1) ListSpace.edge else half,
-            ),
+            Modifier.fillMaxWidth().rowHeight(half, if (index == 0) ListSpace.edge else null, if (index == count - 1) ListSpace.edge else null).padding(horizontal = Space.card),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             leading?.let {
@@ -747,7 +744,13 @@ fun FormPage(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollBehavior, actions: @Composable RowScope.() -> Unit = {}) {
+fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollBehavior, actions: @Composable RowScope.() -> Unit = {}) =
+    CollapsingHeader({ Text(title, Modifier.padding(start = Gap.s), maxLines = 1) }, onBack, scroll, actions)
+
+/** The same with a title of its own, drawn in the bar's two sizes. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CollapsingHeader(title: @Composable () -> Unit, onBack: () -> Unit, scroll: TopAppBarScrollBehavior, actions: @Composable RowScope.() -> Unit = {}) {
     val type = MaterialTheme.typography
     val page = MaterialTheme.colorScheme.background
     Column {
@@ -760,7 +763,7 @@ fun CollapsingHeader(title: String, onBack: () -> Unit, scroll: TopAppBarScrollB
         ) {
             LargeTopAppBar(
                 // The title 24 from the edge, like the rows under it.
-                title = { Text(title, Modifier.padding(start = Gap.s), maxLines = 1) },
+                title = title,
                 // The arrow's glyph on the content line, 24 dp in.
                 navigationIcon = { IconButton(onClick = onBack, Modifier.offset(x = Gap.s)) { Icon(painterResource(R.drawable.ic_back), tr("Назад", "Back")) } },
                 actions = actions,
@@ -861,12 +864,6 @@ object HeaderSpace {
  * the letters, the bars and the rows' circles.
  */
 object ChartSpace {
-    /** The card's title over the line that says when and how much, a caption to its value: 16. */
-    val titleToLine: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
-
-    /** That line over the bars, a block: 26. */
-    val lineToBars: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
-
     /** The bars over their labels, a chart's caption: 10. */
     val barsToLabels: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.chartCaption
 
@@ -1266,6 +1263,31 @@ fun Modifier.hang(): Modifier = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0, maxHeight = Constraints.Infinity))
     val inset = (placeable.width - 24.dp.roundToPx()) / 2
     layout(placeable.width - inset, 0) { placeable.place(0, -inset) }
+}
+
+/**
+ * A row of 48 at least, its content in the middle, [half] over and under at the least. A group's end
+ * gives the card's edge on its outer side ([top], [bottom]) and keeps the inner side as it is in the
+ * group's middle, so short rows stand one step apart to the last.
+ */
+fun Modifier.rowHeight(half: Dp, top: Dp?, bottom: Dp?): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0))
+    val least = 48.dp.roundToPx()
+    val inner = maxOf(half.roundToPx(), (least - placeable.height + 1) / 2)
+    val over = top?.roundToPx() ?: inner
+    val under = bottom?.roundToPx() ?: inner
+    val height = maxOf(least, over + placeable.height + under)
+    layout(placeable.width, height) { placeable.place(0, over) }
+}
+
+/**
+ * A line of [size] letters that is 48 to tap: the height of its letters on the page, the rest of its
+ * 48 spilling evenly over and under, like [hang].
+ */
+fun Modifier.tapLine(size: TextUnit): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 48.dp.roundToPx(), maxHeight = Constraints.Infinity))
+    val height = (size.toPx() * CAP).roundToInt()
+    layout(placeable.width, height) { placeable.place(0, (height - placeable.height) / 2) }
 }
 
 /** Wider than the space given by [x] at each side, and drawn from [x] further left. */

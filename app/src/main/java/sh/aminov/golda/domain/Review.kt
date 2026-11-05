@@ -242,6 +242,14 @@ object ReviewPrompt {
         return span(period.from, period.to)
     }
 
+    /** What a written review looked at, in a few words: "за сентябрь", or "за 30 дней" for any other days. */
+    fun looked(period: Period): String {
+        val month = period.from.dayOfMonth == 1 && period.to == period.from.withDayOfMonth(period.from.lengthOfMonth())
+        if (month) return tr("за ", "") + period.from.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, I18n.locale)
+        val n = period.days.size.toLong()
+        return tr("за ", "") + n + " " + plural(n, "день", "дня", "дней", "day", "days")
+    }
+
     /** "с 5 по 12 октября", "с 5 октября по 3 ноября"; English "Oct 5 to 12", "Oct 5 to Nov 3". */
     fun span(from: LocalDate, to: LocalDate): String {
         val sameMonth = from.month == to.month && from.year == to.year

@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -42,6 +44,11 @@ class InsightsScrollTest {
     private fun incomeTop() = compose.onNodeWithText("Доходы и обмен").fetchSemanticsNode().positionInRoot.y
     private fun tap(x: Float) = compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width * x, height / 2f)) }
 
+    private fun kind(from: String, to: String) {
+        compose.onNodeWithText(from).performClick()
+        compose.onAllNodesWithText(to).onLast().performClick()
+    }
+
     private fun stays(step: () -> Unit) {
         val bars = barsTop()
         val income = incomeTop()
@@ -59,14 +66,18 @@ class InsightsScrollTest {
     }
 
     @Test
-    fun aKindPickedAndLetGoKeepsTheCardsHeight() {
-        // The header's figure grows when it has fewer digits, so only the card itself is held to it.
-        val height = incomeTop() - barsTop()
-        compose.onNodeWithText("Разовые").performClick()
-        compose.waitForIdle()
-        assertEquals(height, incomeTop() - barsTop(), 1f)
-        compose.onNodeWithContentDescription("Снять выбор вида").performClick()
-        compose.waitForIdle()
-        assertEquals(height, incomeTop() - barsTop(), 1f)
+    fun aBarPickedInTheDailyWithItsPlanMovesNothing() {
+        compose.onNodeWithContentDescription("Период").performClick()
+        compose.onNodeWithText("Неделя").performClick()
+        kind("Все траты", "Ежедневные")
+        stays { tap(0.9f) }
+        stays { compose.onNodeWithContentDescription("Снять выбор дня").performClick() }
+    }
+
+    @Test
+    fun aKindPickedAndLetGoMovesNothing() {
+        // «Разовые» has a digit less than the whole: the figure keeps its size all the same.
+        stays { kind("Все траты", "Разовые") }
+        stays { kind("Разовые", "Все траты") }
     }
 }

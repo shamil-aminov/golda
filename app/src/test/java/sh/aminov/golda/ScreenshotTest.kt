@@ -35,6 +35,7 @@ import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.ui.AccountsScreen
+import sh.aminov.golda.data.Review
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.AppData
 import sh.aminov.golda.ui.EntryRequest
@@ -43,6 +44,7 @@ import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.HomeScreen
 import sh.aminov.golda.ui.SettingsScreen
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.ZoneId
 import java.util.TimeZone
 
@@ -82,7 +84,7 @@ class ScreenshotTest {
 
     @Test fun accounts() = shot("accounts") { AccountsScreen(demo(), PaddingValues(), {}, {}, { _, _, _ -> }) }
 
-    @Test fun insights() = shot("insights") { AnalyticsScreen(demo(), PaddingValues()) {} }
+    @Test fun insights() = shot("insights") { AnalyticsScreen(demo(), PaddingValues(), reviews = demoReviews()) {} }
 
     @Test fun clearTheme() = shot("insights_clear", palette = "clear") { AnalyticsScreen(demo(), PaddingValues()) {} }
 
@@ -102,6 +104,16 @@ class ScreenshotTest {
     }
 
     /** The demo of `Demo.samples`, built in memory: a ruble salary, money moved abroad, two weeks of lari. */
+    private fun demoReviews(): List<Review> {
+        fun review(id: Long, from: LocalDate, to: LocalDate, written: LocalDate) =
+            Review(id, from.toEpochDay(), to.toEpochDay(), written.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(), "")
+        return listOf(
+            review(3, LocalDate.of(2026, 9, 25), LocalDate.of(2026, 10, 24), LocalDate.of(2026, 10, 24)),
+            review(2, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30), LocalDate.of(2026, 10, 3)),
+            review(1, LocalDate.of(2026, 9, 6), LocalDate.of(2026, 9, 12), LocalDate.of(2026, 9, 12)),
+        )
+    }
+
     internal fun demo(): AppData {
         val zone = ZoneId.of("UTC")
         val now = today.atTime(19, 0).atZone(zone).toInstant().toEpochMilli()
