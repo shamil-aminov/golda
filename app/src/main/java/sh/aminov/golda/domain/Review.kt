@@ -242,6 +242,37 @@ object ReviewPrompt {
         return span(period.from, period.to)
     }
 
+    /** A period as short as a button: "7 дней", "Октябрь", "5–12 окт", "12 сен – 3 окт", "2021–2026". */
+    fun short(period: Period, today: LocalDate): String {
+        val word = tr("последние ", "last ")
+        val title = title(period, today)
+        return if (title.startsWith(word)) title.removePrefix(word) else dates(period, today)
+    }
+
+    /** The same by its dates alone, with the year when it is another. */
+    fun dates(period: Period, today: LocalDate): String {
+        val (from, to) = period.from to period.to
+        if (from.dayOfYear == 1 && to.plusDays(1).dayOfYear == 1) return if (from.year == to.year) "${from.year}" else "${from.year}–${to.year}"
+        val year = if (to.year == today.year) "" else " ${to.year}"
+        if (from.dayOfMonth == 1 && from.month == to.month && from.year == to.year && to == from.withDayOfMonth(from.lengthOfMonth())) {
+            return from.month.getDisplayName(java.time.format.TextStyle.FULL_STANDALONE, I18n.locale).replaceFirstChar { it.titlecase(I18n.locale) } + year
+        }
+        return when {
+            from == to -> dayMonth(from) + year
+            from.month == to.month && from.year == to.year -> (if (I18n.russian) "${from.dayOfMonth}–" + dayMonth(to) else dayMonth(from) + "–${to.dayOfMonth}") + year
+            else -> dayMonth(from) + " – " + dayMonth(to) + year
+        }
+    }
+
+    /** A day as short as a button: "Сб, 24 окт". */
+    fun day(date: LocalDate): String =
+        date.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, I18n.locale).replaceFirstChar { it.titlecase(I18n.locale) } + ", " + dayMonth(date)
+
+    private fun dayMonth(date: LocalDate): String {
+        val month = date.month.getDisplayName(java.time.format.TextStyle.SHORT_STANDALONE, I18n.locale).take(3)
+        return if (I18n.russian) "${date.dayOfMonth} $month" else "$month ${date.dayOfMonth}"
+    }
+
     /** What a written review looked at, in a few words: "за сентябрь", or "за 30 дней" for any other days. */
     fun looked(period: Period): String {
         val month = period.from.dayOfMonth == 1 && period.to == period.from.withDayOfMonth(period.from.lengthOfMonth())

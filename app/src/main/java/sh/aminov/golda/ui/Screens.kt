@@ -90,6 +90,7 @@ import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Debts
+import sh.aminov.golda.domain.Standing
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
@@ -99,6 +100,9 @@ import java.time.LocalDate
 /** Over the floating toolbar at the end: its height, the 16 it floats above the bottom, and a card's gap. */
 @Composable
 fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + Gap.s, bottom = calculateBottomPadding() + ToolbarHeight + Gap.m + ListSpace.cards)
+
+/** Over and under a caption's letters, so a line of them takes 48 to tap. */
+private val TapSpill = 19.dp
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -121,62 +125,30 @@ fun HomeScreen(
             val scheme = MaterialTheme.colorScheme
             val ink = scheme.onPrimaryFixed
             // As the other tabs: a title, its caption, the figure, every text cut to its letters and every
-            // gap a step of the header's row (HeaderSpace). The title says how the period goes, the caption names the figure.
+            // gap a step of the header's row (HeaderSpace). The title names the figure, the caption says how the period goes.
             HeroTile(Modifier.padding(horizontal = Gap.s), content = ink, vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
                 val cut = Modifier.letters(words.fontSize)
                 val code = envelope?.currency
                 val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
-                val safe = tr("Можно сегодня", "Safe to spend today")
                 val title = TextRole.groupTitle
                 Row {
-                    if (envelope == null || code == null) {
-                        Text(safe, Modifier.weight(1f).letters(title.fontSize), style = title, color = ink, maxLines = 1)
-                    } else {
-                        // Against the even pace: within it, or how much past it. A tap on the line changes the period.
-                        val press = remember { MutableInteractionSource() }
-                        Row(Modifier.weight(1f).tapLine(title.fontSize).clickable(press, indication = null, onClick = onPeriod).testTag(Tags.HOME_PERIOD), verticalAlignment = Alignment.CenterVertically) {
-                            val ahead = envelope.daysLeft
-                            fun days(n: Long) = plural(n, "день", "дня", "дней", "day", "days")
-                            val beyond = envelope.overNormMinor
-                            Text(
-                                when {
-                                    envelope.balanceMinor <= 0 -> AnnotatedString(tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go"))
-                                    // Less than half a unit past it still reads "0 ₾": that is within it.
-                                    beyond > 0 && Fmt.whole(beyond, code) != "0" -> buildAnnotatedString {
-                                        append(tr("Сверх нормы ", "Over the norm by "))
-                                        // The bar's red is too pale for words; the error ink reads in both themes, and on
-                                        // a bold theme's plate of colour where it does not, the plate's own ink does.
-                                        val overInk = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink
-                                        withStyle(SpanStyle(color = overInk)) { append(whole(beyond, code)) }
-                                    }
-                                    else -> AnnotatedString(tr("В норме", "Within the norm"))
-                                },
-                                // The press shows around the words alone.
-                                Modifier.weight(1f, fill = false).spill(Gap.s, Gap.s).clip(RoundedCornerShape(Gap.s)).indication(press, ripple())
-                                    .padding(Gap.s).letters(title.fontSize).testTag(Tags.HOME_RUNWAY),
-                                style = title,
-                                color = ink,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
+                    Text(tr("На сегодня", "For today"), Modifier.weight(1f).letters(title.fontSize), style = title, color = ink, maxLines = 1)
                     // The gear's top on the title's line, its glyph's right edge on the content's, as the calendar on
                     // Insights; its 48 to tap spills into the padding and takes no room from the line.
                     IconButton(onClick = onSettings, modifier = Modifier.hang()) {
                         Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onPrimaryFixedVariant)
                     }
                 }
-                VSpace(HeaderSpace.valueCaption)
-                Column(Modifier.semantics(mergeDescendants = true) {}) {
-                    Text(if (figure != null) safe else tr("Период не задан", "No period set"), cut, style = words, maxLines = 1)
-                    if (figure != null) {
-                        VSpace(HeaderSpace.figureCaption)
-                        BoxWithConstraints {
-                            HeroAmount(figure, ink, Modifier.testTag(Tags.HOME_BIG).letters(heroFigureSize(figure, maxWidth)), signColor = ink)
-                        }
+                if (envelope == null) {
+                    VSpace(HeaderSpace.valueCaption)
+                    Text(tr("Период не задан", "No period set"), cut, style = words, maxLines = 1)
+                }
+                if (figure != null) {
+                    VSpace(HeaderSpace.figureCaption)
+                    BoxWithConstraints(Modifier.semantics(mergeDescendants = true) {}) {
+                        HeroAmount(figure, ink, Modifier.testTag(Tags.HOME_BIG).letters(heroFigureSize(figure, maxWidth)), signColor = ink)
                     }
                 }
                 if (envelope == null || code == null) return@HeroTile
@@ -185,17 +157,41 @@ fun HomeScreen(
                 // past the even pace in red. The money short of the pale end is the margin.
                 val red = paceColor(Pace.OVER)
                 PeriodBar(envelope.timeShare, envelope.spentShare, paceColor(Pace.LASTS), red)
-                VSpace(HeaderSpace.chartCaption)
-                // Where the bar starts and ends: the chart's caption.
-                Row(Modifier.fillMaxWidth().then(cut)) {
-                    Text(dayMonth(envelope.start), Modifier.weight(1f), style = words, maxLines = 1)
-                    Text(dayMonth(envelope.end), style = words, maxLines = 1)
-                }
                 VSpace(ChartSpace.labelsToPlan)
-                // What a day was meant to be and what it actually is, under the bar as the plan under Insights' bars.
-                val plan = tr("План ${whole(envelope.perDayMinor, code)} в день", "Plan ${whole(envelope.perDayMinor, code)} a day")
-                val fact = envelope.burnMinor?.let { tr("факт ${whole(it, code)}", "actual ${whole(it, code)}") }
-                Text(listOfNotNull(plan, fact).joinToString(" · "), cut, style = words, maxLines = 1)
+                // How the period goes, and what is left to its end. A tap changes the period; the line takes 48
+                // to tap with no room of its own, the press shows around the words alone.
+                val press = remember { MutableInteractionSource() }
+                Row(
+                    Modifier.fillMaxWidth().spill(0.dp, TapSpill).fillMaxWidth().clickable(press, indication = null, onClick = onPeriod).padding(vertical = TapSpill).testTag(Tags.HOME_PERIOD),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val ahead = envelope.daysLeft
+                    fun days(n: Long) = plural(n, "день", "дня", "дней", "day", "days")
+                    Row(Modifier.fillMaxWidth().spill(Gap.s, Gap.s).fillMaxWidth().clip(RoundedCornerShape(Gap.s)).indication(press, ripple()).padding(Gap.s)) {
+                        Text(
+                            buildAnnotatedString {
+                                when (envelope.standing) {
+                                    Standing.BROKE -> append(tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go"))
+                                    // The bar's red is too pale for words; the error ink reads in both themes, and on
+                                    // a bold theme's plate of colour where it does not, the plate's own ink does.
+                                    Standing.OVER -> withStyle(SpanStyle(color = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink)) {
+                                        append(tr("Перерасход ", "Overspent ") + whole(-envelope.marginMinor, code))
+                                    }
+                                    Standing.EVEN -> append(tr("Ровно по норме", "Right on the norm"))
+                                    Standing.MARGIN -> append(tr("Запас ", "Ahead by ") + whole(envelope.marginMinor, code))
+                                }
+                            },
+                            Modifier.weight(1f).letters(words.fontSize).testTag(Tags.HOME_RUNWAY),
+                            style = words,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (envelope.standing != Standing.BROKE) {
+                            Spacer(Modifier.width(Gap.s))
+                            Text(whole(envelope.balanceMinor, code) + tr(" до ", " until ") + dayMonth(envelope.end), cut, style = words, maxLines = 1)
+                        }
+                    }
+                }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
                 }
@@ -235,7 +231,12 @@ fun HomeScreen(
 /** The Accounts header's words, in one place. */
 private object AccountsWords {
     fun title() = tr("На счетах", "In accounts")
-    fun debts() = tr("Долги", "Debts")
+    fun interest(without: Int): String {
+        val n = without.toLong()
+        return if (n == 0L) tr("Проценты по долгам", "Interest on debts")
+        else tr("Проценты, кроме $n ", "Interest, except $n ") + plural(n, "долга", "долгов", "долгов", "debt", "debts")
+    }
+    fun perMonth(amount: String) = tr("≈ $amount в месяц", "≈ $amount a month")
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -273,40 +274,28 @@ fun AccountsScreen(
             HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // The title reads straight into the figure, which stands on the other tabs' line; the other currencies
-                // a block under it, then what is owed and its cost, a group away. Every text cut to its letters and
-                // every gap a step of the header's row (HeaderSpace). Each block one TalkBack node.
+                // As the other tabs: a title and the figure on their line; the other currencies as a caption under
+                // it, what the debts cost a month a group away. Every text cut to its letters and every gap a
+                // step of the header's row (HeaderSpace). Each block one TalkBack node.
                 val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
                     Text(AccountsWords.title(), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
-                    VSpace(HeaderSpace.titleToFigure)
+                    VSpace(HeaderSpace.figureCaption)
                     val text = data.base.whole(held)
                     BoxWithConstraints {
                         HeroAmount(text, ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL).letters(heroFigureSize(text, maxWidth)), signColor = ink)
                     }
                     data.others(held, data.base.code).takeIf { it.isNotBlank() }?.let {
-                        VSpace(HeaderSpace.block)
-                        Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
+                        VSpace(HeaderSpace.valueCaption)
+                        Text(it, cut, style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                val owed = Debts.owedRub(data.states.values)
-                if (owed > 0) {
+                Debts.interest(data.accounts, data.states, data.today, data.rates)?.let { interest ->
                     VSpace(HeaderSpace.group)
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
-                        Text(AccountsWords.debts(), cut, style = words, maxLines = 1)
+                        Text(AccountsWords.interest(interest.without), cut, style = words, maxLines = 1)
                         VSpace(HeaderSpace.valueCaption)
-                        Text(data.base.whole(owed), Modifier.letters(figures.fontSize), style = figures, color = ink, maxLines = 1)
-                    }
-                }
-                Debts.advice(data.accounts, data.states)?.let { advice ->
-                    VSpace(HeaderSpace.block)
-                    val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
-                    Column(Modifier.semantics(mergeDescendants = true) {}) {
-                        Text(head, cut, style = words)
-                        tail?.let {
-                            VSpace(HeaderSpace.valueCaption)
-                            Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
-                        }
+                        Text(AccountsWords.perMonth(data.base.approx(interest.rubMinor)), Modifier.letters(figures.fontSize), style = figures, color = ink, maxLines = 1)
                     }
                 }
             }
@@ -667,7 +656,7 @@ fun HeroAmount(
         val style = bigFigure(size)
         val muted = signColor.takeOrElse { MaterialTheme.colorScheme.onSurfaceVariant }
         val digits = if (sign == null) text else text.dropLast(sign.length).trimEnd()
-        // Optically flush left: big digits carry their own side bearing, which at 94 sp reads as an
+        // Optically flush left: big digits carry their own side bearing, which at this size reads as an
         // indent against the caption above; pulled back by the first glyph's measured ink.
         val nudge = with(LocalDensity.current) { firstInk(digits, style, size.toPx()).toDp() }
         Text(
@@ -686,8 +675,8 @@ fun HeroAmount(
 /** The big figure's size for [text] in [width]: one size on every tab, so it does not jump when swiping; smaller only to fit. */
 @Composable
 internal fun heroFigureSize(text: String, width: Dp): TextUnit {
-    // Tabular figures run about 0.6 em wide; keep a little air at the edge.
-    val fit = with(LocalDensity.current) { (width * 0.94f / (text.length * 0.6f)).toSp().value }
+    // Figures, spaces and the sign run about half an em wide on average; a little air at the edge.
+    val fit = with(LocalDensity.current) { (width * 0.98f / (text.length * 0.5f)).toSp().value }
     return minOf(fit, BIG_FIGURE_SP).sp
 }
 

@@ -13,11 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Insights rebuilt around one card.** The header and the chart are one card: the kind
   as its title with a menu, the period behind a calendar, the figure, day bars over the
   legend, and the day's plan for the everyday kind by days. The average is off the
-  screen. A picked bar gives its caption and its sum, and × in the calendar's place lets go. The period strip, the category mosaic and the kinds'
+  screen. A picked bar gives its sum and its pill, a tap on which lets go. The period strip, the category mosaic and the kinds'
   tiles are gone; the details page picks the kind by the same menu.
-- **The tabs' headers by one rule.** A title, a caption, the figure. Home's title is the status,
-  a tap on it changes the period, «Можно сегодня» names the figure, plan and actual sit under the
-  bar. Accounts open with «На счетах», the money there with no debts taken off, the other currencies under the figure, the debts beside the interest. The figure stands on one line on all three tabs, the gear where Insights' calendar does.
+- **The tabs' headers by one rule.** A title, then the figure at once, 58 on every screen. Home's title
+  is «На сегодня», the line under its bar says how the period goes and what is left to its end, and a tap on it changes the period.
+  Accounts open with «На счетах», the money there with no debts taken off, the other currencies as plain
+  text under the figure, and the interest of all the debts. Insights' period stands in a pill by the kind.
 - **Reviews on Insights.** A card closes the screen, the last three reviews by date
   with what each looked at; a "+" leads to writing one, in place of the mark.
 - **Rows of a group stand one step apart to the last,** however short they are.

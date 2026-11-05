@@ -9,6 +9,7 @@ import sh.aminov.golda.data.OperationFull
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import kotlin.math.abs
 
 /**
  * The money on the spending card for a period (SPEC §5): put 1 800 ₾ on the card for a month, and
@@ -16,6 +17,9 @@ import java.time.temporal.ChronoUnit
  * Everything is in the card's own currency and measured by the card's balance, so spending that was
  * never written down still counts once the card is reconciled.
  */
+/** What the period's caption says on Home. */
+enum class Standing { BROKE, OVER, EVEN, MARGIN }
+
 data class Envelope(
     val account: Account,
     val start: LocalDate,
@@ -72,6 +76,17 @@ data class Envelope(
 
     /** Gone past the norm, "Сверх нормы 258 ₾"; zero or less is within it. */
     val overNormMinor: Long get() = spentMinor - normMinor
+
+    /** How far under the norm the spending stands, the other side of [overNormMinor]; below zero past it. */
+    val marginMinor: Long get() = normMinor - spentMinor
+
+    /** Where the period stands against the norm, by the whole units shown: less than half a unit either way is even. */
+    val standing: Standing get() = when {
+        balanceMinor <= 0 -> Standing.BROKE
+        Fmt.whole(abs(marginMinor), currency) == "0" -> Standing.EVEN
+        marginMinor < 0 -> Standing.OVER
+        else -> Standing.MARGIN
+    }
 
     /** The share of the period gone, today included, 0..1. */
     val timeShare: Float get() = elapsedDays.toFloat() / totalDays

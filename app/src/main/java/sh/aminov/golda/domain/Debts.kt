@@ -3,6 +3,7 @@ package sh.aminov.golda.domain
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.data.Obligation
+import java.time.LocalDate
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.pow
@@ -21,6 +22,9 @@ data class Prepay(
     /** What the same money would earn on a savings account over the remaining term, if one is given. */
     val savingsWouldEarnMinor: Long?,
 )
+
+/** The debts' interest a month, and how many debts it leaves out. */
+data class MonthlyInterest(val rubMinor: Long, val without: Int)
 
 object Debts {
     val Account.isDebt get() = type == AccountType.CREDIT || type == AccountType.LOAN
@@ -94,21 +98,20 @@ object Debts {
      * it beats keeping the money on the best savings account.
      */
     /**
-     * One line under the total: what the dearest debt's interest eats this month, on what is owed now.
-     * It is the interest part of the payment, so it shrinks with every early repayment. Rounded to
-     * hundreds: it is a feel, not a statement.
+     * What the debts' interest eats a month, on what is owed now, in rubles at today's rate. A card in its
+     * grace period costs nothing yet. [without] counts the debts that could not go in, with no rate or no
+     * course for their currency. Null when there is no interest to speak of.
      */
-    fun advice(accounts: List<Account>, states: Map<Long, AccountState>): String? {
-        val top = accounts.filter { it.isDebt && it.interestRate != null && (states[it.id]?.balanceMinor ?: 0) < 0 }
-            .maxByOrNull { it.interestRate!! } ?: return null
-        val owed = -states.getValue(top.id).balanceMinor
-        val interest = monthlyInterest(owed, top.interestRate!!).let { if (it >= 100_000) (it + 5_000) / 10_000 * 10_000 else it }
-        val what = when (top.type) {
-            AccountType.CREDIT -> tr("по кредитке", "on the credit card")
-            else -> tr("по кредиту", "on the loan")
+    fun interest(accounts: List<Account>, states: Map<Long, AccountState>, today: LocalDate, rates: Rates): MonthlyInterest? {
+        var rub = 0L
+        var without = 0
+        accounts.filter { it.isDebt }.forEach { debt ->
+            val owed = -(states[debt.id]?.balanceMinor ?: 0)
+            if (owed <= 0 || (debt.graceUntil ?: Long.MIN_VALUE) >= today.toEpochDay()) return@forEach
+            val month = debt.interestRate?.let { rates.rubMinor(monthlyInterest(owed, it), debt.currency) }
+            if (month == null) without++ else rub += month
         }
-        // Two lines: what it is, then what it comes to.
-        return tr("Проценты $what", "Interest $what") + "\n" + tr("≈ ${Fmt.amount(interest, top.currency)} в месяц", "≈ ${Fmt.amount(interest, top.currency)} a month")
+        return MonthlyInterest(rub, without).takeIf { rub > 0 }
     }
 
     /** A month's interest on [owedMinor] at a yearly [ratePercent]. */

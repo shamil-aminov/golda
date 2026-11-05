@@ -21,7 +21,11 @@ import sh.aminov.golda.data.Posting
 import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Debts
+import sh.aminov.golda.domain.Envelope
 import sh.aminov.golda.domain.Envelopes
+import sh.aminov.golda.domain.Fmt
+import sh.aminov.golda.domain.Standing
+import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -107,23 +111,7 @@ class DebtsEnvelopePropertiesTest {
     }
 
     @Test
-    fun theDearestDebtGetsTheAdvice() {
-        val loan = Account(1, "Кредит", "RUB", AccountType.LOAN, includeInFree = false, interestRate = 12.0)
-        val card = Account(2, "Кредитка", "RUB", AccountType.CREDIT, includeInFree = false, interestRate = 30.0)
-        val paid = Account(3, "Старый", "RUB", AccountType.LOAN, includeInFree = false, interestRate = 90.0)
-        val states = mapOf(
-            1L to AccountState(loan, -12_000_000, -12_000_000),
-            2L to AccountState(card, -400_000, -400_000),
-            3L to AccountState(paid, 0, 0),
-        )
-        val advice = Debts.advice(listOf(loan, card, paid), states)!!
-        // 30 % a year on 4 000 ₽ is 100 ₽ a month, on the card, not on the paid-off 90 % loan.
-        assertTrue(advice, advice.contains("100"))
-        assertTrue(advice, advice.contains("кредитк") || advice.contains("credit card"))
-        assertNull(Debts.advice(listOf(paid), states))
-        // Big sums are rounded to hundreds of rubles.
-        val big = Debts.advice(listOf(loan), states)!!
-        assertTrue(big, Regex("""1\D200""").containsMatchIn(big))
+    fun aYearsRateMakesAMonthsInterest() {
         assertEquals(10_000L, Debts.monthlyInterest(1_000_000, 12.0))
     }
 
@@ -334,5 +322,97 @@ class DebtsEnvelopePropertiesTest {
         val states = listOf(state(1, AccountType.CREDIT, 700), state(2, AccountType.CARD, 300), state(3, AccountType.LOAN, -500_000_000))
         assertEquals(1000L, Debts.heldRub(states))
         assertEquals(500_000_000L, Debts.owedRub(states))
+    }
+
+    private val noRates = Rates(emptyMap(), 0.0)
+    private val day = LocalDate.of(2026, 11, 5)
+
+    private fun debt(id: Long, rate: Double?, type: AccountType = AccountType.LOAN, code: String = "RUB", grace: Long? = null) =
+        Account(id, "d$id", code, type, includeInFree = false, interestRate = rate, graceUntil = grace)
+
+    private fun owing(vararg debts: Pair<Account, Long>) = debts.associate { (a, owed) -> a.id to AccountState(a, -owed, -owed) }
+
+    @Test
+    fun theInterestIsEveryDebtsTogether() = prop {
+        checkAll(Arb.long(100L..1_000_000_000L), Arb.long(100L..1_000_000_000L), Arb.double(1.0, 60.0), Arb.double(1.0, 60.0)) { a, b, x, y ->
+            val one = debt(1, x)
+            val two = debt(2, y)
+            val both = Debts.interest(listOf(one, two), owing(one to a, two to b), day, noRates)
+            val alone = listOfNotNull(Debts.interest(listOf(one), owing(one to a), day, noRates), Debts.interest(listOf(two), owing(two to b), day, noRates))
+            assertEquals(alone.sumOf { it.rubMinor }, both?.rubMinor ?: 0)
+        }
+    }
+
+    @Test
+    fun aDebtLeftOutTakesNothingAndIsCounted() = prop {
+        checkAll(Arb.long(10_000L..1_000_000_000L), Arb.long(1L..1_000_000_000L)) { owed, other ->
+            val rated = debt(1, 24.0)
+            val flat = debt(2, null)
+            val foreign = debt(3, 12.0, code = "GEL")
+            val all = Debts.interest(listOf(rated, flat, foreign), owing(rated to owed, flat to other, foreign to other), day, noRates)!!
+            assertEquals(Debts.monthlyInterest(owed, 24.0), all.rubMinor)
+            assertEquals(2, all.without)
+        }
+    }
+
+    @Test
+    fun aCardInItsGraceCostsNothingToItsLastDay() {
+        val last = day.toEpochDay()
+        val inGrace = debt(1, 30.0, AccountType.CREDIT, grace = last)
+        val past = debt(1, 30.0, AccountType.CREDIT, grace = last - 1)
+        assertNull(Debts.interest(listOf(inGrace), owing(inGrace to 1_000_000), day, noRates))
+        assertEquals(25_000L, Debts.interest(listOf(past), owing(past to 1_000_000), day, noRates)!!.rubMinor)
+    }
+
+    @Test
+    fun anotherCurrencyGoesAtTodaysRateAndTheCardInThePlusOwesNothing() {
+        val dollars = debt(1, 12.0, code = "USD")
+        val rates = Rates(mapOf("USD" to 100.0), 0.0)
+        assertEquals(100_000L, Debts.interest(listOf(dollars), owing(dollars to 100_000), day, rates)!!.rubMinor)
+        val plus = debt(2, 12.0, AccountType.CREDIT)
+        assertNull(Debts.interest(listOf(plus), mapOf(2L to AccountState(plus, 500, 500)), day, noRates))
+        val saved = Account(3, "s", "RUB", AccountType.SAVINGS, includeInFree = false, interestRate = 12.0)
+        assertNull(Debts.interest(listOf(saved), owing(saved to 1_000_000), day, noRates))
+        assertNull(Debts.interest(listOf(debt(4, 12.0)), emptyMap(), day, noRates))
+    }
+
+    @Test
+    fun theMarginIsTheOtherSideOfTheOverage() = prop {
+        checkAll(Arb.long(0L..1_000_000_000L), Arb.long(0L..1_000_000_000L), Arb.long(1L..60L)) { balance, spent, left ->
+            val e = Envelope(debt(1, null), day, day.plusDays(60), balance, spent, 0, left, 0, 0, null, null)
+            assertEquals(e.normMinor - e.spentMinor, e.marginMinor)
+            assertEquals(-e.overNormMinor, e.marginMinor)
+        }
+    }
+
+    private fun standing(balance: Long, spent: Long) =
+        Envelope(debt(1, null), day, day.plusDays(9), balance, spent, 0, 5, 0, 0, null, null)
+
+    @Test
+    fun theStandingFollowsTheMarginByTheUnitsShown() = prop {
+        checkAll(Arb.long(1L..1_000_000_000L), Arb.long(0L..1_000_000_000L)) { balance, spent ->
+            val e = standing(balance, spent)
+            val shown = Fmt.whole(kotlin.math.abs(e.marginMinor), e.currency) != "0"
+            assertEquals(
+                when {
+                    !shown -> Standing.EVEN
+                    e.marginMinor < 0 -> Standing.OVER
+                    else -> Standing.MARGIN
+                },
+                e.standing,
+            )
+        }
+    }
+
+    @Test
+    fun noMoneyLeftComesFirstAndHalfAUnitIsEven() {
+        assertEquals(Standing.BROKE, standing(0, 1_000).standing)
+        assertEquals(Standing.BROKE, standing(-1, 0).standing)
+        // Six days of ten gone, 600 of 1 000 spent: to the kopeck on the norm.
+        assertEquals(Standing.EVEN, standing(40_000, 60_000).standing)
+        // A quarter of a unit under it still reads "0".
+        assertEquals(Standing.EVEN, standing(40_040, 60_000).standing)
+        assertEquals(Standing.MARGIN, standing(60_000, 40_000).standing)
+        assertEquals(Standing.OVER, standing(20_000, 80_000).standing)
     }
 }

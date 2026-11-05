@@ -627,7 +627,7 @@ private fun BookkeepingSheet(data: AppData, full: OperationFull, onDismiss: () -
         Caption(if (full.op.type == OpType.ADJUSTMENT) tr("Поправка после сверки", "Adjustment after reconciling") else tr("Начальный баланс", "Opening balance"))
         VSpace(Gap.xs)
         val text = Fmt.amount(posting.amountMinor, code, signed = true)
-        BigNumber(text, posting.amountMinor, MaterialTheme.colorScheme.onSurface, maxSp = ENTRY_FIGURE_SP)
+        BigNumber(text, posting.amountMinor, MaterialTheme.colorScheme.onSurface, maxSp = BIG_FIGURE_SP)
         VSpace(Gap.xs)
         Text(
             data.accountById[posting.accountId]?.name.orEmpty() + " · " + dayLabel(Ledger.localDate(full.op.timestamp, data.zone), data.today),

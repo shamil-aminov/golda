@@ -129,18 +129,18 @@ class AnalyticsScreenTest {
     @Test
     fun aWeeksBarNarrowsTheFigureAndTheCategoriesAndTheCrossBringsThemBack() {
         shown("Все траты")
-        shown("За 30 дней")
+        shown("30 дней")
         compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
         tapLastBar()
-        shown("За 19–24 октября")
-        shown("За 30 дней", 0)
+        shown("19–24 окт", 2)
+        shown("30 дней", 0)
         // The rent is in an earlier week; the legend is this bar's, the title as it was.
         shown("Жильё", 0)
         shown("Еда")
         shown("Все траты")
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
         shown("Жильё")
-        shown("За 30 дней")
+        shown("30 дней")
     }
 
     @Test
@@ -151,23 +151,22 @@ class AnalyticsScreenTest {
         tapLastBar()
         shown("Еда")
         shown("Покупки", 0)
-        shown("За субботу, 24 октября")
+        shown("Сб, 24 окт")
         figure("793")
         tapLastBar()
-        shown("За 7 дней")
+        shown("7 дней")
         figure("355")
     }
 
     @Test
-    fun theCrossStandsInTheCalendarsPlaceWhileABarIsPicked() {
-        val calendar = compose.onNodeWithContentDescription("Период").fetchSemanticsNode().boundsInRoot
+    fun theBarTakesThePillsPlaceWhileItIsPicked() {
+        val pill = compose.onNodeWithContentDescription("Период").fetchSemanticsNode().boundsInRoot
         tapLastBar()
         compose.onAllNodesWithContentDescription("Период").assertCountEquals(0)
-        val cross = compose.onNodeWithContentDescription("Снять выбор дня").fetchSemanticsNode().boundsInRoot
-        assertEquals(calendar, cross)
+        assertEquals(pill.right, compose.onNodeWithContentDescription("Снять выбор дня").fetchSemanticsNode().boundsInRoot.right, 1f)
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
         compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
-        assertEquals(calendar, compose.onNodeWithContentDescription("Период").fetchSemanticsNode().boundsInRoot)
+        assertEquals(pill, compose.onNodeWithContentDescription("Период").fetchSemanticsNode().boundsInRoot)
     }
 
     @Test
@@ -176,7 +175,7 @@ class AnalyticsScreenTest {
         kind("Все траты", "Ежедневные")
         tapLastBar()
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
-        compose.onAllNodesWithText("За субботу", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Сб, 24", substring = true).assertCountEquals(0)
         shown("Ежедневные")
         shown("Еда")
         compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
@@ -198,7 +197,7 @@ class AnalyticsScreenTest {
         week()
         tapLastBar()
         kind("Все траты", "Разовые")
-        compose.onAllNodesWithText("За субботу", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Сб, 24", substring = true).assertCountEquals(0)
     }
 
     @Test
@@ -266,9 +265,9 @@ class AnalyticsScreenTest {
 
     @Test
     fun theCalendarChangesThePeriod() {
-        shown("За 30 дней")
+        shown("30 дней")
         compose.onNodeWithContentDescription("Период").performClick()
         compose.onNodeWithText("Неделя").performClick()
-        shown("За 7 дней")
+        shown("7 дней")
     }
 }
