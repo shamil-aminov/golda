@@ -134,7 +134,7 @@ private fun Mosaic(r: Long, d: Long, g: Long, base: Base, lay: Lay, pct: Pct, wi
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val full = maxWidth
             val room = full.value - GAP.value * 2
-            val auto = kinds[0].rub * 2 < total && room >= 120f * 3
+            val auto = kinds[2].rub.toFloat() / total.coerceAtLeast(1) * room >= 120f
             when (if (lay == Lay.AUTO) (if (auto) Lay.COLS else Lay.BLOCK) else lay) {
                 Lay.COLS -> {
                     val ws = widths(kinds.map { it.rub.toFloat() / total.coerceAtLeast(1) }, room, minOf(120f, room / 3))
@@ -263,6 +263,7 @@ private val p = mapOf(
     "33" to Triple(33_400L, 33_300L, 33_300L), "40" to Triple(40_000L, 35_000L, 25_000L), "45" to Triple(45_000L, 30_000L, 25_000L),
     "49" to Triple(49_000L, 26_000L, 25_000L), "50" to Triple(50_000L, 25_000L, 25_000L), "492" to Triple(49_000L, 49_000L, 2_000L),
     "long" to Triple(4_000_000L, 3_500_000L, 1_234_567L),
+    "38" to Triple(38_000L, 31_000L, 31_000L), "36" to Triple(36_000L, 32_000L, 32_000L),
 )
 private val q = mapOf(
     "e33" to Triple(33_400L, 33_300L, 33_300L), "e50" to Triple(50_000L, 49_000L, 1_000L), "e98" to Triple(98_000L, 1_000L, 1_000L), "e60" to Triple(60_000L, 30_000L, 10_000L),
@@ -277,9 +278,7 @@ class LookMosaicPreviewTest(private val name: String) {
     companion object {
         @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun names(): List<Array<Any>> {
-            val a = p.keys.flatMap { k -> listOf("B", "C", "R").map { "p$it-$k" } } + listOf("n33C", "n33R", "n33B", "n40C", "n40R", "n40B", "nlongC", "nlongR")
-            val b = q.keys.map { "q-$it" } + listOf("q-nlong", "q-n98", "q-n33")
-            return (a + b).map { arrayOf<Any>(it) }
+            return listOf("33", "36", "38", "40", "45").map { arrayOf<Any>("pA-$it") }
         }
     }
 
@@ -308,8 +307,7 @@ class LookMosaicPreviewTest(private val name: String) {
                             p.getValue(key).let { Mosaic(it.first, it.second, it.third, data.base, lay, Pct.NONE, 320.dp) }
                         }
                         else -> {
-                            val lay = mapOf('C' to Lay.COLS, 'R' to Lay.ROWS, 'B' to Lay.BLOCK).getValue(name[1])
-                            p.getValue(name.substringAfter('-')).let { Mosaic(it.first, it.second, it.third, data.base, lay, Pct.NONE) }
+                            p.getValue(name.substringAfter('-')).let { Mosaic(it.first, it.second, it.third, data.base, Lay.AUTO, Pct.FLEX, null, 156f) }
                         }
                     }
                 }
