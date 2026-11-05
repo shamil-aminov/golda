@@ -51,6 +51,18 @@ object VoicePrompt {
         },"required":["transcript","items"]}
     """.trimIndent()
 
+    /** Added to [system] for a photo. One operation for the whole receipt for now. */
+    const val RECEIPT = """
+
+Это не голос, а снимок чека, счёта или ценника, и это важнее правил выше.
+- Весь снимок — один элемент items с intent expense, сколько бы позиций на нём ни было.
+- amount — итог к оплате. currency — валюта, если напечатана, иначе null.
+- note — название магазина или заведения, иначе что куплено.
+- category — категория самой крупной позиции.
+- date — дата покупки, если напечатана, иначе null.
+- transcript — магазин и итог, числа так, как напечатаны.
+- Если на снимке нет покупки или итог не прочесть — один элемент с intent unknown."""
+
     fun system(accounts: List<Account>, categories: List<Category>, settings: Settings, today: LocalDate): String {
         val weekday = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.forLanguageTag("ru"))
         val accountLines = accounts.joinToString("\n") { "- ${it.id}: ${it.name}, ${it.currency}, ${it.type.name.lowercase()}" }

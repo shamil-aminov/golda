@@ -421,46 +421,29 @@ private fun KindTitle(pick: InsightsPick, modifier: Modifier, style: androidx.co
 
 private fun kindName(kind: Bucket?): String = kind?.let(::bucketLabel) ?: tr("Все траты", "All spending")
 
-/** What the corner's pill says: the period, or the picked bar. */
+/** What the corner's pill says: the period in its menu's words, a range of your own by its dates, or the picked bar. */
 private fun periodWords(pick: InsightsPick, span: Period?, bar: Analytics.Bar, today: LocalDate): String = when {
-    span == null -> ReviewPrompt.short(pick.period(today), today)
+    span == null -> when (pick.kind) {
+        PeriodKind.WEEK -> tr("Неделя", "Week")
+        PeriodKind.MONTH -> tr("Месяц", "Month")
+        else -> ReviewPrompt.dates(pick.period(today), today)
+    }
     bar == Analytics.Bar.DAY -> ReviewPrompt.day(span.from)
     else -> ReviewPrompt.dates(span, today)
 }
 
-/** The widest the pill gets, so the kind beside it keeps its word on a narrow phone. */
-private val PillMost = 150.dp
-
 /**
- * The period in a filled pill, 32 high, 48 to tap. A tap opens its menu: the two usual periods and a
- * range of your own, the current one checked. While a bar is picked it says the bar in the picked
- * colour, with a cross, and a tap lets the bar go.
+ * The period in the corner's pill. A tap opens its menu: the two usual periods and a range of your own,
+ * the current one checked. While a bar is picked it says the bar in the picked colour, with a cross,
+ * and a tap lets the bar go.
  */
 @Composable
 private fun PeriodPill(pick: InsightsPick, today: LocalDate, words: String) {
     var open by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
     val picked = pick.bar != null
-    val ink = if (picked) onPickedColor() else MaterialTheme.colorScheme.onSurface
-    val press = remember { MutableInteractionSource() }
     Box {
-        Box(
-            Modifier.height(48.dp).clickable(press, indication = null) { if (picked) pick.letBarGo() else open = true }
-                .semantics { contentDescription = if (picked) tr("Снять выбор дня", "Clear the day") else tr("Период", "Period") },
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                Modifier.height(32.dp).widthIn(max = PillMost).clip(CircleShape).background(if (picked) pickedColor() else unpickedColor()).indication(press, ripple())
-                    .padding(start = 12.dp, end = if (picked) 8.dp else 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(words, Modifier.weight(1f, fill = false), style = TextRole.caption, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (picked) {
-                    Spacer(Modifier.width(6.dp))
-                    Icon(painterResource(R.drawable.ic_close), null, Modifier.size(18.dp), tint = ink)
-                }
-            }
-        }
+        CornerPill(words, if (picked) tr("Снять выбор дня", "Clear the day") else tr("Период", "Period"), picked = picked) { if (picked) pick.letBarGo() else open = true }
         DropdownMenu(open, onDismissRequest = { open = false }, shape = RoundedCornerShape(16.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
             listOf(PeriodKind.WEEK to tr("Неделя", "Week"), PeriodKind.MONTH to tr("Месяц", "Month"), PeriodKind.CUSTOM to tr("Выбрать даты", "Pick dates")).forEach { (option, label) ->
                 DropdownMenuItem(

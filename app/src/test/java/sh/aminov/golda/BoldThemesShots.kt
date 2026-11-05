@@ -59,7 +59,7 @@ class BoldThemesShots {
         compose.setContent {
             GoldaTheme(tones) {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                    if (home) HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
+                    if (home) HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, onEdit = {})
                     else AnalyticsScreen(data, PaddingValues()) {}
                 }
             }

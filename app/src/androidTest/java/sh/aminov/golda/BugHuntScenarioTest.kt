@@ -73,7 +73,7 @@ class BugHuntScenarioTest : GoldaUiTest() {
     @Test
     fun aDebtIsReconciledByWhatIsOwed() {
         runBlocking { repo.saveAccount(Account(name = "Visa", currency = "RUB", type = AccountType.CREDIT, includeInFree = false, sort = 3), -1_500_000) }
-        compose.onNodeWithContentDescription(tr("Счета", "Accounts")).performClick()
+        compose.onNodeWithText(tr("Счета", "Accounts")).performClick()
         compose.waitForIdle()
         waitForText("Visa")
         tap("Visa")
@@ -86,10 +86,10 @@ class BugHuntScenarioTest : GoldaUiTest() {
     /** Polish: back on another tab goes Home, not out of the app. */
     @Test
     fun backOnAnotherTabGoesHome() {
-        compose.onNodeWithContentDescription(tr("Аналитика", "Insights")).performClick()
+        compose.onNodeWithText(tr("Траты", "Spending")).performClick()
         compose.waitForIdle()
         back()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText(tr("На сегодня", "For today"))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText(tr("Остаток дня", "Left today"))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag(Tags.HOME_OTHERS, useUnmergedTree = true).assertIsDisplayed()
     }
 }

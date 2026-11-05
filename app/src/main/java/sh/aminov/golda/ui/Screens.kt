@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.toggleable
@@ -90,7 +91,8 @@ import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Debts
-import sh.aminov.golda.domain.Standing
+import sh.aminov.golda.domain.Envelope
+import sh.aminov.golda.domain.Light
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
@@ -101,8 +103,66 @@ import java.time.LocalDate
 @Composable
 fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + Gap.s, bottom = calculateBottomPadding() + ToolbarHeight + Gap.m + ListSpace.cards)
 
-/** Over and under a caption's letters, so a line of them takes 48 to tap. */
-private val TapSpill = 19.dp
+/** How tall the tiles of what went and what is left stand. */
+private val TileHeight = 32.dp
+
+/** Their corners, the bars' on Insights. */
+private val TileCorner = 6.dp
+
+/** Between the two. */
+private val TileGap = 4.dp
+
+/** The narrowest a tile gets: its width is the truth, this only keeps it from vanishing. */
+private val TileLeast = 6.dp
+
+/**
+ * The period's money as two tiles, their widths its shares, no words on them: what went, in the
+ * colour of how it goes against the norm ([Envelope.light]), and what is left. Under each its word
+ * and its sum, on the tile's own edge.
+ */
+@Composable
+private fun SpentTiles(envelope: Envelope) {
+    val tones = LocalTones.current
+    val code = envelope.currency
+    val spent = envelope.spentMinor.coerceAtLeast(0)
+    val left = envelope.balanceMinor.coerceAtLeast(0)
+    val fill = when (envelope.light) {
+        Light.GREEN -> leitmotifColor(2, tones)
+        Light.YELLOW -> paceColor(Pace.LASTS)
+        Light.RED -> paceColor(Pace.OVER)
+    }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val room = maxWidth - TileGap
+        val share = envelope.spentShare
+        val went = (room * share).coerceIn(TileLeast, room - TileLeast)
+        Row(horizontalArrangement = Arrangement.spacedBy(TileGap)) {
+            Box(Modifier.width(went).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill).testTag(Tags.HOME_SPENT))
+            Box(Modifier.width(room - went).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(tones.soft))
+        }
+    }
+    VSpace(ChartSpace.tilesToWords)
+    Row(Modifier.fillMaxWidth()) {
+        fun pace(minor: Long) = tr("${Fmt.whole(minor, code)} в день", "${Fmt.whole(minor, code)} a day")
+        TileWords(tr("Ушло", "Gone"), whole(spent, code), envelope.burnMinor?.let(::pace), Alignment.Start, Modifier.weight(1f))
+        TileWords(tr("Осталось", "Left"), whole(left, code), pace(envelope.perDayMinor), Alignment.End, Modifier)
+    }
+    // A little more than the card's edge under a block of three lines.
+    VSpace(ChartSpace.wordToSum)
+}
+
+/** A tile's word, its sum and the pace, one node for TalkBack. */
+@Composable
+private fun TileWords(word: String, sum: String, pace: String?, side: Alignment.Horizontal, modifier: Modifier) {
+    Column(modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = side) {
+        Text(word, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1)
+        VSpace(ChartSpace.wordToSum)
+        Text(sum, Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onPrimaryFixed, maxLines = 1)
+        pace?.let {
+            VSpace(ChartSpace.wordToSum)
+            Text(it, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1)
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -110,7 +170,6 @@ fun HomeScreen(
     data: AppData,
     padding: PaddingValues,
     listState: LazyListState,
-    onSettings: () -> Unit,
     onPeriod: () -> Unit,
     /** A regular payment due: the entry form filled in for it. */
     onPayment: (Obligation) -> Unit = {},
@@ -133,12 +192,14 @@ fun HomeScreen(
                 val code = envelope?.currency
                 val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
                 val title = TextRole.groupTitle
-                Row {
-                    Text(tr("На сегодня", "For today"), Modifier.weight(1f).letters(title.fontSize), style = title, color = ink, maxLines = 1)
-                    // The gear's top on the title's line, its glyph's right edge on the content's, as the calendar on
-                    // Insights; its 48 to tap spills into the padding and takes no room from the line.
-                    IconButton(onClick = onSettings, modifier = Modifier.hang()) {
-                        Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onPrimaryFixedVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Остаток дня", "Left today"), Modifier.weight(1f).letters(title.fontSize), style = title, color = ink, maxLines = 1)
+                    // The days left, in the corner where Insights has its period; a tap changes the period.
+                    if (envelope != null) {
+                        Box(Modifier.height(0.dp).wrapContentHeight(unbounded = true)) {
+                            val left = envelope.daysLeft
+                            CornerPill(tr("Ещё $left ", "$left ") + plural(left, "день", "дня", "дней", "day", "days") + tr("", " left"), tr("Период", "Period"), Modifier.testTag(Tags.HOME_PERIOD), onClick = onPeriod)
+                        }
                     }
                 }
                 if (envelope == null) {
@@ -147,51 +208,16 @@ fun HomeScreen(
                 }
                 if (figure != null) {
                     VSpace(HeaderSpace.figureCaption)
+                    // Out of the day's plan, small on the figure's baseline; the words count towards its fit at a third of a digit each.
+                    val outOf = envelope?.dayOutOf?.let { tr("из ", "of ") + Fmt.whole(it, envelope.currency) }
+                    val sized = figure + "0".repeat(outOf.orEmpty().length / 3)
                     BoxWithConstraints(Modifier.semantics(mergeDescendants = true) {}) {
-                        HeroAmount(figure, ink, Modifier.testTag(Tags.HOME_BIG).letters(heroFigureSize(figure, maxWidth)), signColor = ink)
+                        HeroAmount(figure, ink, Modifier.testTag(Tags.HOME_BIG).letters(heroFigureSize(sized, maxWidth)), signColor = ink, sizedFor = sized, tail = outOf)
                     }
                 }
                 if (envelope == null || code == null) return@HeroTile
                 VSpace(HeaderSpace.block)
-                // The period as one bar: the days gone pale, the money gone over them, and what went
-                // past the even pace in red. The money short of the pale end is the margin.
-                val red = paceColor(Pace.OVER)
-                PeriodBar(envelope.timeShare, envelope.spentShare, paceColor(Pace.LASTS), red)
-                VSpace(ChartSpace.labelsToPlan)
-                // How the period goes, and what is left to its end. A tap changes the period; the line takes 48
-                // to tap with no room of its own, the press shows around the words alone.
-                val press = remember { MutableInteractionSource() }
-                Row(
-                    Modifier.fillMaxWidth().spill(0.dp, TapSpill).fillMaxWidth().clickable(press, indication = null, onClick = onPeriod).padding(vertical = TapSpill).testTag(Tags.HOME_PERIOD),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val ahead = envelope.daysLeft
-                    fun days(n: Long) = plural(n, "день", "дня", "дней", "day", "days")
-                    Row(Modifier.fillMaxWidth().spill(Gap.s, Gap.s).fillMaxWidth().clip(RoundedCornerShape(Gap.s)).indication(press, ripple()).padding(Gap.s)) {
-                        Text(
-                            buildAnnotatedString {
-                                when (envelope.standing) {
-                                    Standing.BROKE -> append(tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go"))
-                                    // The bar's red is too pale for words; the error ink reads in both themes, and on
-                                    // a bold theme's plate of colour where it does not, the plate's own ink does.
-                                    Standing.OVER -> withStyle(SpanStyle(color = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink)) {
-                                        append(tr("Перерасход ", "Overspent ") + whole(-envelope.marginMinor, code))
-                                    }
-                                    Standing.EVEN -> append(tr("Ровно по норме", "Right on the norm"))
-                                    Standing.MARGIN -> append(tr("Запас ", "Ahead by ") + whole(envelope.marginMinor, code))
-                                }
-                            },
-                            Modifier.weight(1f).letters(words.fontSize).testTag(Tags.HOME_RUNWAY),
-                            style = words,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        if (envelope.standing != Standing.BROKE) {
-                            Spacer(Modifier.width(Gap.s))
-                            Text(whole(envelope.balanceMinor, code) + tr(" до ", " until ") + dayMonth(envelope.end), cut, style = words, maxLines = 1)
-                        }
-                    }
-                }
+                SpentTiles(envelope)
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
                 }
@@ -230,7 +256,7 @@ fun HomeScreen(
 
 /** The Accounts header's words, in one place. */
 private object AccountsWords {
-    fun title() = tr("На счетах", "In accounts")
+    fun title() = tr("Всего денег", "All the money")
     fun interest(without: Int): String {
         val n = without.toLong()
         return if (n == 0L) tr("Проценты по долгам", "Interest on debts")
@@ -647,6 +673,8 @@ fun HeroAmount(
     text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified,
     /** The longest figure this one stands in for, so a shorter one keeps the size and the header its height. */
     sizedFor: String = text,
+    /** Small words on the figure's own baseline, after it. */
+    tail: String? = null,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val size = heroFigureSize(sizedFor, maxWidth)
@@ -663,6 +691,7 @@ fun HeroAmount(
             buildAnnotatedString {
                 append(digits)
                 if (sign != null) withStyle(SpanStyle(color = muted)) { append(" $sign") }
+                tail?.let { withStyle(TextRole.rowName.toSpanStyle().copy(color = muted)) { append(" $it") } }
             },
             Modifier.offset(x = -nudge),
             style = style,

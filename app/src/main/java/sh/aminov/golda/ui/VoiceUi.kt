@@ -1,5 +1,15 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.material3.LocalContentColor
+import sh.aminov.golda.data.VoiceQueue
+import sh.aminov.golda.data.Snapshot
+import java.io.File
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.core.content.FileProvider
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -33,12 +43,6 @@ import androidx.compose.ui.semantics.role
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -46,7 +50,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.Color
@@ -56,14 +59,12 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -71,15 +72,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.graphics.shapes.Morph
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -97,7 +95,15 @@ import kotlin.math.sqrt
 enum class VoiceState { Idle, Recording, Thinking }
 
 /** [level] is how loud the microphone hears it right now, 0..1. */
-class VoiceControl(val state: VoiceState, val toggle: () -> Unit, val level: () -> Float = { 0f })
+class VoiceControl(
+    val state: VoiceState,
+    val toggle: () -> Unit,
+    val level: () -> Float = { 0f },
+    /** Takes a photo of a receipt; null on a phone with no camera. */
+    val camera: (() -> Unit)? = null,
+    /** Drops the recording under way, nothing kept. */
+    val cancel: () -> Unit = {},
+)
 
 /**
  * Tap to talk, tap again when done. Results (also of notes understood later
@@ -165,8 +171,34 @@ fun rememberVoice(
         }
     }
 
+    fun cancel() {
+        if (state != VoiceState.Recording) return
+        haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+        recorder.cancel()
+        state = VoiceState.Idle
+    }
+
     LaunchedEffect(requests) {
         for (request in requests) if (state == VoiceState.Idle) toggle()
+    }
+
+    // The phone's own camera, so the app asks for no permission. The photo then takes a note's way.
+    val shot = remember { Snapshot.shot(context.applicationContext) }
+    val photo = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        if (taken) scope.launch {
+            state = VoiceState.Thinking
+            val note = File(VoiceQueue.dir(context), "${System.currentTimeMillis()}.${VoiceQueue.PHOTO}")
+            val ready = withContext(Dispatchers.IO) { runCatching { Snapshot.shrink(shot, note) }.getOrDefault(false) }
+            shot.delete()
+            if (ready) repo.understand(note) else snackbar.showSnackbar(tr("Снимок не получился", "The photo didn't work out"))
+            state = VoiceState.Idle
+        }
+    }
+    val hasCamera = remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
+    fun takePhoto() {
+        if (state != VoiceState.Idle) return
+        val uri = FileProvider.getUriForFile(context, context.packageName + ".files", shot)
+        runCatching { photo.launch(uri) }.onFailure { scope.launch { snackbar.showSnackbar(tr("Камера недоступна", "The camera is unavailable")) } }
     }
 
     // The collector below lives as long as the screen; it must read today's accounts, not the ones it
@@ -198,7 +230,7 @@ fun rememberVoice(
         }
     }
 
-    return VoiceControl(state, ::toggle, recorder::level)
+    return VoiceControl(state, ::toggle, recorder::level, if (hasCamera) ::takePhoto else null, ::cancel)
 }
 
 private fun describe(draft: Draft, data: AppData): String {
@@ -207,143 +239,86 @@ private fun describe(draft: Draft, data: AppData): String {
     return "$title ${Fmt.amount(draft.purchaseAmountMinor ?: draft.amountMinor, code)}"
 }
 
-/** A tab of the floating toolbar: the outline icon, the filled one when it is the current tab, and its name. */
-class ToolbarTab(@DrawableRes val icon: Int, @DrawableRes val selectedIcon: Int, val name: String)
-
 /**
- * The one bar at the bottom of every tab: an M3 Expressive floating toolbar, centred, floating over
- * the content. The tabs as icons (filled and on the picked colour when current), a hairline, "+" to
- * add by hand, and the mic as the toolbar's own FAB, the biggest mark of all, in the hero's lavender.
- * While the mic listens it shows the voice-reactive cookie with the stop square; while the note is
- * worked out, the loading indicator.
+ * The one bar at the bottom of every tab, floating over the content: the ways of writing something
+ * down as plain marks, all alike, the camera where there is one, the pencil and the mic. While the mic listens
+ * the bar stays where it is and comes alive: cancel on the left, the voice's level in the middle, and
+ * stop where the mic was. While the note is worked out, the loading indicator takes the mic's place.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaToolbar(
-    tabs: List<ToolbarTab>,
-    selected: Int,
-    position: () -> Float,
-    onSelect: (Int) -> Unit,
-    voice: VoiceControl,
-    onAdd: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
-    // The one action to take: gold, like every main action.
-    // Golda's gold: the one action to take.
-    val mic = actionColor()
-    val onMic = onActionColor()
     val label = when (voice.state) {
         VoiceState.Idle -> tr("Сказать", "Say it")
-        VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
+        VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when you're done")
         VoiceState.Thinking -> tr("Разбираю", "Thinking")
     }
-    // The bar and the mic side by side, each with a soft shadow all round: Material's elevation
-    // drops the shadow below them.
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
-    // A pill, a soft shadow all round, no outline: it floats over the cards without a hard edge. The
-    // same room on every side of what is in it: the picked pill (48) sits [ToolbarInset] from the bar's
-    // top, bottom and end, so its round end is concentric with the bar's.
+    // A soft shadow lifts it over the cards without a hard edge.
     Surface(
-        Modifier.height(ToolbarHeight).softShadow(CircleShape),
+        modifier.height(ToolbarHeight).softShadow(CircleShape),
         shape = CircleShape,
         // A card in light; in dark a step up, or it melts into the cards it floats over.
         color = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
-        contentColor = scheme.onSurfaceVariant,
+        contentColor = scheme.onSurface,
     ) {
-    Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
-        // One pill rides under the tabs at the pager's exact position, so it follows the finger during
-        // a swipe and glides on a tap. Each icon takes the pill's ink and fills as the pill reaches it.
-        val picked = pickedColor()
-        val onPicked = onPickedColor()
-        val idle = scheme.onSurfaceVariant
-        Box {
-            Box(
-                Modifier
-                    // The pill is narrower than its slot, centred in it: air between the tabs.
-                    .offset { IntOffset((position() * ToolbarItemWidth.toPx() + (ToolbarItemWidth - PillWidth).toPx() / 2).roundToInt(), 0) }
-                    .size(PillWidth, ToolbarItemHeight)
-                    .background(picked, CircleShape),
-            )
-            Row(Modifier.selectableGroup()) {
-                tabs.forEachIndexed { index, tab ->
-                    val nearness = (1f - abs(position() - index)).coerceIn(0f, 1f)
-                    val press = remember { MutableInteractionSource() }
-                    IconButton(
-                        onClick = { onSelect(index) },
-                        interactionSource = press,
-                        // Wider and taller than the 40 dp default: the bar is used with a thumb, often on the move.
-                        modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press).clip(CircleShape).semantics {
-                            role = Role.Tab
-                            this.selected = index == selected
-                        },
-                    ) {
-                        Icon(
-                            painterResource(if (nearness > 0.5f) tab.selectedIcon else tab.icon),
-                            tab.name,
-                            // The picked icon swells a little as the pill reaches it.
-                            Modifier.size(26.dp).graphicsLayer { scaleX = 1f + 0.12f * nearness; scaleY = 1f + 0.12f * nearness },
-                            tint = lerp(idle, onPicked, nearness),
-                        )
-                    }
+        Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
+            if (voice.state == VoiceState.Recording) {
+                BarMark(voice.cancel) { Icon(painterResource(R.drawable.ic_close), tr("Отменить запись", "Cancel the recording"), Modifier.size(BarIcon)) }
+                LevelLine(voice.level)
+            } else {
+                voice.camera?.let { take -> BarMark(take) { Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(BarIcon)) } }
+                BarMark(onAdd) { Icon(painterResource(R.drawable.ic_edit), tr("Записать вручную", "Add by hand"), Modifier.size(BarIcon)) }
+            }
+            BarMark(voice.toggle, Modifier.semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite }) {
+                when (voice.state) {
+                    VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = scheme.onSurface)
+                    VoiceState.Recording -> Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(BarIcon))
+                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(BarIcon))
                 }
             }
         }
-        VerticalDivider(Modifier.align(Alignment.CenterVertically).height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
-        IconButton(onClick = onAdd, Modifier.size(ToolbarItemWidth, ToolbarItemHeight)) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp)) }
-    }
-    }
-    // As tall as the bar beside it, so the main action is also the easiest target; it gives under the thumb.
-    val micPress = remember { MutableInteractionSource() }
-    FloatingActionButton(
-        onClick = voice.toggle,
-        interactionSource = micPress,
-        modifier = Modifier.size(ToolbarHeight).squish(micPress).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
-        // A rounded square, so the action reads apart from the round tabs beside it.
-        shape = RoundedCornerShape(20.dp),
-        containerColor = mic,
-        contentColor = onMic,
-        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-    ) {
-        when (voice.state) {
-            VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = onMic)
-            VoiceState.Recording -> Listening(voice.level, fill = onMic, ink = mic)
-            VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(32.dp))
-        }
-    }
     }
 }
 
-private val ToolbarItemWidth = 72.dp
-private val PillWidth = ToolbarItemWidth
-private val ToolbarItemHeight = 48.dp
-/** The bar and the mic: 60, the 48 targets and [ToolbarInset] (6) round them on every side. */
-internal val ToolbarHeight = 60.dp
-private val ToolbarInset = (ToolbarHeight - ToolbarItemHeight) / 2
-
-/** A circle that keeps turning into a nine-sided cookie and back, with the stop square on it. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** One place on the bar: a target of the bar's size that gives under the thumb. */
 @Composable
-private fun Listening(level: () -> Float, fill: Color, ink: Color) {
-    // Silence is a circle; the louder the voice, the more of a cookie it becomes.
-    var loudness by remember { mutableFloatStateOf(0f) }
+private fun BarMark(onClick: () -> Unit, modifier: Modifier = Modifier, mark: @Composable () -> Unit) {
+    val press = remember { MutableInteractionSource() }
+    IconButton(onClick = onClick, interactionSource = press, modifier = modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press)) { mark() }
+}
+
+private val ToolbarItemWidth = 72.dp
+private val ToolbarItemHeight = 48.dp
+/** Round the 48 targets on every side, set by eye against a phone's own bars. */
+private val ToolbarInset = 13.dp
+/** The bar's marks: a step over the rest of the app's 24, the bar is what the thumb goes for. */
+private val BarIcon = 26.dp
+/** The bar: 74, the 48 targets and [ToolbarInset] round them. */
+internal val ToolbarHeight = ToolbarItemHeight + ToolbarInset * 2
+
+/** How many strokes the level keeps, the newest on the right. */
+private const val LEVEL_STROKES = 16
+
+/** The voice as a running line of strokes, one a moment, as wide as a place on the bar. */
+@Composable
+private fun LevelLine(level: () -> Float) {
+    val strokes = remember { mutableStateListOf<Float>().apply { repeat(LEVEL_STROKES) { add(0f) } } }
     LaunchedEffect(Unit) {
         while (true) {
             // Speech peaks sit well under full scale; the square root lifts quiet talk into view.
-            loudness = sqrt((level() * 3f).coerceIn(0f, 1f))
+            strokes.removeAt(0)
+            strokes.add(sqrt((level() * 3f).coerceIn(0f, 1f)))
             delay(60)
         }
     }
-    val progress by animateFloatAsState(loudness, MaterialTheme.motionScheme.fastSpatialSpec(), label = "voice")
-    val morph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Cookie9Sided) }
-    val turn by rememberInfiniteTransition(label = "listening")
-        .animateFloat(0f, 360f, infiniteRepeatable(tween(8000, easing = LinearEasing)), label = "turn")
-    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.matchParentSize()) {
-            val path = morph.toPath(progress.coerceIn(0f, 1f))
-            path.transform(Matrix().apply { scale(size.width, size.height) })
-            rotate(turn) { drawPath(path, fill) }
+    val ink = LocalContentColor.current
+    Canvas(Modifier.size(ToolbarItemWidth, 32.dp)) {
+        val step = size.width / LEVEL_STROKES
+        strokes.forEachIndexed { i, value ->
+            val half = size.height / 2 * value.coerceAtLeast(0.08f)
+            val x = step * (i + 0.5f)
+            drawLine(ink, Offset(x, size.height / 2 - half), Offset(x, size.height / 2 + half), 2.dp.toPx(), StrokeCap.Round)
         }
-        Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(20.dp), tint = ink)
     }
 }

@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): write r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): edit -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M3.00049 20.9999V2.9999H12.0005V4.7499H4.80049V19.2499H19.2005V11.9999H21.0005V20.9999H3.00049ZM7.50049 16.4499L8.00049 11.4249L16.0255 3.3999C16.9005 2.5249 18.3005 2.5249 19.1755 3.3999L20.6005 4.8249C21.4755 5.6999 21.4755 7.0999 20.6005 7.9749L12.6255 15.9499L7.50049 16.4499ZM9.45049 14.5249L11.7755 14.3249L16.9755 9.1249L14.8755 7.0249L9.67549 12.2249L9.45049 14.5249ZM16.1005 5.7999L18.2005 7.8999L19.3755 6.7249C19.5505 6.5499 19.5505 6.2499 19.3755 6.0749L17.9255 4.6249C17.7505 4.4499 17.4505 4.4499 17.2755 4.6249L16.1005 5.7999Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M200-200h57l391-391-57-57-391 391v57Zm-40 80q-17 0-28.5-11.5T120-160v-97q0-16 6-30.5t17-25.5l505-504q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L313-143q-11 11-25.5 17t-30.5 6h-97Zm600-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" />
+    </group>
 </vector>

@@ -5,38 +5,12 @@ Licensed under the MIT License. See LICENSE.
 This product uses third-party material:
 
 --------------------------------------------------------------------------------
-Iconoteka icons (app/src/main/res/drawable/ic_*.xml, except the launcher icon
+Material Symbols Rounded (app/src/main/res/drawable/ic_*.xml, except the launcher icon
 layers ic_launcher_*.xml, which are this project's own, made by tools/coin.py)
-https://iconoteka.com, https://github.com/iconoteka/iconoteka
-Copyright (c) 2026 Oleg Turbaba
-Licensed under the MIT License.
-Full license text: third_party/iconoteka/LICENSE
-Each drawable is a vector conversion of an Iconoteka SVG and names its source
-in a comment on its first line.
---------------------------------------------------------------------------------
-Inter typeface (app/src/main/res/font/inter.ttf, the variable Inter[opsz,wght]
-from Google Fonts)
-https://github.com/rsms/inter, https://github.com/google/fonts/tree/main/ofl/inter
-Copyright 2020 The Inter Project Authors
-Licensed under the SIL Open Font License, Version 1.1.
-Full license text: third_party/inter/OFL.txt
---------------------------------------------------------------------------------
-Tailwind CSS default colour palette (the Zinc and Red values in
-app/src/main/java/sh/aminov/golda/ui/Colors.kt)
-https://github.com/tailwindlabs/tailwindcss
-Copyright (c) Tailwind Labs, Inc.
-Licensed under the MIT License. Only colour values are used; no Tailwind code
-is included.
---------------------------------------------------------------------------------
-Android Jetpack libraries (AndroidX Core, Activity, Lifecycle, Room, DataStore,
-WorkManager, Jetpack Compose, Material 3)
-Copyright The Android Open Source Project
-Licensed under the Apache License, Version 2.0.
---------------------------------------------------------------------------------
-kotlinx.serialization
-Copyright JetBrains s.r.o. and contributors
-Licensed under the Apache License, Version 2.0.
---------------------------------------------------------------------------------
+Copyright Google LLC. Licensed under the Apache License, Version 2.0.
+https://github.com/google/material-design-icons
+Full license text: third_party/material-symbols/LICENSE
+Each drawable is a vector conversion of a Material Symbols SVG and names its source in its first line.
 
 The libraries are not part of this repository; Gradle downloads them at build
 time.

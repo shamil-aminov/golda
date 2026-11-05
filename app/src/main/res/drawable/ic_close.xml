@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): cross r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): close -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M4.8252 20.5252L3.4502 19.1502L10.7002 12.0002L3.4502 4.8252L4.8252 3.4502L12.0002 10.6502L19.1752 3.4502L20.5502 4.8252L13.3002 12.0002L20.5502 19.1502L19.1752 20.5252L12.0002 13.3002L4.8252 20.5252Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M480-424 284-228q-11 11-28 11t-28-11q-11-11-11-28t11-28l196-196-196-196q-11-11-11-28t11-28q11-11 28-11t28 11l196 196 196-196q11-11 28-11t28 11q11 11 11 28t-11 28L536-480l196 196q11 11 11 28t-11 28q-11 11-28 11t-28-11L480-424Z" />
+    </group>
 </vector>

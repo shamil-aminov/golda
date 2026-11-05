@@ -129,18 +129,18 @@ class AnalyticsScreenTest {
     @Test
     fun aWeeksBarNarrowsTheFigureAndTheCategoriesAndTheCrossBringsThemBack() {
         shown("Все траты")
-        shown("30 дней")
+        shown("Месяц")
         compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
         tapLastBar()
         shown("19–24 окт", 2)
-        shown("30 дней", 0)
+        shown("Месяц", 0)
         // The rent is in an earlier week; the legend is this bar's, the title as it was.
         shown("Жильё", 0)
         shown("Еда")
         shown("Все траты")
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
         shown("Жильё")
-        shown("30 дней")
+        shown("Месяц")
     }
 
     @Test
@@ -154,7 +154,7 @@ class AnalyticsScreenTest {
         shown("Сб, 24 окт")
         figure("793")
         tapLastBar()
-        shown("7 дней")
+        shown("Неделя")
         figure("355")
     }
 
@@ -265,9 +265,9 @@ class AnalyticsScreenTest {
 
     @Test
     fun theCalendarChangesThePeriod() {
-        shown("30 дней")
+        shown("Месяц")
         compose.onNodeWithContentDescription("Период").performClick()
         compose.onNodeWithText("Неделя").performClick()
-        shown("7 дней")
+        shown("Неделя")
     }
 }

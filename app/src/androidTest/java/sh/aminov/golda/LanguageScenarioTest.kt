@@ -35,11 +35,11 @@ class LanguageScenarioTest : GoldaUiTest() {
         // window has focus): Home's controls speak the new language too.
         compose.onNodeWithContentDescription(to.back).performClick()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(to.home).assertExists()
+        compose.onNodeWithText(to.home).assertExists()
 
         scenario.recreate()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(to.home).assertExists()
+        compose.onNodeWithText(to.home).assertExists()
         compose.onNodeWithContentDescription(to.settings).assertExists()
     }
 
@@ -52,8 +52,8 @@ class LanguageScenarioTest : GoldaUiTest() {
 
     private class Ui(val tag: String, val home: String, val settings: String, val languageRow: String, val optionName: String, val back: String) {
         companion object {
-            val RU = Ui("ru", "Главная", "Настройки", "Язык", "Русский", "Назад")
-            val EN = Ui("en", "Home", "Settings", "Language", "English", "Back")
+            val RU = Ui("ru", "Сегодня", "Настройки", "Язык", "Русский", "Назад")
+            val EN = Ui("en", "Today", "Settings", "Language", "English", "Back")
         }
     }
 }

@@ -164,8 +164,7 @@ class InsightsPicksTest {
     fun aPeriodAsShortAsAButton() {
         I18n.russian = true
         val today = LocalDate.of(2026, 10, 24)
-        fun short(from: LocalDate, to: LocalDate) = ReviewPrompt.short(Period(from, to), today)
-        assertEquals("7 дней", short(today.minusDays(6), today))
+        fun short(from: LocalDate, to: LocalDate) = ReviewPrompt.dates(Period(from, to), today)
         assertEquals("Сентябрь", short(LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))
         assertEquals("Сентябрь 2025", short(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 30)))
         assertEquals("5–12 окт", short(LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 12)))

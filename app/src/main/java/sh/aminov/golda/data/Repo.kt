@@ -445,7 +445,8 @@ class Repo(
                 val zone = ZoneId.systemDefault()
                 val recordedAt = VoiceQueue.recordedAt(file)
                 // "Вчера" means the day before the note was recorded, not before it is understood.
-                val system = VoicePrompt.system(accounts, categories, s, Ledger.localDate(recordedAt, zone))
+                val day = Ledger.localDate(recordedAt, zone)
+                val system = VoicePrompt.system(accounts, categories, s, day) + if (file.extension == VoiceQueue.PHOTO) VoicePrompt.RECEIPT else ""
                 val result = try {
                     voiceParser.parse(file, system, s.geminiModel)
                 } catch (e: GeminiException) {

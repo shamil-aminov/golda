@@ -130,7 +130,7 @@ class InsightsDetailsTest {
         week()
         line("За 7 дней ·")
         back()
-        shown("7 дней")
+        shown("Неделя")
     }
 
     @Test

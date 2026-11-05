@@ -52,7 +52,7 @@ open class GoldaApplication : Application() {
 const val ACTION_VOICE = "sh.aminov.golda.VOICE"
 enum class Tab { HOME, ACCOUNTS, INSIGHTS }
 
-/** The tabs from left to right, in the toolbar and in the swipe. To reorder them, this line alone. */
+/** The tabs from left to right, in the words on top and in the swipe. To reorder them, this line alone. */
 val TabOrder = listOf(Tab.HOME, Tab.INSIGHTS, Tab.ACCOUNTS)
 
 /** Which tab a notification opens. */

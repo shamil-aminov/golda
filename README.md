@@ -55,7 +55,7 @@ loud is the moment you notice you are spending.
 - **Card purchases in another currency.** For "48.5 lari" paid from a dollar
   card, the charge is estimated at the CBR cross rate + 2 % and marked **≈**
   until you correct it.
-- **For today.** Put money on the card you spend from for a week,
+- **Left today.** Put money on the card you spend from for a week,
   two or a month: Golda splits what is left over the days left. A top-up of
   that card asks "Новый месяц с …?" (on for a transfer from your own account,
   off for an income), so a friend's money never restarts the month; when the
@@ -149,18 +149,18 @@ switched in Settings.
    Rough numbers are fine; reconciling fixes them later.
 3. **Get a Gemini API key** in
    [Google AI Studio](https://aistudio.google.com/apikey). Then open
-   Settings (the gear on the Home tile) → **Voice and reviews** → **Gemini key** and paste it. The free
+   Settings (the gear over the tabs) → **Voice and reviews** → **Gemini key** and paste it. The free
    tier is enough to try it, and with billing on, a voice note costs a tiny
    fraction of a cent.
-4. **Tap the gold mic** and say what you bought.
+4. **Tap the mic** and say what you bought.
 
 ## Privacy
 
 - Accounts, operations and settings stay in the app's private storage
   on your phone. There is no server, no account and no analytics.
-- Voice notes are sent to Google's Gemini API with **your own** key, only to
-  be turned into text and numbers. Google's terms for the Gemini API apply to
-  that audio.
+- Voice notes and photos of receipts are sent to Google's Gemini API with **your
+  own** key, only to be turned into text and numbers, and deleted from the phone
+  once understood. Google's terms for the Gemini API apply to them.
 - The key is encrypted with AES-GCM under an Android Keystore key. It is sent
   in the `x-goog-api-key` header, never in a URL, and is left out of backups.
 - The only other network request fetches the daily exchange rates of the Bank
@@ -223,7 +223,7 @@ domain/   Money maths with no Android dependency: rates, ledger, budget,
           interest, debts, the voice-answer mapper. Covered by JVM tests.
 data/     Room database, DataStore settings, CBR rates, Gemini client,
           Keystore vault, backups, reminders, the demo fill.
-ui/       Jetpack Compose screens, the toolbar and the palette.
+ui/       Jetpack Compose screens, the tabs, the entry bar and the palette.
 tools/    coin.py, which draws the launcher icon.
 ```
 
@@ -233,7 +233,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE). The icons are from [Iconoteka](https://iconoteka.com) (MIT,
-see [third_party/iconoteka/LICENSE](third_party/iconoteka/LICENSE)), and the
+[MIT](LICENSE). The icons are [Material Symbols](https://github.com/google/material-design-icons) (Apache 2.0,
+see [third_party/material-symbols/LICENSE](third_party/material-symbols/LICENSE)), and the
 colours follow Tailwind CSS's Zinc scale. Third-party components are listed in
 [NOTICE](NOTICE).

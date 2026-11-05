@@ -190,7 +190,7 @@ private fun MainScreen(
     // Only the Sunday reminder opens Accounts from outside; then each row offers "Сходится" outright.
     var reconciling by remember { mutableStateOf(false) }
     val homeList = rememberLazyListState()
-    // The tabs sit side by side and follow the finger; the toolbar and [tab] stay in step with them.
+    // The tabs sit side by side and follow the finger; the words on top and [tab] stay in step with them.
     // The pager is the one source of truth: [tab] only remembers where it settled, for a restart. A
     // tap or a request scrolls the pager directly, never through [tab]: an effect keyed on [tab]
     // would fire mid-swipe and pull the page back against the finger.
@@ -446,33 +446,29 @@ private fun MainScreen(
                 onEditOperation = { sheet = Sheet.Entry(EntryRequest(editing = it)) },
                 onReconcile = { actual, asSpending -> scope.launch { repo.reconcile(current.id, actual, asSpending) } },
             )
-            // No top bar on the tabs: the content starts under the status bar, and Settings sits in the Home tile.
+            // The tabs as words on top, the same over every one, so nothing moves when switching; rows scroll
+            // under them. At the bottom one floating bar, centred 16 dp above the gesture bar, with the ways of writing down.
             null -> Scaffold(
-                // No bar across the screen: one floating toolbar, centred 16 dp above the gesture bar, with
-                // the tabs, "+" and the mic. The same on every tab, so nothing moves when switching.
-                floatingActionButton = {
-                    val tabs = TabOrder.map {
-                        when (it) {
-                            Tab.HOME -> ToolbarTab(R.drawable.ic_home, R.drawable.ic_home_fill, tr("Главная", "Home"))
-                            Tab.ACCOUNTS -> ToolbarTab(R.drawable.ic_wallet, R.drawable.ic_wallet_fill, tr("Счета", "Accounts"))
-                            Tab.INSIGHTS -> ToolbarTab(R.drawable.ic_chart, R.drawable.ic_chart_fill, tr("Аналитика", "Insights"))
-                        }
-                    }
-                    GoldaToolbar(
-                        tabs = tabs,
+                topBar = {
+                    TabBar(
+                        words = TabOrder.map {
+                            when (it) {
+                                Tab.HOME -> tr("Сегодня", "Today")
+                                Tab.INSIGHTS -> tr("Траты", "Spending")
+                                Tab.ACCOUNTS -> tr("Счета", "Accounts")
+                            }
+                        },
                         // Follows the swipe, not only where it settles.
-                        selected = pager.targetPage,
                         position = { pager.currentPage + pager.currentPageOffsetFraction },
                         onSelect = { index -> reconciling = false; scope.launch { pager.animateScrollToPage(index) } },
-                        voice = voice,
-                        onAdd = { sheet = Sheet.Entry(EntryRequest()) },
+                        onSettings = { page = Page.Settings },
                     )
                 },
+                floatingActionButton = { EntryBar(voice, onAdd = { sheet = Sheet.Entry(EntryRequest()) }) },
                 floatingActionButtonPosition = FabPosition.Center,
                 // The Scaffold puts snackbars above the pair.
                 snackbarHost = { SnackbarHost(snackbar) },
             ) { padding ->
-                Box(Modifier.fillMaxSize()) {
                 HorizontalPager(
                 state = pager,
                 key = { it },
@@ -491,7 +487,7 @@ private fun MainScreen(
             ) { index ->
                     when (TabOrder[index]) {
                         Tab.HOME -> HomeScreen(
-                            data, padding, homeList, onSettings = { page = Page.Settings }, onPeriod = { periodOpen = true },
+                            data, padding, homeList, onPeriod = { periodOpen = true },
                             onPayment = { sheet = Sheet.Entry(EntryRequest(payment = it)) },
                         ) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
                         Tab.ACCOUNTS -> AccountsScreen(
@@ -515,12 +511,6 @@ private fun MainScreen(
                             onOpenReview = { id, p -> page = Page.ReviewPage(id, p.from.toEpochDay(), p.to.toEpochDay()) },
                         ) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
-                }
-                // Rows scroll under the clock: a band of the page's colour, over the pager, keeps them from
-                // showing through. Measured directly: the Scaffold has consumed the inset.
-                val density = androidx.compose.ui.platform.LocalDensity.current
-                val clock = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
-                Spacer(Modifier.fillMaxWidth().height(clock).background(MaterialTheme.colorScheme.background))
                 }
             }
         }

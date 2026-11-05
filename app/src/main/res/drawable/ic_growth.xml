@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): trend_up r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): trending_up -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M23.0005 11.95L21.1755 10.125L14.7505 16.6L8.57549 10.425L2.32549 16.675L1.00049 15.35L8.57549 7.775L14.7505 13.95L19.8755 8.8L18.0505 7H23.0005V11.95Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M108-255q-12-12-11.5-28.5T108-311l211-214q23-23 57-23t57 23l103 104 208-206h-64q-17 0-28.5-11.5T640-667q0-17 11.5-28.5T680-707h160q17 0 28.5 11.5T880-667v160q0 17-11.5 28.5T840-467q-17 0-28.5-11.5T800-507v-64L593-364q-23 23-57 23t-57-23L376-467 164-255q-11 11-28 11t-28-11Z" />
+    </group>
 </vector>

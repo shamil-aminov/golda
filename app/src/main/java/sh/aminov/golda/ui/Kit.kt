@@ -53,6 +53,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.ripple
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -140,6 +143,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -836,6 +840,9 @@ enum class Spacing(val factor: Float) {
  * «Просторно», as the owner set them by eye). A caption keeps to its value by the value's weight.
  */
 object HeaderSpace {
+    /** A word over its sum, nearer than any caption: 6. */
+    val wordToSum: Dp @Composable @ReadOnlyComposable get() = step(5f)
+
     /** A caption under a chart (the dates under the period bar): 8. */
     val chartCaption: Dp @Composable @ReadOnlyComposable get() = step(8f)
 
@@ -869,6 +876,12 @@ object ChartSpace {
 
     /** The bars over their labels, a chart's caption: 10. */
     val barsToLabels: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.chartCaption
+
+    /** Home's tiles over their words, a caption to them: 16. */
+    val tilesToWords: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
+
+    /** A word under the tiles over its sum, and the sum over its pace: 6. */
+    val wordToSum: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.wordToSum
 
     /** The labels over the day's plan, a caption to them: 16. */
     val labelsToPlan: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
@@ -1439,6 +1452,35 @@ fun CardTitle(
     }
 }
 
+/**
+ * The filled pill in a corner, 32 high and 48 to tap, the press inside it: what a period says and
+ * where it changes. [picked] takes the picked colour and a cross, for something that can be let go.
+ */
+@Composable
+fun CornerPill(words: String, description: String, modifier: Modifier = Modifier, picked: Boolean = false, onClick: () -> Unit) {
+    val ink = if (picked) onPickedColor() else MaterialTheme.colorScheme.onSurface
+    val press = remember { MutableInteractionSource() }
+    Box(
+        modifier.height(48.dp).clickable(press, indication = null, onClick = onClick).semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(
+            Modifier.height(32.dp).widthIn(max = PillMost).clip(CircleShape).background(if (picked) pickedColor() else unpickedColor()).indication(press, ripple())
+                .padding(start = 12.dp, end = if (picked) 8.dp else 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(words, Modifier.weight(1f, fill = false), style = TextRole.caption, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (picked) {
+                Spacer(Modifier.width(6.dp))
+                Icon(painterResource(R.drawable.ic_close), null, Modifier.size(18.dp), tint = ink)
+            }
+        }
+    }
+}
+
+/** The widest a pill gets, so the title beside it keeps its word on a narrow phone. */
+private val PillMost = 150.dp
+
 /** Vertical space from the spacing scale. */
 @Composable
 fun VSpace(height: Dp) = Spacer(Modifier.height(height))
@@ -1471,8 +1513,8 @@ object Tags {
     const val INSIGHTS_BARS = "insights-bars"
 
     /** Home's "· N дней до зарплаты". */
-    const val HOME_RUNWAY = "home-runway"
     const val HOME_PERIOD = "home-period"
+    const val HOME_SPENT = "home-spent"
 
     /** Settings' "Час на руки" value. */
     const val HOUR_NET = "hour-net"

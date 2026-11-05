@@ -242,14 +242,7 @@ object ReviewPrompt {
         return span(period.from, period.to)
     }
 
-    /** A period as short as a button: "7 дней", "Октябрь", "5–12 окт", "12 сен – 3 окт", "2021–2026". */
-    fun short(period: Period, today: LocalDate): String {
-        val word = tr("последние ", "last ")
-        val title = title(period, today)
-        return if (title.startsWith(word)) title.removePrefix(word) else dates(period, today)
-    }
-
-    /** The same by its dates alone, with the year when it is another. */
+    /** A period by its dates, as short as a button, with the year when it is another: "Октябрь", "5–12 окт", "12 сен – 3 окт", "2021–2026". */
     fun dates(period: Period, today: LocalDate): String {
         val (from, to) = period.from to period.to
         if (from.dayOfYear == 1 && to.plusDays(1).dayOfYear == 1) return if (from.year == to.year) "${from.year}" else "${from.year}–${to.year}"
