@@ -45,6 +45,9 @@ data class Report(
 
 object Analytics {
     /** What one bar stands for over a period of [days] days. */
+    /** Tapped again, what was picked lets go; anything else takes its place. */
+    fun <T> toggled(current: T?, tapped: T): T? = if (current == tapped) null else tapped
+
     enum class Bar { DAY, WEEK, MONTH }
 
     fun barFor(days: Int): Bar = when {

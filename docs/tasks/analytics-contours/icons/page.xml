@@ -1,0 +1,13 @@
+<!-- Golda, drawn to sit with the Iconoteka set: one 1.85 line. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:strokeColor="#FF000000"
+        android:strokeWidth="1.85"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M5.9 2.9H18.1V21.1H5.9ZM9 8H15M9 12H15M9 16H13" />
+</vector>

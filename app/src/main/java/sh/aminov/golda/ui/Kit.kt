@@ -1456,6 +1456,8 @@ object Tags {
 
     /** Insights' big number in the donut. */
     const val INSIGHTS_TOTAL = "insights-total"
+    /** Insights' day bars: a tap picks a day. */
+    const val INSIGHTS_BARS = "insights-bars"
 
     /** Home's "· N дней до зарплаты". */
     const val HOME_RUNWAY = "home-runway"

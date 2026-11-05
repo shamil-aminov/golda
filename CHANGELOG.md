@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Insights rebuilt around one filter.** The header carries the period behind a
+  calendar and the review behind a mark on the average's line; the period strip
+  and the category mosaic are gone. A mosaic of the three kinds narrows
+  everything under it: one card titled «Все траты» or the kind, day bars over
+  all the categories. A tap on a bar swaps the categories for that day's
+  purchases, a second brings them back.
 - **Eight new bold themes after Bungie's Marathon** instead of the ten pastel
   ones: Марафон, Ультрамарин, Сигнал, Пиксель, Голограмма, Терминал, Фиолет,
   Плашка. A white or near-black page and quiet lists; the colour is on one
