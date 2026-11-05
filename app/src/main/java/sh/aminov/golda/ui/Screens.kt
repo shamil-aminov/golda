@@ -232,6 +232,12 @@ fun HomeScreen(
     }
 }
 
+/** The Accounts header's words, in one place. */
+private object AccountsWords {
+    fun title() = tr("На счетах", "In accounts")
+    fun debts() = tr("Долги", "Debts")
+}
+
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AccountsScreen(
@@ -246,7 +252,7 @@ fun AccountsScreen(
     onSavePayment: (Obligation) -> Unit = {},
     onDeletePayment: (Long) -> Unit = {},
 ) {
-    val total = data.states.values.sumOf { it.rubMinor }
+    val held = Debts.heldRub(data.states.values)
     var payment by remember { mutableStateOf<Obligation?>(null) }
     var reconciling by remember { mutableStateOf<AccountState?>(null) }
     // In reconcile mode, the accounts already checked this round: true when the balance matched.
@@ -267,24 +273,33 @@ fun AccountsScreen(
             HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // As the other tabs: a title, its caption, the figure on their line. Every text cut to its letters
-                // and every gap a step of the header's row (HeaderSpace), the debt's cost a group away. Each block
-                // one TalkBack node. With one currency there are none to show: how many accounts it adds up.
+                // The title reads straight into the figure, which stands on the other tabs' line; the other currencies
+                // a block under it, then what is owed and its cost, a group away. Every text cut to its letters and
+                // every gap a step of the header's row (HeaderSpace). Each block one TalkBack node.
                 val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
-                    Text(tr("Всего", "Total"), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
-                    VSpace(HeaderSpace.valueCaption)
-                    val count = data.accounts.size.toLong()
-                    val others = data.others(total, data.base.code).ifBlank { "$count " + plural(count, "счёт", "счёта", "счетов", "account", "accounts") }
-                    Text(others, cut, style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    VSpace(HeaderSpace.figureCaption)
-                    val text = data.base.whole(total)
+                    Text(AccountsWords.title(), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
+                    VSpace(HeaderSpace.titleToFigure)
+                    val text = data.base.whole(held)
                     BoxWithConstraints {
                         HeroAmount(text, ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL).letters(heroFigureSize(text, maxWidth)), signColor = ink)
                     }
+                    data.others(held, data.base.code).takeIf { it.isNotBlank() }?.let {
+                        VSpace(HeaderSpace.block)
+                        Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
+                    }
+                }
+                val owed = Debts.owedRub(data.states.values)
+                if (owed > 0) {
+                    VSpace(HeaderSpace.group)
+                    Column(Modifier.semantics(mergeDescendants = true) {}) {
+                        Text(AccountsWords.debts(), cut, style = words, maxLines = 1)
+                        VSpace(HeaderSpace.valueCaption)
+                        Text(data.base.whole(owed), Modifier.letters(figures.fontSize), style = figures, color = ink, maxLines = 1)
+                    }
                 }
                 Debts.advice(data.accounts, data.states)?.let { advice ->
-                    VSpace(HeaderSpace.group)
+                    VSpace(HeaderSpace.block)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
                         Text(head, cut, style = words)
