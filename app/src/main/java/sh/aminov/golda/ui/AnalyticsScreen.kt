@@ -4,11 +4,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DateRangePicker
@@ -43,7 +39,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDateRangePickerState
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -66,7 +61,6 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -76,7 +70,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -103,7 +96,6 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import kotlin.math.roundToInt
 
 /**
  * The period's spending on one screen: the header with the total, the mosaic of the three kinds, and
@@ -195,7 +187,16 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
             }
             item(key = "title") {
                 VSpace(ListSpace.cards)
-                CardTitle(filter?.let(::bucketLabel) ?: tr("Все траты", "All spending"), Modifier.padding(horizontal = Gap.m))
+                val nothing = shown.categories.isEmpty()
+                CardTitle(
+                    filter?.let(::bucketLabel) ?: tr("Все траты", "All spending"), Modifier.padding(horizontal = Gap.m), tight = !nothing,
+                    trailing = if (day == null && filter == null) null else ({
+                        // The day first, then the kind: one tap, one step back. Its glyph's right edge on the card's text.
+                        IconButton(onClick = { if (day != null) pickedDay = null else filter = null }, modifier = Modifier.offset(x = 8.dp)) {
+                            Icon(painterResource(R.drawable.ic_close), if (day != null) tr("Снять выбор дня", "Clear the day") else tr("Снять выбор вида", "Clear the kind"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }),
+                )
             }
             if (shown.categories.isEmpty()) {
                 item(key = "none") {
@@ -205,10 +206,12 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                 item(key = "bars") {
                     // A part of the card between its title and its rows: no corners of its own.
                     Surface(Modifier.padding(horizontal = Gap.m).bleed(Gap.s).fillMaxWidth(), color = tileColor()) {
-                        Box(Modifier.padding(start = Space.card, end = Space.card, bottom = Gap.m)) {
+                        // The first row brings half its gap over its circle.
+                        Box(Modifier.padding(start = Space.card, end = Space.card, bottom = ChartSpace.labelsToList - ListSpace.circles / 2 - ChartSpace.rowOverCircle)) {
+                            val picked = span?.let { barCaption(it.from, it.to, bar) to (spanned?.spentRub ?: Analytics.bars(shown.days).firstOrNull { b -> b.first == day }?.second ?: 0L) }
+                            val (words, rub) = picked ?: (periodLine(period, today) to shown.spentRub)
                             DayBars(
-                                Analytics.bars(shown.days), today, bar, last, plan, data.base, barStacks, day,
-                                onClear = { pickedDay = null },
+                                Analytics.bars(shown.days), bar, last, plan, data.base, barStacks, day, "$words · ${data.base.whole(rub)}",
                                 onTap = { pickedDay = Analytics.toggled(day, it)?.toEpochDay() },
                                 onScrub = { pickedDay = it.toEpochDay() },
                             )
@@ -252,6 +255,13 @@ private fun periodCaption(period: Period, today: LocalDate): String {
         span.startsWith("с ") -> tr("Траты ", "Spent ") + span
         else -> tr("Траты за ", "Spent in ") + span
     }
+}
+
+/** The card's line when no bar is picked: the caption's period, as a period: "За 30 дней", "За октябрь", "С 5 по 12 октября". */
+private fun periodLine(period: Period, today: LocalDate): String {
+    val caption = periodCaption(period, today)
+    val spent = tr("Траты ", "Spent ")
+    return if (caption.startsWith(spent)) caption.removePrefix(spent).replaceFirstChar { it.titlecase(I18n.locale) } else caption
 }
 
 /** The review's mark sits on the line of the average: its 24 centred on the letters, whose height is about 16. */
@@ -526,16 +536,15 @@ private val BarLayer: Dp = 4.dp
 private val BarCorner: Dp = 6.dp
 
 /**
- * The bars in the card, each a rounded block stacked in its categories, colours touching. A tap picks
- * a bar and a tap on it lets go; a finger scrubs across them. The picked bar has a dot under it and
- * what it spans and its sum ride in a pill above, in a row always kept, so the bars never move under
- * the finger. The pill's × lets go too: the way out in plain sight, whatever else is picked.
+ * The bars in the card, each a rounded block stacked in its categories, colours touching, under [caption]:
+ * when and how much, always there, so the bars never move under the finger. A tap picks a bar and a
+ * tap on it lets go; a finger scrubs across them. The picked bar has a dot under it.
  * The dashed line is the daily budget.
  */
 @Composable
 private fun DayBars(
-    days: List<Pair<LocalDate, Long>>, today: LocalDate, bar: Analytics.Bar, last: LocalDate, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>,
-    picked: LocalDate?, onClear: () -> Unit, onTap: (LocalDate) -> Unit, onScrub: (LocalDate) -> Unit,
+    days: List<Pair<LocalDate, Long>>, bar: Analytics.Bar, last: LocalDate, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>,
+    picked: LocalDate?, caption: String, onTap: (LocalDate) -> Unit, onScrub: (LocalDate) -> Unit,
 ) {
     // The picked bar's dot in the ink of its label: it marks the pick, it does not compete with the bars.
     val accent = MaterialTheme.colorScheme.onSurface
@@ -557,40 +566,16 @@ private fun DayBars(
         val step = (widthPx + gapPx) / days.size
         val barWidth = step - gapPx
         fun at(px: Float) = days[(px / step).toInt().coerceIn(0, days.lastIndex)].first
-        // A sideways finger anywhere on the chart, the labels and the pill's row too: left to the tabs,
+        // A sideways finger anywhere on the chart, its line and labels too: left to the tabs,
         // it would swipe to the next one. Up and down stays the screen's.
         Column(
             Modifier.pointerInput(days) {
                 detectHorizontalDragGestures(onDragStart = { onScrub(at(it.x)) }) { change, _ -> onScrub(at(change.position.x)) }
             },
         ) {
-            // The pill over the picked bar, kept inside the card.
-            var pillWidth by remember { mutableStateOf(0) }
-            // 48 high for the finger, the pill's 32 in the middle of it: the 8 under it is the air over the bars.
-            Box(Modifier.fillMaxWidth().height(48.dp)) {
-                if (pickedIndex >= 0) {
-                    val (date, rub) = days[pickedIndex]
-                    val x = (step * pickedIndex + barWidth / 2 - pillWidth / 2f).coerceIn(0f, (widthPx - pillWidth).coerceAtLeast(0f))
-                    val touch = remember { MutableInteractionSource() }
-                    Box(
-                        Modifier.offset { IntOffset(x.roundToInt(), 0) }.onSizeChanged { pillWidth = it.width }.height(48.dp)
-                            .clickable(touch, indication = null, role = Role.Button, onClick = onClear),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Surface(shape = CircleShape, color = pickedColor(), contentColor = onPickedColor()) {
-                            Row(
-                                Modifier.indication(touch, ripple()).height(32.dp).padding(start = 12.dp, end = Gap.s),
-                                horizontalArrangement = Arrangement.spacedBy(Gap.s),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(if (bar == Analytics.Bar.DAY) dayShort(date, today) else barSpan(date, Analytics.barEnd(date, last, bar), bar), style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                                Text(base.approx(rub), style = MaterialTheme.typography.labelLarge.merge(Tnum), maxLines = 1)
-                                Icon(painterResource(R.drawable.ic_close), tr("Снять выбор дня", "Clear the day"), Modifier.size(16.dp))
-                            }
-                        }
-                    }
-                }
-            }
+            VSpace(ChartSpace.titleToLine - ChartSpace.titleDescent)
+            Text(caption, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            VSpace(ChartSpace.lineToBars)
             Canvas(
                 Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS)
                     .pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } },
@@ -626,8 +611,7 @@ private fun DayBars(
                     drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
                 }
             }
-            // Room for the dot under the picked bar (6 dp down, 3 dp round) and air between it and the labels.
-            VSpace(Gap.m)
+            VSpace(ChartSpace.barsToLabels)
             // Wider than a bar, centred on it; where bars are narrower than their words, every second or third.
             val stepDp = with(density) { step.toDp() }
             val wide = when (bar) {
@@ -636,12 +620,12 @@ private fun DayBars(
                 else -> 24.dp
             }
             val every = kotlin.math.ceil(wide / stepDp).toInt().coerceAtLeast(1)
-            Box(Modifier.fillMaxWidth().height(16.dp)) {
+            Box(Modifier.fillMaxWidth()) {
                 days.forEachIndexed { i, (d, _) ->
                     if ((days.lastIndex - i) % every == 0) {
                         Text(
                             barMark(d, Analytics.barEnd(d, last, bar), bar, days.size),
-                            modifier = Modifier.offset(x = with(density) { (step * i + barWidth / 2).toDp() } - 36.dp).width(72.dp),
+                            modifier = Modifier.offset(x = with(density) { (step * i + barWidth / 2).toDp() } - 36.dp).width(72.dp).letters(MaterialTheme.typography.labelSmall.fontSize), // scale-exempt: as below
                             style = MaterialTheme.typography.labelSmall, // scale-exempt: a chart's axis, under bars a few dp wide
                             color = if (i == pickedIndex) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -652,8 +636,8 @@ private fun DayBars(
             }
             // What the dashed line is: the plan for a day.
             budget?.let {
-                VSpace(Gap.m)
-                Text(tr("План ", "Plan ") + base.approx(it) + tr(" в день", " a day"), style = TextRole.caption)
+                VSpace(ChartSpace.labelsToPlan)
+                Text(tr("План ", "Plan ") + base.approx(it) + tr(" в день", " a day"), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption)
             }
         }
     }
@@ -670,22 +654,22 @@ private fun barMark(start: LocalDate, end: LocalDate, bar: Analytics.Bar, bars: 
     Analytics.Bar.YEAR -> start.year.toString()
 }
 
-/** In the pill, in full: "28 сен – 4 окт", and a whole month or year by its name. */
-private fun barSpan(start: LocalDate, end: LocalDate, bar: Analytics.Bar): String {
+/** The card's line for a picked bar: "За субботу, 24 октября", "За 12–18 октября", "За октябрь 2026". */
+private fun barCaption(start: LocalDate, end: LocalDate, bar: Analytics.Bar): String {
+    val date = DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale)
     val wholeMonth = start.dayOfMonth == 1 && end.dayOfMonth == end.lengthOfMonth()
     return when {
-        bar == Analytics.Bar.YEAR -> start.year.toString()
-        bar == Analytics.Bar.MONTH && wholeMonth -> monthShort(start) + " " + start.year
-        start == end -> dayMonth(start)
-        start.month == end.month -> if (I18n.russian) "${start.dayOfMonth}–${dayMonth(end)}" else "${dayMonth(start)}–${end.dayOfMonth}"
-        else -> dayMonth(start) + " – " + dayMonth(end)
+        bar == Analytics.Bar.DAY -> if (I18n.russian) "За " + WeekdayAccusative[start.dayOfWeek.value - 1] + ", " + start.format(date) else start.dayOfWeek.getDisplayName(TextStyle.FULL, I18n.locale) + ", " + start.format(date)
+        bar == Analytics.Bar.YEAR -> tr("За ", "") + start.year
+        bar == Analytics.Bar.MONTH && wholeMonth -> tr("За ", "") + start.month.getDisplayName(TextStyle.FULL_STANDALONE, I18n.locale) + " " + start.year
+        start == end -> tr("За ", "") + start.format(date)
+        start.month == end.month -> if (I18n.russian) "За ${start.dayOfMonth}–" + end.format(date) else start.format(date) + "–" + end.dayOfMonth
+        else -> tr("За ", "") + start.format(date) + " – " + end.format(date)
     }
 }
 
-/** "Пт 26" or "Сегодня". */
-private fun dayShort(date: LocalDate, today: LocalDate): String =
-    if (date == today) tr("Сегодня", "Today")
-    else date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).replaceFirstChar { it.titlecase(I18n.locale) } + " " + date.dayOfMonth
+/** "За субботу": the weekdays as they stand after "за". */
+private val WeekdayAccusative = listOf("понедельник", "вторник", "среду", "четверг", "пятницу", "субботу", "воскресенье")
 
 private fun categoryName(data: AppData, spend: CategorySpend): String =
     spend.categoryId?.let { data.categoryById[it]?.label() } ?: tr("Без категории", "No category")

@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and the category mosaic are gone. A mosaic of the three kinds narrows
   everything under it: one card titled «Все траты» or the kind, day bars over
   all the categories. A tap on a bar swaps the categories for that day's
-  purchases; the × in its pill or a second tap brings them back, the kind staying.
+  purchases. A line under the title says when and how much; the × beside the title lets go of the bar, then the kind.
   A kind with nothing in the period is a neutral tile.
 - **Bars by one rule.** Never more than 14: the finest of day, week, month and
   year that fits, so a month is weeks, a year months. Colours meet with no stripe,

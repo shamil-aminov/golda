@@ -84,7 +84,7 @@ class InsightsPagerTest {
     @Test
     fun aFingerOverTheBarsStaysOnTheTabToo() {
         week()
-        // In the pill's row, over the bars.
+        // Between the card's line and the bars.
         compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput {
             down(Offset(width * 0.9f, -30f))
             repeat(12) { moveBy(Offset(-width / 14f, 0f)) }
