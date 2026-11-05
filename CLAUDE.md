@@ -42,6 +42,8 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-25.0.5.8-hotspot"
 - Шрифты — только со шкалы (`DesignRulesTest`): labelLarge, bodyMedium, titleSmall, titleMedium, bodyLarge, titleLarge,
   displaySmall, большая цифра. Тексты интерфейса — через `tr("рус", "eng")`.
 - Новая логика — тест; арифметика и правила — свойства (Kotest, `prop {}`). Мутационный порог — 82 %.
+- Отступы — ряд φ (10 · 16 · 26 · 42 при «Просторно»), меряются от букв; где глаз пользователя разительно расходится
+  с рядом — оптическая поправка, заведённая явно и с причиной (`docs/tasks/screen-rhythm.md`). Вид показывать до/после.
 
 ## Релиз (каждая правка — целиком, не спрашивая)
 Проверки → версия в `app/build.gradle.kts` (+1 к versionCode) → раздел в CHANGELOG → коммит →
