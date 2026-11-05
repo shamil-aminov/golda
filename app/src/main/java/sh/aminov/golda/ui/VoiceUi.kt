@@ -264,17 +264,17 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
     ) {
         Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
             if (voice.state == VoiceState.Recording) {
-                BarMark(voice.cancel) { Icon(painterResource(R.drawable.ic_close), tr("Отменить запись", "Cancel the recording"), Modifier.size(24.dp)) }
+                BarMark(voice.cancel) { Icon(painterResource(R.drawable.ic_close), tr("Отменить запись", "Cancel the recording"), Modifier.size(BarIcon)) }
                 LevelLine(voice.level)
             } else {
-                voice.camera?.let { take -> BarMark(take) { Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(24.dp)) } }
-                BarMark(onAdd) { Icon(painterResource(R.drawable.ic_edit), tr("Записать вручную", "Add by hand"), Modifier.size(24.dp)) }
+                voice.camera?.let { take -> BarMark(take) { Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(BarIcon)) } }
+                BarMark(onAdd) { Icon(painterResource(R.drawable.ic_edit), tr("Записать вручную", "Add by hand"), Modifier.size(BarIcon)) }
             }
             BarMark(voice.toggle, Modifier.semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite }) {
                 when (voice.state) {
                     VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = scheme.onSurface)
-                    VoiceState.Recording -> Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(24.dp))
-                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(24.dp))
+                    VoiceState.Recording -> Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(BarIcon))
+                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(BarIcon))
                 }
             }
         }
@@ -290,9 +290,11 @@ private fun BarMark(onClick: () -> Unit, modifier: Modifier = Modifier, mark: @C
 
 private val ToolbarItemWidth = 72.dp
 private val ToolbarItemHeight = 48.dp
-/** Round the 48 targets on every side, a step of the φ row. */
-private val ToolbarInset = 10.dp
-/** The bar: 68, the 48 targets and [ToolbarInset] round them. */
+/** Round the 48 targets on every side, set by eye against a phone's own bars. */
+private val ToolbarInset = 13.dp
+/** The bar's marks: a step over the rest of the app's 24, the bar is what the thumb goes for. */
+private val BarIcon = 26.dp
+/** The bar: 74, the 48 targets and [ToolbarInset] round them. */
 internal val ToolbarHeight = ToolbarItemHeight + ToolbarInset * 2
 
 /** How many strokes the level keeps, the newest on the right. */
