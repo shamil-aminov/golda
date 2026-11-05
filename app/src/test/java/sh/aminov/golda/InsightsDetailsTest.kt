@@ -11,6 +11,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -79,11 +80,15 @@ class InsightsDetailsTest {
         line("За 30 дней ·")
     }
 
+    private fun kind(from: String, to: String) {
+        compose.onNodeWithText(from).performClick()
+        compose.onAllNodesWithText(to).onLast().performClick()
+    }
+
     @Test
     fun aKindNarrowsItAndNamesIt() {
         open(InsightsPick(filter = Bucket.DAILY))
-        // The title and the switch.
-        shown("Ежедневные", 2)
+        shown("Ежедневные")
         shown("Жильё", 0)
     }
 
@@ -117,24 +122,21 @@ class InsightsDetailsTest {
         line("За 7 дней ·")
         back()
         shown("За 7 дней")
-        line("За 7 дней ·")
     }
 
     @Test
     fun theKindChosenOnThePageIsTheFirstScreens() {
         open()
-        compose.onNodeWithText("Разовые").performClick()
-        shown("Разовые", 2)
+        kind("Все траты", "Разовые")
+        shown("Разовые")
         back()
-        // The tile, the card's title.
-        shown("Разовые", 2)
-        compose.onNodeWithContentDescription("Снять выбор вида").assertExists()
+        shown("Разовые")
     }
 
     @Test
     fun whatTheFirstScreenPickedIsOnThePage() {
         open(page = false)
-        compose.onNodeWithText("Разовые").performClick()
+        kind("Все траты", "Разовые")
         compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width - 2f, height / 2f)) }
         compose.onAllNodesWithText("Покупки", useUnmergedTree = true)[0].performClick()
         back()
@@ -145,7 +147,7 @@ class InsightsDetailsTest {
     fun anotherKindOrPeriodLetsTheBarGo() {
         val pick = InsightsPick(PeriodKind.WEEK, bar = LocalDate.of(2026, 10, 24))
         open(pick)
-        compose.onNodeWithText("Ежедневные").performClick()
+        kind("Все траты", "Ежедневные")
         assertNull(pick.bar)
         val again = InsightsPick(bar = LocalDate.of(2026, 10, 19))
         again.choosePeriod(PeriodKind.WEEK)
@@ -165,12 +167,10 @@ class InsightsDetailsTest {
     }
 
     @Test
-    fun theCrossStepsBackBarThenKind() {
+    fun theCrossLetsTheBarGoAndKeepsTheKind() {
         val pick = InsightsPick(filter = Bucket.BIG, bar = LocalDate.of(2026, 10, 19))
-        pick.scrubBack()
+        pick.letBarGo()
         assertNull(pick.bar)
         assertEquals(Bucket.BIG, pick.filter)
-        pick.scrubBack()
-        assertNull(pick.filter)
     }
 }

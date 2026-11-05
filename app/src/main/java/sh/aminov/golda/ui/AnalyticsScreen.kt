@@ -3,8 +3,8 @@ package sh.aminov.golda.ui
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -16,12 +16,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DatePickerDefaults
@@ -32,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
@@ -66,7 +66,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -84,12 +83,12 @@ import sh.aminov.golda.R
 import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
+import sh.aminov.golda.data.Review
 import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.Base
 import sh.aminov.golda.domain.Buckets
 import sh.aminov.golda.domain.CategorySpend
 import sh.aminov.golda.domain.I18n
-import sh.aminov.golda.domain.KindBlock
 import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.PeriodKind
@@ -136,7 +135,7 @@ class InsightsPick(kind: PeriodKind = PeriodKind.MONTH, range: Period? = null, f
 
     fun tapBar(tapped: LocalDate) { bar = Analytics.toggled(bar, tapped) }
 
-    fun scrubBack() { if (bar != null) bar = null else filter = null }
+    fun letBarGo() { bar = null }
 
     companion object {
         /** As strings, so it survives the activity being recreated. */
@@ -157,16 +156,22 @@ class InsightsPick(kind: PeriodKind = PeriodKind.MONTH, range: Period? = null, f
 fun rememberInsightsPick(): InsightsPick = rememberSaveable(saver = InsightsPick.Saver) { InsightsPick() }
 
 /**
- * The period's spending on one screen: the header with the total, the mosaic of the three kinds, and
- * one card under it, bars over their legend, of one height whatever is picked, which the picked kind
- * narrows as a whole. The bars pick a bar; the rest of the card opens the details ([InsightsDetails]).
- * Income and exchange close the screen and never move.
+ * The period's spending on one screen: one card of the kind, its figure, the bars over their legend, of
+ * one height whatever is picked. The title picks the kind and the bars a bar; the rest of the card opens
+ * the details ([InsightsDetails]). Income and exchange follow, and the reviews close the screen.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AnalyticsScreen(data: AppData, padding: PaddingValues, pick: InsightsPick = rememberInsightsPick(), onDetails: () -> Unit = {}, onReviews: (Period) -> Unit) {
+fun AnalyticsScreen(
+    data: AppData,
+    padding: PaddingValues,
+    pick: InsightsPick = rememberInsightsPick(),
+    onDetails: () -> Unit = {},
+    reviews: List<Review> = emptyList(),
+    onOpenReview: (Long, Period) -> Unit = { _, _ -> },
+    onReviews: (Period) -> Unit,
+) {
     val today = data.today
-    // A kind picked narrows everything under the mosaic and the header's figures; tapped again, back to all.
+    // A kind picked narrows the whole card.
     val filter = pick.filter
     val period = pick.period(today)
     val report = remember(data, period) { Analytics.report(data.operations, data.accountById, data.categoryById, period, today, data.zone, data.rates) }
@@ -209,81 +214,60 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, pick: InsightsPick = 
     // What the picked bar spans.
     val span = day?.let { Period(it, Analytics.barEnd(it, last, bar)) }
 
+    val bars = Analytics.bars(shown.days)
+    val quiet = MaterialTheme.colorScheme.onSurface.copy(alpha = RestAlpha)
+    val legend = if (day != null) barStacks[day].orEmpty() else shown.categories.map { spend ->
+        val key = spend.categoryId?.let { data.categoryById[it]?.key }
+        DayPart(if (key == null) leitmotifColor(null, tones) else categoryColor(key, tones), categoryName(data, spend), spend.rubMinor)
+    }
+    val spending = shown.categories.isNotEmpty()
+
     // The whole page, not just the content: a short list left the pager without a back swipe here.
     LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
-        item(key = "header") {
-            InsightsHeader(
-                title = periodCaption(period, today),
-                figure = data.base.whole(shown.spentRub),
-                // A kind is never more than the period: sized by the whole, a pick leaves the header as it is.
-                sizedFor = data.base.whole(report.spentRub),
-                average = "≈ " + data.base.approx(shown.averagePerDayRub),
-                pick = pick,
-                today = today,
-                onReview = { onReviews(period) },
-            )
-        }
-        if (report.categories.isEmpty()) {
-            item(key = "empty") {
-                VSpace(ListSpace.cards)
-                GroupRow(0, 1, Modifier.padding(horizontal = Gap.m)) { Text(tr("За эти дни трат нет", "No spending in these days"), style = TextRole.rowName) }
-            }
-        } else {
-            item(key = "kinds") {
-                VSpace(ListSpace.cards)
-                KindMosaic(report.regularRub, report.dailyRub, report.bigRub, data.base, filter) { pick.chooseKind(Analytics.toggled(filter, it)) }
-            }
-            val title = filter?.let(::bucketLabel) ?: tr("Все траты", "All spending")
-            val cross: @Composable () -> Unit = {
-                // The day first, then the kind: one tap, one step back. Its glyph's right edge on the card's text.
-                IconButton(onClick = pick::scrubBack, modifier = Modifier.offset(x = 8.dp)) {
-                    Icon(painterResource(R.drawable.ic_close), if (day != null) tr("Снять выбор дня", "Clear the day") else tr("Снять выбор вида", "Clear the kind"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (shown.categories.isEmpty()) {
-                item(key = "title") {
-                    VSpace(ListSpace.cards)
-                    CardTitle(title, Modifier.padding(horizontal = Gap.m), trailing = cross)
-                }
-                item(key = "none") {
-                    GroupRow(1, 2, Modifier.padding(horizontal = Gap.m)) { Text(tr("За эти дни трат нет", "No spending in these days"), style = TextRole.rowName) }
-                }
-            } else {
-                item(key = "card") {
-                    val bars = Analytics.bars(shown.days)
-                    val rub = if (day == null) shown.spentRub else bars.firstOrNull { it.first == day }?.second ?: 0L
-                    val quiet = MaterialTheme.colorScheme.onSurface.copy(alpha = RestAlpha)
-                    val legend = if (day != null) barStacks[day].orEmpty() else shown.categories.map { spend ->
-                        val key = spend.categoryId?.let { data.categoryById[it]?.key }
-                        DayPart(if (key == null) leitmotifColor(null, tones) else categoryColor(key, tones), categoryName(data, spend), spend.rubMinor)
+        item(key = "card") {
+            // One height whatever is picked. The whole card opens the details; the title, the marks and the bars keep their taps.
+            Surface(
+                onClick = onDetails,
+                enabled = spending,
+                modifier = Modifier.padding(horizontal = Gap.s).fillMaxWidth().semantics { if (spending) contentDescription = tr("Подробнее", "Details") },
+                shape = RoundedCornerShape(CardCorner), color = tileColor(),
+            ) {
+                Column(Modifier.padding(horizontal = Space.card, vertical = ListSpace.edge)) {
+                    val tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    val ink = MaterialTheme.colorScheme.onSurface
+                    val figure = data.base.whole(if (day == null) shown.spentRub else bars.firstOrNull { it.first == day }?.second ?: 0L)
+                    // A kind is never more than the period: sized by the whole, a pick leaves the figure's size as it is.
+                    val sizedFor = data.base.whole(report.spentRub)
+                    Row {
+                        KindTitle(pick, Modifier.weight(1f), TextRole.groupTitle, onCard = true)
+                        PeriodMenu(pick, today, tint, Modifier.hang())
                     }
-                    VSpace(ListSpace.cards)
-                    // One height whatever is picked. The whole card opens the details; the bars and the cross keep their taps.
-                    Surface(
-                        onClick = onDetails,
-                        modifier = Modifier.padding(horizontal = Gap.s).fillMaxWidth().semantics { contentDescription = tr("Подробнее", "Details") },
-                        shape = RoundedCornerShape(CardCorner), color = tileColor(),
-                    ) {
-                        Column(Modifier.padding(horizontal = Space.card).padding(top = ListSpace.edge, bottom = ListSpace.edge)) {
-                            Row(Modifier.letters(TextRole.groupTitle.fontSize), verticalAlignment = Alignment.CenterVertically) {
-                                Text(title, Modifier.weight(1f).semantics { heading() }, style = TextRole.groupTitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (day != null || filter != null) Box(Modifier.height(0.dp).wrapContentHeight(unbounded = true).offset(x = 4.dp)) { cross() }
+                    VSpace(HeaderSpace.valueCaption)
+                    Row(Modifier.letters(TextRole.caption.fontSize)) {
+                        Text(span?.let { barCaption(it.from, it.to, bar) } ?: periodLine(period, today), Modifier.weight(1f), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (day != null) {
+                            IconButton(onClick = pick::letBarGo, modifier = Modifier.hang()) {
+                                Icon(painterResource(R.drawable.ic_close), tr("Снять выбор дня", "Clear the day"), tint = tint)
                             }
-                            DayBars(
-                                bars, bar, last, plan, data.base, barStacks, day, chartLine(data, period, span, bar, today, rub),
-                                onTap = pick::tapBar,
-                            )
-                            VSpace(ChartSpace.labelsToLegend)
-                            BarLegend(legend, quiet, data.base, if (day == null) tr("За эти дни трат нет", "No spending in these days") else tr("В этот день трат нет", "No spending this day"))
                         }
                     }
+                    VSpace(HeaderSpace.figureCaption)
+                    BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(sizedFor, maxWidth)), signColor = ink, sizedFor = sizedFor) }
+                    VSpace(HeaderSpace.block)
+                    if (spending) {
+                        DayBars(bars, bar, last, plan, data.base, barStacks, day, onTap = pick::tapBar)
+                        VSpace(ChartSpace.labelsToLegend)
+                        BarLegend(legend, quiet, data.base, if (day == null) tr("За эти дни трат нет", "No spending in these days") else tr("В этот день трат нет", "No spending this day"))
+                    } else {
+                        Text(tr("За эти дни трат нет", "No spending in these days"), Modifier.letters(TextRole.rowName.fontSize), style = TextRole.rowName)
+                    }
                 }
             }
-            // Income and exchange are not spending: no kind narrows them.
         }
+        // Income and exchange are not spending: no kind narrows them.
         incomeRows(data, report.incomeRub, report.fxLossRub.takeIf { report.fxVolumeRub > 0 })
+        reviewRows(data, reviews, onOpen = { onOpenReview(it, period) }, onAll = { onReviews(period) })
     }
-
 }
 
 /** The card's line: when and how much. */
@@ -345,7 +329,12 @@ fun InsightsDetails(data: AppData, pick: InsightsPick, onBack: () -> Unit, onEdi
     Scaffold(
         modifier = Modifier.fillMaxSize().nestedScroll(fold.nestedScrollConnection),
         topBar = {
-            CollapsingHeader(filter?.let(::bucketLabel) ?: tr("Все траты", "All spending"), onBack, fold) {
+            CollapsingHeader({
+                // The bar keeps both of its titles in place, one unseen: only the one in sight takes a tap.
+                val style = LocalTextStyle.current
+                val expanded = style.fontSize.value > TextRole.groupTitle.fontSize.value
+                KindTitle(pick, Modifier.padding(start = Gap.s), style, onCard = false, enabled = expanded == (fold.state.collapsedFraction < 0.5f))
+            }, onBack, fold) {
                 PeriodMenu(pick, today, MaterialTheme.colorScheme.onSurfaceVariant, Modifier)
             }
         },
@@ -353,13 +342,6 @@ fun InsightsDetails(data: AppData, pick: InsightsPick, onBack: () -> Unit, onEdi
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + Gap.l)) {
             item(key = "line") {
                 Text(chartLine(data, period, span, bar, today, scoped.spentRub), Modifier.padding(horizontal = Gap.l).letters(TextRole.caption.fontSize), style = TextRole.caption)
-                VSpace(HeaderSpace.block)
-                ChoiceGroup(
-                    listOf(null, Bucket.DAILY, Bucket.REGULAR, Bucket.BIG), filter, pick::chooseKind,
-                    Modifier.padding(horizontal = Gap.s).fillMaxWidth(), height = 40.dp,
-                    // By their words, with the padding's share: «Все» is a third of «Ежедневные».
-                    weight = { (it?.let(::bucketLabel) ?: tr("Все", "All")).length + 3f },
-                ) { ChoiceText(it?.let(::bucketLabel) ?: tr("Все", "All")) }
                 VSpace(ListSpace.cards)
             }
             if (perDay) dayRows(data, ops, onEdit) else categoryRows(data, scoped.categories, scoped.spentRub) { opened = it }
@@ -396,37 +378,45 @@ private fun periodLine(period: Period, today: LocalDate): String {
     return if (caption.startsWith(spent)) caption.removePrefix(spent).replaceFirstChar { it.titlecase(I18n.locale) } else caption
 }
 
-/** The review's mark sits on the line of the average: its 24 centred on the letters, whose height is about 16. */
-private val ReviewLift = (-4).dp
-
 /**
- * What the period came to: the caption with the calendar on its line, the figure, the average with
- * the way to the reviews on its own. Both marks' right edges on the content's, like Home's gear.
+ * The kind as a title, the whole of it a tap to the menu of kinds, the current one checked. Its mark
+ * goes by the title's size: 20 and 6 off a card's, 24 and 8 off a page's.
  */
 @Composable
-private fun InsightsHeader(title: String, figure: String, sizedFor: String, average: String, pick: InsightsPick, today: LocalDate, onReview: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
-    val ink = scheme.onPrimaryFixed
-    val words = TextRole.caption
-    val figures = TextRole.headerFigures
-    HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
-        Row(Modifier.letters(words.fontSize)) {
-            Text(title, Modifier.weight(1f), style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            PeriodMenu(pick, today, scheme.onPrimaryFixedVariant, Modifier.hang())
+private fun KindTitle(pick: InsightsPick, modifier: Modifier, style: androidx.compose.ui.text.TextStyle, onCard: Boolean, enabled: Boolean = true) {
+    var open by remember { mutableStateOf(false) }
+    val big = style.fontSize.value > TextRole.groupTitle.fontSize.value
+    Box(modifier) {
+        Row(
+            (if (onCard) Modifier.fillMaxWidth().tapLine(style.fontSize).bleed(Gap.s) else Modifier)
+                .clip(RoundedCornerShape(Gap.s))
+                .clickable(enabled = enabled, onClickLabel = tr("Выбрать вид трат", "Pick the kind of spending")) { open = true }
+                .padding(horizontal = if (onCard) Gap.s else 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                kindName(pick.filter), Modifier.weight(1f, fill = false).semantics { heading() }.then(if (onCard) Modifier.letters(style.fontSize) else Modifier),
+                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(if (big) 8.dp else 6.dp))
+            // On the middle of the small letters, taking none of their height.
+            Box(Modifier.height(0.dp).offset(y = 1.dp), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.requiredSize(if (big) 24.dp else 20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
-        VSpace(HeaderSpace.figureCaption)
-        BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(sizedFor, maxWidth)), signColor = ink, sizedFor = sizedFor) }
-        VSpace(HeaderSpace.block)
-        Text(tr("В среднем в день", "On average a day"), Modifier.letters(words.fontSize), style = words)
-        VSpace(HeaderSpace.valueCaption)
-        Row(Modifier.letters(figures.fontSize)) {
-            Text(average, Modifier.weight(1f), style = figures, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            IconButton(onClick = onReview, modifier = Modifier.hang().offset(y = ReviewLift)) {
-                Icon(painterResource(R.drawable.ic_review), tr("Разбор", "Review"), tint = scheme.onPrimaryFixedVariant)
+        DropdownMenu(open, onDismissRequest = { open = false }, shape = RoundedCornerShape(16.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            listOf(null, Bucket.DAILY, Bucket.REGULAR, Bucket.BIG).forEach { kind ->
+                DropdownMenuItem(
+                    text = { Text(kindName(kind), style = TextRole.rowName) },
+                    onClick = { open = false; pick.chooseKind(kind) },
+                    trailingIcon = { if (kind == pick.filter) Icon(painterResource(R.drawable.ic_check), null) },
+                )
             }
         }
     }
 }
+
+private fun kindName(kind: Bucket?): String = kind?.let(::bucketLabel) ?: tr("Все траты", "All spending")
 
 /** The calendar and what it opens: the two usual periods and a range of your own, the current one checked. */
 @Composable
@@ -455,76 +445,8 @@ private fun PeriodMenu(pick: InsightsPick, today: LocalDate, tint: Color, modifi
     }
 }
 
-/** Its colour stays with the kind from one period to the next, whichever is the biggest. */
-private val KindRank = mapOf(Bucket.REGULAR to 0, Bucket.DAILY to 1, Bucket.BIG to 2)
-
-/** How far a tile or a bar steps back towards what it stands on while another is picked. */
+/** How far a bar steps back towards what it stands on while another is picked. */
 private const val QUIET = 0.62f
-
-/** The right column's least width: the longest name and a sum in the millions, with room to breathe. */
-private const val KIND_COLUMN = 128f
-
-/** A column's least width: the longest name and a sum in the millions. */
-private const val KIND_LEAST = 116f
-
-/**
- * The three kinds, 136 high, the area their share: the biggest on the left, the two others stacked,
- * or three columns when the shares read as equal ([KindBlock]). A tile is the filter of all under it;
- * picked, it keeps its colour and the others step back.
- */
-@Composable
-private fun KindMosaic(regular: Long, daily: Long, big: Long, base: Base, filter: Bucket?, onPick: (Bucket) -> Unit) {
-    val kinds = listOf(Bucket.REGULAR to regular, Bucket.DAILY to daily, Bucket.BIG to big).sortedByDescending { it.second }
-    val gap = 4.dp
-    val density = LocalDensity.current
-    // Room for two lines, grown with the font scale.
-    val high = 136.dp * density.fontScale
-    val tile: @Composable (Pair<Bucket, Long>, Modifier) -> Unit = { (bucket, rub), modifier ->
-        KindTile(bucket, base.whole(rub), rub == 0L, filter == bucket, filter != null && filter != bucket, modifier) { onPick(bucket) }
-    }
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
-        val columns = KindBlock.columns(kinds[0].second, kinds[1].second, kinds[2].second, maxWidth.value, gap.value, KIND_LEAST * density.fontScale)
-        val split = KindBlock.split(kinds[0].second, kinds[1].second, kinds[2].second, maxWidth.value, high.value, gap.value, KIND_COLUMN * density.fontScale, 56f * density.fontScale)
-        Row(Modifier.height(high), horizontalArrangement = Arrangement.spacedBy(gap)) {
-            if (columns != null) {
-                kinds.forEachIndexed { i, kind -> tile(kind, Modifier.width(columns[i].dp).height(high)) }
-            } else {
-                tile(kinds[0], Modifier.width(split.left.dp).height(high))
-                Column(verticalArrangement = Arrangement.spacedBy(gap)) {
-                    tile(kinds[1], Modifier.fillMaxWidth().height(high - gap - split.low.dp))
-                    tile(kinds[2], Modifier.fillMaxWidth().height(split.low.dp))
-                }
-            }
-        }
-    }
-}
-
-/**
- * One kind: its name and sum on its colour, or on that colour stepped back when another is picked.
- * With nothing in it ([empty]) it has no colour to show: the neutral soft, still a tile to tap, or a pick could not be let go.
- */
-@Composable
-private fun KindTile(bucket: Bucket, amount: String, empty: Boolean, on: Boolean, quiet: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val tones = LocalTones.current
-    val colour = leitmotifColor(KindRank.getValue(bucket), tones)
-    val fill = when {
-        empty -> tones.soft
-        quiet -> lerp(colour, MaterialTheme.colorScheme.surface, QUIET)
-        else -> colour
-    }
-    val ink = if (empty) tones.text else tileInk(fill)
-    Box(
-        modifier.clip(RoundedCornerShape(16.dp)).background(fill)
-            .selectable(selected = on, role = Role.Button, onClick = onClick)
-            .padding(start = 12.dp, end = 12.dp, top = 12.dp),
-    ) {
-        Column {
-            Text(bucketLabel(bucket), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, color = ink, maxLines = 1)
-            VSpace(Gap.s)
-            Text(amount, Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = ink, maxLines = 1)
-        }
-    }
-}
 
 /** A category picked for its purchases: what the sheet is titled with, and whose they are. */
 private data class OpenedCategory(val name: String, val amount: String, val id: Long?)
@@ -569,6 +491,39 @@ private fun LazyListScope.incomeRows(data: AppData, income: Long, fxLoss: Long?)
             }
         }
     }
+}
+
+/** How many reviews the screen shows; the rest are on their own page. */
+private const val LAST_REVIEWS = 3
+
+/** The reviews by the day they were written, what each looked at on its right; the "+" and the row of all lead to their page. */
+private fun LazyListScope.reviewRows(data: AppData, reviews: List<Review>, onOpen: (Long) -> Unit, onAll: () -> Unit) {
+    val last = reviews.take(LAST_REVIEWS)
+    val more = reviews.size > LAST_REVIEWS
+    val rows = last.size + if (more) 1 else 0
+    item(key = "reviews") {
+        VSpace(ListSpace.cards)
+        GroupHeader(tr("Разборы", "Reviews"), tr("Сделать разбор", "Write a review"), onAll, Modifier.padding(horizontal = Gap.m), alone = rows == 0, icons = false)
+    }
+    last.forEachIndexed { i, review ->
+        item(key = "review-${review.id}") {
+            GroupRow(i + 1, rows + 1, Modifier.padding(horizontal = Gap.m), onClick = { onOpen(review.id) }) {
+                Row {
+                    Text(writtenOn(review, data), Modifier.weight(1f).alignByBaseline(), style = TextRole.rowName, maxLines = 1)
+                    Text(ReviewPrompt.looked(Period(LocalDate.ofEpochDay(review.fromDay), LocalDate.ofEpochDay(review.toDay))), Modifier.alignByBaseline(), style = TextRole.caption, maxLines = 1)
+                }
+            }
+        }
+    }
+    if (more) item(key = "reviews-all") {
+        GroupRow(rows, rows + 1, Modifier.padding(horizontal = Gap.m), onClick = onAll) { Text(tr("Все разборы", "All reviews"), style = TextRole.rowName) }
+    }
+}
+
+/** "24 октября", with the year when it was another. */
+private fun writtenOn(review: Review, data: AppData): String {
+    val day = Instant.ofEpochMilli(review.createdAt).atZone(data.zone).toLocalDate()
+    return shortDate(day) + if (day.year == data.today.year) "" else " " + day.year
 }
 
 /** A category's purchases of the period, newest first, in a sheet; a tap opens one to edit. */
@@ -663,7 +618,7 @@ private fun RangeDialog(period: Period, onDismiss: () -> Unit, onPick: (LocalDat
 /** How tall the bars stand: low enough for the categories to start on the first screen. */
 private val BarsHeight: Dp = 96.dp
 
-/** Between two bars: the mosaic's own gap. */
+/** Between two bars. */
 private val BarGap: Dp = 4.dp
 
 /** The thinnest a layer of a bar gets: still seen, whatever its share. */
@@ -673,8 +628,7 @@ private val BarLayer: Dp = 4.dp
 private val BarCorner: Dp = 6.dp
 
 /**
- * The bars in the card, each a rounded block stacked in its categories, colours touching, under [caption]:
- * when and how much, always there, so the bars never jump. A tap picks a bar and a tap on it lets go:
+ * The bars in the card, each a rounded block stacked in its categories, colours touching. A tap picks a bar and a tap on it lets go:
  * only a tap, so a finger that moves still scrolls the screen or swipes the tabs from anywhere on the
  * chart. The picked bar stays bright, the others step back.
  * The dashed line is the daily budget.
@@ -682,14 +636,14 @@ private val BarCorner: Dp = 6.dp
 @Composable
 private fun DayBars(
     days: List<Pair<LocalDate, Long>>, bar: Analytics.Bar, last: LocalDate, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>,
-    picked: LocalDate?, caption: String, onTap: (LocalDate) -> Unit,
+    picked: LocalDate?, onTap: (LocalDate) -> Unit,
 ) {
     if (days.isEmpty()) return
     val pickedIndex = days.indexOfFirst { it.first == picked }
     val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
     val rest = MaterialTheme.colorScheme.onSurface.copy(alpha = RestAlpha)
     val faint = MaterialTheme.colorScheme.outlineVariant
-    val line = MaterialTheme.colorScheme.outline
+    val dash = MaterialTheme.colorScheme.outline
     val card = tileColor()
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
     val density = LocalDensity.current
@@ -700,9 +654,6 @@ private fun DayBars(
         val barWidth = step - gapPx
         fun at(px: Float) = days[(px / step).toInt().coerceIn(0, days.lastIndex)].first
         Column {
-            VSpace(ChartSpace.titleToLine)
-            Text(caption, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            VSpace(ChartSpace.lineToBars)
             // A bar's column to tap, from over it down through its label.
             Column(Modifier.pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } }) {
                 Canvas(Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS).semantics(mergeDescendants = true) {}) {
@@ -733,7 +684,7 @@ private fun DayBars(
                     }
                     budget?.let {
                         val y = size.height - size.height * it / top
-                        drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+                        drawLine(dash, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
                     }
                 }
                 VSpace(ChartSpace.barsToLabels)
@@ -760,10 +711,10 @@ private fun DayBars(
                     }
                 }
             }
-            // What the dashed line is: the plan for a day.
+            // What the dashed line is: the plan for a day. A pick within a kind keeps it or its absence.
             budget?.let {
                 VSpace(ChartSpace.labelsToPlan)
-                Text(tr("План ", "Plan ") + base.approx(it) + tr(" в день", " a day"), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption)
+                Text(tr("План ", "Plan ") + base.approx(it) + tr(" в день", " a day"), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -780,7 +731,7 @@ private fun barMark(start: LocalDate, end: LocalDate, bar: Analytics.Bar, bars: 
     Analytics.Bar.YEAR -> start.year.toString()
 }
 
-/** The card's line for a picked bar: "За субботу, 24 октября", "За 12–18 октября", "За октябрь 2026". */
+/** The period's line for a picked bar: "За субботу, 24 октября", "За 12–18 октября", "За октябрь 2026". */
 private fun barCaption(start: LocalDate, end: LocalDate, bar: Analytics.Bar): String {
     val date = DateTimeFormatter.ofPattern(if (I18n.russian) "d MMMM" else "MMMM d", I18n.locale)
     val wholeMonth = start.dayOfMonth == 1 && end.dayOfMonth == end.lengthOfMonth()

@@ -511,6 +511,8 @@ private fun MainScreen(
                         Tab.INSIGHTS -> AnalyticsScreen(
                             data, padding, insights,
                             onDetails = { page = Page.Spending },
+                            reviews = repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList()).value,
+                            onOpenReview = { id, p -> page = Page.ReviewPage(id, p.from.toEpochDay(), p.to.toEpochDay()) },
                         ) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
                 }
