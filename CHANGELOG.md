@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Bars by one rule.** Never more than 14: the finest of day, week, month and
   year that fits, so a month is weeks, a year months. Colours meet with no stripe,
   corners are 6 at both ends, at most three layers. A longer bar narrows the
-  categories to it. A sideways finger anywhere on the chart stays on it and no longer swipes to the next tab.
+  categories to it. A bar is picked by a tap alone: a moving finger scrolls or turns the tab.
 - **Kinds that read as equal stand in three columns.**
 - **Eight new bold themes after Bungie's Marathon** instead of the ten pastel
   ones: Марафон, Ультрамарин, Сигнал, Пиксель, Голограмма, Терминал, Фиолет,

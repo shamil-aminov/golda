@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -213,7 +212,6 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                             DayBars(
                                 Analytics.bars(shown.days), bar, last, plan, data.base, barStacks, day, "$words · ${data.base.whole(rub)}",
                                 onTap = { pickedDay = Analytics.toggled(day, it)?.toEpochDay() },
-                                onScrub = { pickedDay = it.toEpochDay() },
                             )
                         }
                     }
@@ -537,14 +535,15 @@ private val BarCorner: Dp = 6.dp
 
 /**
  * The bars in the card, each a rounded block stacked in its categories, colours touching, under [caption]:
- * when and how much, always there, so the bars never move under the finger. A tap picks a bar and a
- * tap on it lets go; a finger scrubs across them. The picked bar stays bright, the others step back.
+ * when and how much, always there, so the bars never jump. A tap picks a bar and a tap on it lets go:
+ * only a tap, so a finger that moves still scrolls the screen or swipes the tabs from anywhere on the
+ * chart. The picked bar stays bright, the others step back.
  * The dashed line is the daily budget.
  */
 @Composable
 private fun DayBars(
     days: List<Pair<LocalDate, Long>>, bar: Analytics.Bar, last: LocalDate, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>,
-    picked: LocalDate?, caption: String, onTap: (LocalDate) -> Unit, onScrub: (LocalDate) -> Unit,
+    picked: LocalDate?, caption: String, onTap: (LocalDate) -> Unit,
 ) {
     if (days.isEmpty()) return
     val pickedIndex = days.indexOfFirst { it.first == picked }
@@ -565,71 +564,65 @@ private fun DayBars(
         val step = (widthPx + gapPx) / days.size
         val barWidth = step - gapPx
         fun at(px: Float) = days[(px / step).toInt().coerceIn(0, days.lastIndex)].first
-        // A sideways finger anywhere on the chart, its line and labels too: left to the tabs,
-        // it would swipe to the next one. Up and down stays the screen's.
-        Column(
-            Modifier.pointerInput(days) {
-                detectHorizontalDragGestures(onDragStart = { onScrub(at(it.x)) }) { change, _ -> onScrub(at(change.position.x)) }
-            },
-        ) {
+        Column {
             VSpace(ChartSpace.titleToLine - ChartSpace.titleDescent)
             Text(caption, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
             VSpace(ChartSpace.lineToBars)
-            Canvas(
-                Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS)
-                    .pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } },
-            ) {
-                days.forEachIndexed { i, (day, value) ->
-                    val g = (grow.value * 1.5f - 0.5f * i / days.size).coerceIn(0f, 1f)
-                    val h = (if (value > 0) (size.height * value / top).coerceAtLeast(4.dp.toPx()) else 3.dp.toPx()) * g
-                    val left = step * i
-                    fun shown(color: Color) = if (pickedIndex < 0 || i == pickedIndex) color else lerp(color, card, QUIET)
-                    // Never more than half its height: a low bar stays a bar, not an oval.
-                    val radius = CornerRadius(minOf(BarCorner.toPx(), h / 2, barWidth / 2))
-                    val path = Path().apply { addRoundRect(RoundRect(left, size.height - h, left + barWidth, size.height, radius)) }
-                    val parts = stacks[day].orEmpty()
-                    if (value > 0 && parts.isNotEmpty()) {
-                        // At most three layers, biggest at the bottom: the first ones in their colours, the rest quiet.
-                        val own = Analytics.coloured(parts.size)
-                        val colours = parts.take(own).map { it.color } + if (own < parts.size) listOf(rest) else emptyList()
-                        val amounts = parts.take(own).map { it.rub } + if (own < parts.size) listOf(parts.drop(own).sumOf { it.rub }) else emptyList()
-                        val heights = Analytics.layerHeights(amounts, h, BarLayer.toPx())
-                        clipPath(path) {
-                            var y = size.height
-                            colours.forEachIndexed { n, color ->
-                                drawRect(shown(color), Offset(left, y - heights[n]), Size(barWidth, heights[n]))
-                                y -= heights[n]
+            // A bar's column to tap, from over it down through its label.
+            Column(Modifier.pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } }) {
+                Canvas(Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS)) {
+                    days.forEachIndexed { i, (day, value) ->
+                        val g = (grow.value * 1.5f - 0.5f * i / days.size).coerceIn(0f, 1f)
+                        val h = (if (value > 0) (size.height * value / top).coerceAtLeast(4.dp.toPx()) else 3.dp.toPx()) * g
+                        val left = step * i
+                        fun shown(color: Color) = if (pickedIndex < 0 || i == pickedIndex) color else lerp(color, card, QUIET)
+                        // Never more than half its height: a low bar stays a bar, not an oval.
+                        val radius = CornerRadius(minOf(BarCorner.toPx(), h / 2, barWidth / 2))
+                        val path = Path().apply { addRoundRect(RoundRect(left, size.height - h, left + barWidth, size.height, radius)) }
+                        val parts = stacks[day].orEmpty()
+                        if (value > 0 && parts.isNotEmpty()) {
+                            // At most three layers, biggest at the bottom: the first ones in their colours, the rest quiet.
+                            val own = Analytics.coloured(parts.size)
+                            val colours = parts.take(own).map { it.color } + if (own < parts.size) listOf(rest) else emptyList()
+                            val amounts = parts.take(own).map { it.rub } + if (own < parts.size) listOf(parts.drop(own).sumOf { it.rub }) else emptyList()
+                            val heights = Analytics.layerHeights(amounts, h, BarLayer.toPx())
+                            clipPath(path) {
+                                var y = size.height
+                                colours.forEachIndexed { n, color ->
+                                    drawRect(shown(color), Offset(left, y - heights[n]), Size(barWidth, heights[n]))
+                                    y -= heights[n]
+                                }
                             }
+                        } else {
+                            drawPath(path, shown(if (value > 0) normal else faint))
                         }
-                    } else {
-                        drawPath(path, shown(if (value > 0) normal else faint))
+                    }
+                    budget?.let {
+                        val y = size.height - size.height * it / top
+                        drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
                     }
                 }
-                budget?.let {
-                    val y = size.height - size.height * it / top
-                    drawLine(line, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
+                VSpace(ChartSpace.barsToLabels)
+                // Wider than a bar, centred on it; where bars are narrower than their words, every second or third.
+                val stepDp = with(density) { step.toDp() }
+                val wide = when (bar) {
+                    Analytics.Bar.WEEK -> 56.dp
+                    Analytics.Bar.YEAR -> 30.dp
+                    else -> 24.dp
                 }
-            }
-            VSpace(ChartSpace.barsToLabels)
-            // Wider than a bar, centred on it; where bars are narrower than their words, every second or third.
-            val stepDp = with(density) { step.toDp() }
-            val wide = when (bar) {
-                Analytics.Bar.WEEK -> 56.dp
-                Analytics.Bar.YEAR -> 30.dp
-                else -> 24.dp
-            }
-            val every = kotlin.math.ceil(wide / stepDp).toInt().coerceAtLeast(1)
-            Box(Modifier.fillMaxWidth()) {
-                days.forEachIndexed { i, (d, _) ->
-                    if ((days.lastIndex - i) % every == 0) {
-                        Text(
-                            barMark(d, Analytics.barEnd(d, last, bar), bar, days.size),
-                            modifier = Modifier.offset(x = with(density) { (step * i + barWidth / 2).toDp() } - 36.dp).width(72.dp).letters(MaterialTheme.typography.labelSmall.fontSize), // scale-exempt: as below
-                            style = MaterialTheme.typography.labelSmall, // scale-exempt: a chart's axis, under bars a few dp wide
-                            color = if (i == pickedIndex) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                        )
+                val every = kotlin.math.ceil(wide / stepDp).toInt().coerceAtLeast(1)
+                Box(Modifier.fillMaxWidth()) {
+                    days.forEachIndexed { i, (d, _) ->
+                        if ((days.lastIndex - i) % every == 0) {
+                            Text(
+                                barMark(d, Analytics.barEnd(d, last, bar), bar, days.size),
+                                modifier = Modifier.offset(x = with(density) { (step * i + barWidth / 2).toDp() } - 36.dp).width(72.dp).letters(MaterialTheme.typography.labelSmall.fontSize), // scale-exempt: as below
+                                style = MaterialTheme.typography.labelSmall, // scale-exempt: a chart's axis, under bars a few dp wide
+                                color = if (i == pickedIndex) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                            )
+                        }
                     }
                 }
             }

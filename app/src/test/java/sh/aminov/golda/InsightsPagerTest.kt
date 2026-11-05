@@ -8,7 +8,10 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -31,7 +34,7 @@ import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.Tags
 import java.util.TimeZone
 
-/** The tabs swipe sideways and so does a finger on the bars: on the bars, the bars win. */
+/** The chart takes taps and nothing else: a moving finger scrolls the screen or turns the tab from anywhere on it. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h700dp-xxhdpi")
@@ -60,42 +63,30 @@ class InsightsPagerTest {
         compose.onNodeWithText("Неделя").performClick()
     }
 
+    private fun picked(times: Int) = compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(times)
+
     @Test
-    fun aFingerAcrossTheBarsStaysOnTheTab() {
+    fun aSwipeAcrossTheBarsTurnsTheTabAndPicksNothing() {
         week()
         compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { swipeLeft(startX = width * 0.9f, endX = width * 0.1f) }
         compose.waitForIdle()
-        assertEquals(1, pager.currentPage)
+        assertEquals(2, pager.currentPage)
     }
 
     @Test
-    fun aFingerUnderTheBarsStaysOnTheTabToo() {
+    fun aSwipeAcrossTheLabelsTurnsTheTabToo() {
         week()
-        // On the axis, a little under the bars.
         compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput {
             down(Offset(width * 0.9f, height + 30f))
             repeat(12) { moveBy(Offset(-width / 14f, 0f)) }
             up()
         }
         compose.waitForIdle()
-        assertEquals(1, pager.currentPage)
+        assertEquals(2, pager.currentPage)
     }
 
     @Test
-    fun aFingerOverTheBarsStaysOnTheTabToo() {
-        week()
-        // Between the card's line and the bars.
-        compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput {
-            down(Offset(width * 0.9f, -30f))
-            repeat(12) { moveBy(Offset(-width / 14f, 0f)) }
-            up()
-        }
-        compose.waitForIdle()
-        assertEquals(1, pager.currentPage)
-    }
-
-    @Test
-    fun aFingerUpTheBarsScrollsTheScreen() {
+    fun aFingerUpTheBarsScrollsTheScreenAndPicksNothing() {
         week()
         val before = compose.onNodeWithTag(Tags.INSIGHTS_BARS).fetchSemanticsNode().boundsInRoot.top
         compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput {
@@ -105,6 +96,26 @@ class InsightsPagerTest {
         }
         compose.waitForIdle()
         assertTrue(compose.onNodeWithTag(Tags.INSIGHTS_BARS).fetchSemanticsNode().boundsInRoot.top < before)
+        picked(0)
+    }
+
+    @Test
+    fun aTapOnABarPicksItAndATapAgainLetsGo() {
+        week()
+        compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width - 2f, height / 2f)) }
+        picked(1)
+        assertEquals(1, pager.currentPage)
+        compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width - 2f, height / 2f)) }
+        picked(0)
+    }
+
+    @Test
+    fun aTapOnALabelOrOverALowBarPicksItToo() {
+        week()
+        compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width - 2f, height + 30f)) }
+        picked(1)
+        compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width - 2f, 2f)) }
+        picked(0)
     }
 
     @Test
