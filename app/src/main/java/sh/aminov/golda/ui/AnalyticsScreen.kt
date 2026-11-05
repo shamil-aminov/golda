@@ -5,6 +5,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ripple
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
@@ -354,7 +357,7 @@ private fun inPeriod(data: AppData, period: Period, filter: Bucket?, also: (Oper
             (filter == null || Buckets.of(full.op, data.categoryById) == filter) && also(full)
     }.sortedByDescending { it.op.timestamp }
 
-/** The caption names the quantity, like Можно сегодня and Всего на счетах: "Траты за октябрь", or "За 30 дней" for the last days. */
+/** The caption names the quantity, like Можно сегодня: "Траты за октябрь", or "За 30 дней" for the last days. */
 private fun periodCaption(period: Period, today: LocalDate): String {
     val span = ReviewPrompt.title(period, today)
     return when {
@@ -379,22 +382,28 @@ private fun periodLine(period: Period, today: LocalDate): String {
 private fun KindTitle(pick: InsightsPick, modifier: Modifier, style: androidx.compose.ui.text.TextStyle, onCard: Boolean, enabled: Boolean = true) {
     var open by remember { mutableStateOf(false) }
     val big = style.fontSize.value > TextRole.groupTitle.fontSize.value
+    // The whole line takes the tap; the press shows around the word and its mark alone.
+    val press = remember { MutableInteractionSource() }
     Box(modifier) {
         Row(
-            (if (onCard) Modifier.fillMaxWidth().tapLine(style.fontSize).bleed(Gap.s) else Modifier)
-                .clip(RoundedCornerShape(Gap.s))
-                .clickable(enabled = enabled, onClickLabel = tr("Выбрать вид трат", "Pick the kind of spending")) { open = true }
-                .padding(horizontal = if (onCard) Gap.s else 0.dp),
+            (if (onCard) Modifier.fillMaxWidth().tapLine(style.fontSize) else Modifier)
+                .clickable(press, indication = null, enabled = enabled, onClickLabel = tr("Выбрать вид трат", "Pick the kind of spending")) { open = true },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                kindName(pick.filter), Modifier.weight(1f, fill = false).semantics { heading() }.then(if (onCard) Modifier.letters(style.fontSize) else Modifier),
-                style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.width(if (big) 8.dp else 6.dp))
-            // On the middle of the small letters, taking none of their height.
-            Box(Modifier.height(0.dp).offset(y = 1.dp), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.requiredSize(if (big) 24.dp else 20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                Modifier.weight(1f, fill = false).spill(Gap.s, if (onCard) Gap.s else 0.dp).clip(RoundedCornerShape(Gap.s)).indication(press, ripple())
+                    .padding(horizontal = Gap.s, vertical = if (onCard) Gap.s else 0.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    kindName(pick.filter), Modifier.weight(1f, fill = false).semantics { heading() }.then(if (onCard) Modifier.letters(style.fontSize) else Modifier),
+                    style = style, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(if (big) 8.dp else 6.dp))
+                // On the middle of the small letters, taking none of their height.
+                Box(Modifier.height(0.dp).offset(y = 1.dp), contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.ic_chevron_down), null, Modifier.requiredSize(if (big) 24.dp else 20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
         DropdownMenu(open, onDismissRequest = { open = false }, shape = RoundedCornerShape(16.dp), containerColor = MaterialTheme.colorScheme.surfaceContainerHigh) {
