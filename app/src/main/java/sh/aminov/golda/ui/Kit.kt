@@ -883,11 +883,8 @@ object ChartSpace {
     /** That line over the bars, a block: 26. */
     val lineToBars: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
 
-    /**
-     * The bars over their labels: 13, an optical correction to a chart caption's 10: the picked bar's
-     * dot hangs 9 under the bar and needs air of its own before the labels.
-     */
-    val barsToLabels: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption - 3.dp
+    /** The bars over their labels, a chart's caption: 10. */
+    val barsToLabels: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.chartCaption
 
     /** The labels over the day's plan, a caption to them: 16. */
     val labelsToPlan: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption

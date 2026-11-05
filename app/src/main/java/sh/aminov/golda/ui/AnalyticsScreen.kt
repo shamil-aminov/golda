@@ -319,7 +319,7 @@ private fun PeriodMenu(kind: PeriodKind, onKind: (PeriodKind) -> Unit, modifier:
 /** Its colour stays with the kind from one period to the next, whichever is the biggest. */
 private val KindRank = mapOf(Bucket.REGULAR to 0, Bucket.DAILY to 1, Bucket.BIG to 2)
 
-/** How far a kind steps back towards the page while another is picked. */
+/** How far a tile or a bar steps back towards what it stands on while another is picked. */
 private const val QUIET = 0.62f
 
 /** The right column's least width: the longest name and a sum in the millions, with room to breathe. */
@@ -538,7 +538,7 @@ private val BarCorner: Dp = 6.dp
 /**
  * The bars in the card, each a rounded block stacked in its categories, colours touching, under [caption]:
  * when and how much, always there, so the bars never move under the finger. A tap picks a bar and a
- * tap on it lets go; a finger scrubs across them. The picked bar has a dot under it.
+ * tap on it lets go; a finger scrubs across them. The picked bar stays bright, the others step back.
  * The dashed line is the daily budget.
  */
 @Composable
@@ -546,14 +546,13 @@ private fun DayBars(
     days: List<Pair<LocalDate, Long>>, bar: Analytics.Bar, last: LocalDate, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>,
     picked: LocalDate?, caption: String, onTap: (LocalDate) -> Unit, onScrub: (LocalDate) -> Unit,
 ) {
-    // The picked bar's dot in the ink of its label: it marks the pick, it does not compete with the bars.
-    val accent = MaterialTheme.colorScheme.onSurface
     if (days.isEmpty()) return
     val pickedIndex = days.indexOfFirst { it.first == picked }
     val normal = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
     val rest = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     val faint = MaterialTheme.colorScheme.outlineVariant
     val line = MaterialTheme.colorScheme.outline
+    val card = tileColor()
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
     val density = LocalDensity.current
     // The bars rise when the period or the kind changes, left to right in a short wave.
@@ -584,6 +583,7 @@ private fun DayBars(
                     val g = (grow.value * 1.5f - 0.5f * i / days.size).coerceIn(0f, 1f)
                     val h = (if (value > 0) (size.height * value / top).coerceAtLeast(4.dp.toPx()) else 3.dp.toPx()) * g
                     val left = step * i
+                    fun shown(color: Color) = if (pickedIndex < 0 || i == pickedIndex) color else lerp(color, card, QUIET)
                     // Never more than half its height: a low bar stays a bar, not an oval.
                     val radius = CornerRadius(minOf(BarCorner.toPx(), h / 2, barWidth / 2))
                     val path = Path().apply { addRoundRect(RoundRect(left, size.height - h, left + barWidth, size.height, radius)) }
@@ -597,14 +597,13 @@ private fun DayBars(
                         clipPath(path) {
                             var y = size.height
                             colours.forEachIndexed { n, color ->
-                                drawRect(color, Offset(left, y - heights[n]), Size(barWidth, heights[n]))
+                                drawRect(shown(color), Offset(left, y - heights[n]), Size(barWidth, heights[n]))
                                 y -= heights[n]
                             }
                         }
                     } else {
-                        drawPath(path, if (value > 0) normal else faint)
+                        drawPath(path, shown(if (value > 0) normal else faint))
                     }
-                    if (i == pickedIndex) drawCircle(accent, radius = 3.dp.toPx(), center = Offset(left + barWidth / 2, size.height + 6.dp.toPx()))
                 }
                 budget?.let {
                     val y = size.height - size.height * it / top
