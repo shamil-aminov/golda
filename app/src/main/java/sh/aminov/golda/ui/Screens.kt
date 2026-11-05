@@ -234,7 +234,7 @@ fun HomeScreen(
 
 /** The Accounts header's words, in one place: the title and what its caption says of the debts. */
 private object AccountsWords {
-    fun title() = tr("Баланс", "Balance")
+    fun title() = tr("На счетах", "In accounts")
     fun debts(amount: String) = tr("Долги $amount", "Debts $amount")
     fun noDebts() = tr("Долгов нет", "No debts")
 }
@@ -253,7 +253,7 @@ fun AccountsScreen(
     onSavePayment: (Obligation) -> Unit = {},
     onDeletePayment: (Long) -> Unit = {},
 ) {
-    val total = data.states.values.sumOf { it.rubMinor }
+    val held = Debts.heldRub(data.states.values)
     var payment by remember { mutableStateOf<Obligation?>(null) }
     var reconciling by remember { mutableStateOf<AccountState?>(null) }
     // In reconcile mode, the accounts already checked this round: true when the balance matched.
@@ -276,7 +276,7 @@ fun AccountsScreen(
                 val words = TextRole.caption
                 // As the other tabs: a title, its caption, the figure on their line, the other currencies a block
                 // under it, the debt's cost a group away. Every text cut to its letters and every gap a step of the
-                // header's row (HeaderSpace). Each block one TalkBack node. The figure is net of the debts its caption names.
+                // header's row (HeaderSpace). Each block one TalkBack node. The figure is the money there; the caption names the debts apart.
                 val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
                     Text(AccountsWords.title(), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
@@ -284,11 +284,11 @@ fun AccountsScreen(
                     val owed = Debts.owedRub(data.states.values)
                     Text(if (owed > 0) AccountsWords.debts(data.base.whole(owed)) else AccountsWords.noDebts(), cut, style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     VSpace(HeaderSpace.figureCaption)
-                    val text = data.base.whole(total)
+                    val text = data.base.whole(held)
                     BoxWithConstraints {
                         HeroAmount(text, ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL).letters(heroFigureSize(text, maxWidth)), signColor = ink)
                     }
-                    data.others(total, data.base.code).takeIf { it.isNotBlank() }?.let {
+                    data.others(held, data.base.code).takeIf { it.isNotBlank() }?.let {
                         VSpace(HeaderSpace.block)
                         Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
                     }

@@ -315,17 +315,24 @@ class DebtsEnvelopePropertiesTest {
     }
 
     @Test
-    fun theDebtsAreWhatTheBalanceTakesOff() = prop {
+    fun theMoneyHeldLessTheDebtsIsTheNetTotal() = prop {
         val types = AccountType.entries
         checkAll(Arb.list(Arb.pair(Arb.int(types.indices), Arb.long(-1_000_000_000L..1_000_000_000L)), 0..8)) { rows ->
             val states = rows.mapIndexed { i, (type, rub) ->
                 AccountState(Account(i + 1L, "a$i", "RUB", types[type], includeInFree = false, sort = i), rub, rub)
             }
+            val held = Debts.heldRub(states)
             val owed = Debts.owedRub(states)
-            assertTrue(owed >= 0)
-            // The balance with the debts given back is the money alone: nothing else takes anything off.
-            val money = states.sumOf { s -> if (with(Debts) { s.account.isDebt }) s.rubMinor.coerceAtLeast(0) else s.rubMinor }
-            assertEquals(money, states.sumOf { it.rubMinor } + owed)
+            assertTrue(held >= 0 && owed >= 0)
+            assertEquals(states.sumOf { it.rubMinor }, held - owed)
         }
+    }
+
+    @Test
+    fun aCreditCardInThePlusIsMoneyHeldAndADebtTakesNothingOff() {
+        fun state(id: Long, type: AccountType, rub: Long) = AccountState(Account(id, "a", "RUB", type, includeInFree = false, sort = 0), rub, rub)
+        val states = listOf(state(1, AccountType.CREDIT, 700), state(2, AccountType.CARD, 300), state(3, AccountType.LOAN, -500_000_000))
+        assertEquals(1000L, Debts.heldRub(states))
+        assertEquals(500_000_000L, Debts.owedRub(states))
     }
 }

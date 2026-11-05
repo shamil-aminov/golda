@@ -25,9 +25,15 @@ data class Prepay(
 object Debts {
     val Account.isDebt get() = type == AccountType.CREDIT || type == AccountType.LOAN
 
-    /** What the credit cards and loans owe, in rubles, as a positive sum; one with money on it owes nothing. */
-    fun owedRub(states: Collection<AccountState>): Long =
-        states.filter { it.account.isDebt }.sumOf { (-it.rubMinor).coerceAtLeast(0) }
+    /**
+     * The money on the accounts, in rubles: every account with something on it, a credit card in the plus
+     * too, and none of the debts taken off. A mortgage would put the net total deep under zero while the
+     * home it bought is not in the books, so the header shows what is there and names the debts apart.
+     */
+    fun heldRub(states: Collection<AccountState>): Long = states.sumOf { it.rubMinor.coerceAtLeast(0) }
+
+    /** What is owed, in rubles, as a positive sum: every account in the minus, so [heldRub] less this is the net total. */
+    fun owedRub(states: Collection<AccountState>): Long = states.sumOf { (-it.rubMinor).coerceAtLeast(0) }
 
     /** Months left on an annuity: n = −ln(1 − rB/P) / ln(1 + r). Null when the payment does not even cover the interest. */
     fun monthsLeft(balanceMinor: Long, ratePercent: Double, paymentMinor: Long): Double? {

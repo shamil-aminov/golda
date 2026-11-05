@@ -102,12 +102,12 @@ class HeaderGridTest {
     }
 
     @Test
-    fun accountsOpenWithTheBalanceItsDebtsAndTheOtherCurrenciesUnderTheFigure() {
+    fun accountsOpenWithTheMoneyThereItsDebtsAndTheOtherCurrenciesUnderTheFigure() {
         val data = ScreenshotTest().demo()
         accounts(data)
-        compose.onAllNodesWithText("Баланс", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("На счетах", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText("Долги " + data.base.whole(21_500_000), useUnmergedTree = true).assertCountEquals(1)
-        val others = data.others(data.states.values.sumOf { it.rubMinor }, data.base.code)
+        val others = data.others(Debts.heldRub(data.states.values), data.base.code)
         val under = compose.onAllNodesWithText(others, useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
         assertEquals(true, under.top > tagged(Tags.ACCOUNTS_TOTAL).bottom)
     }
