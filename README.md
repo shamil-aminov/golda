@@ -55,7 +55,7 @@ loud is the moment you notice you are spending.
 - **Card purchases in another currency.** For "48.5 lari" paid from a dollar
   card, the charge is estimated at the CBR cross rate + 2 % and marked **≈**
   until you correct it.
-- **For today.** Put money on the card you spend from for a week,
+- **Left today.** Put money on the card you spend from for a week,
   two or a month: Golda splits what is left over the days left. A top-up of
   that card asks "Новый месяц с …?" (on for a transfer from your own account,
   off for an income), so a friend's money never restarts the month; when the

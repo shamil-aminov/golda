@@ -142,18 +142,25 @@ private fun SpentTiles(envelope: Envelope) {
     }
     VSpace(ChartSpace.tilesToWords)
     Row(Modifier.fillMaxWidth()) {
-        TileWords(tr("Ушло", "Gone"), whole(spent, code), Alignment.Start, Modifier.weight(1f))
-        TileWords(tr("Осталось", "Left"), whole(left, code), Alignment.End, Modifier)
+        fun pace(minor: Long) = tr("${Fmt.whole(minor, code)} в день", "${Fmt.whole(minor, code)} a day")
+        TileWords(tr("Ушло", "Gone"), whole(spent, code), envelope.burnMinor?.let(::pace), Alignment.Start, Modifier.weight(1f))
+        TileWords(tr("Осталось", "Left"), whole(left, code), pace(envelope.perDayMinor), Alignment.End, Modifier)
     }
+    // A little more than the card's edge under a block of three lines.
+    VSpace(ChartSpace.wordToSum)
 }
 
-/** A tile's word and, under it, its sum. */
+/** A tile's word, its sum and the pace, one node for TalkBack. */
 @Composable
-private fun TileWords(word: String, sum: String, side: Alignment.Horizontal, modifier: Modifier) {
+private fun TileWords(word: String, sum: String, pace: String?, side: Alignment.Horizontal, modifier: Modifier) {
     Column(modifier.semantics(mergeDescendants = true) {}, horizontalAlignment = side) {
         Text(word, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1)
         VSpace(ChartSpace.wordToSum)
         Text(sum, Modifier.letters(TextRole.rowAmount.fontSize), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onPrimaryFixed, maxLines = 1)
+        pace?.let {
+            VSpace(ChartSpace.wordToSum)
+            Text(it, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1)
+        }
     }
 }
 
@@ -186,7 +193,7 @@ fun HomeScreen(
                 val figure = if (envelope != null && code != null) whole(envelope.leftTodayMinor, code) else null
                 val title = TextRole.groupTitle
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tr("На сегодня", "For today"), Modifier.weight(1f).letters(title.fontSize), style = title, color = ink, maxLines = 1)
+                    Text(tr("Остаток дня", "Left today"), Modifier.weight(1f).letters(title.fontSize), style = title, color = ink, maxLines = 1)
                     // The days left, in the corner where Insights has its period; a tap changes the period.
                     if (envelope != null) {
                         Box(Modifier.height(0.dp).wrapContentHeight(unbounded = true)) {
@@ -201,8 +208,11 @@ fun HomeScreen(
                 }
                 if (figure != null) {
                     VSpace(HeaderSpace.figureCaption)
+                    // Out of the day's plan, small on the figure's baseline; the words count towards its fit at a third of a digit each.
+                    val outOf = envelope?.dayOutOf?.let { tr("из ", "of ") + Fmt.whole(it, envelope.currency) }
+                    val sized = figure + "0".repeat(outOf.orEmpty().length / 3)
                     BoxWithConstraints(Modifier.semantics(mergeDescendants = true) {}) {
-                        HeroAmount(figure, ink, Modifier.testTag(Tags.HOME_BIG).letters(heroFigureSize(figure, maxWidth)), signColor = ink)
+                        HeroAmount(figure, ink, Modifier.testTag(Tags.HOME_BIG).letters(heroFigureSize(sized, maxWidth)), signColor = ink, sizedFor = sized, tail = outOf)
                     }
                 }
                 if (envelope == null || code == null) return@HeroTile
@@ -246,7 +256,7 @@ fun HomeScreen(
 
 /** The Accounts header's words, in one place. */
 private object AccountsWords {
-    fun title() = tr("На счетах", "In accounts")
+    fun title() = tr("Всего денег", "All the money")
     fun interest(without: Int): String {
         val n = without.toLong()
         return if (n == 0L) tr("Проценты по долгам", "Interest on debts")
@@ -663,6 +673,8 @@ fun HeroAmount(
     text: String, color: Color, modifier: Modifier = Modifier, signColor: Color = Color.Unspecified,
     /** The longest figure this one stands in for, so a shorter one keeps the size and the header its height. */
     sizedFor: String = text,
+    /** Small words on the figure's own baseline, after it. */
+    tail: String? = null,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val size = heroFigureSize(sizedFor, maxWidth)
@@ -679,6 +691,7 @@ fun HeroAmount(
             buildAnnotatedString {
                 append(digits)
                 if (sign != null) withStyle(SpanStyle(color = muted)) { append(" $sign") }
+                tail?.let { withStyle(TextRole.rowName.toSpanStyle().copy(color = muted)) { append(" $it") } }
             },
             Modifier.offset(x = -nudge),
             style = style,

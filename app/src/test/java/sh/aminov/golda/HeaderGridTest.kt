@@ -21,6 +21,10 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import sh.aminov.golda.data.Account
 import sh.aminov.golda.data.AccountType
+import sh.aminov.golda.data.OpType
+import sh.aminov.golda.data.Operation
+import sh.aminov.golda.data.OperationFull
+import sh.aminov.golda.data.Posting
 import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.ui.AccountsScreen
@@ -80,14 +84,33 @@ class HeaderGridTest {
     @Test
     fun theTilesSayWhatWentAndWhatIsLeftAndThePillChangesThePeriod() {
         home()
-        compose.onAllNodesWithText("На сегодня", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Остаток дня", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText("Ушло", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText("Осталось", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText("Ещё ", substring = true, useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithContentDescription("Настройки").assertCountEquals(0)
         assertEquals(true, tagged(Tags.HOME_SPENT).top > tagged(Tags.HOME_BIG).bottom)
+        // Left the burn, right the day's plan, each its tile's one node.
+        compose.onAllNodesWithText("122 в день", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("47 в день", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText(" из 47", substring = true, useUnmergedTree = true).assertCountEquals(1)
         compose.onNodeWithTag(Tags.HOME_PERIOD).performClick()
         assertEquals(1, periods)
+    }
+
+    @Test
+    fun aDayPastItsPlanHasNoOutOfAndThePaceStays() {
+        val demo = ScreenshotTest().demo()
+        val noon = demo.today.atTime(12, 0).toInstant(java.time.ZoneOffset.UTC).toEpochMilli()
+        val more = OperationFull(
+            Operation(9_999, OpType.EXPENSE, noon, categoryId = demo.categories.first().id, note = "Ужин"),
+            listOf(Posting(operationId = 9_999, accountId = demo.envelope!!.account.id, amountMinor = -6_000, rubMinor = -204_000)),
+        )
+        val past = AppData(demo.settings, demo.accounts, demo.operations + more, demo.categories, emptyList(), demo.obligations, demo.today)
+        assertEquals(true, past.envelope!!.leftTodayMinor < 0)
+        home(past)
+        compose.onAllNodesWithText(" из ", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("в день", substring = true, useUnmergedTree = true).assertCountEquals(2)
     }
 
     @Test
@@ -95,7 +118,7 @@ class HeaderGridTest {
         val demo = ScreenshotTest().demo()
         home(AppData(demo.settings, emptyList(), emptyList(), demo.categories, emptyList(), today = demo.today))
         compose.onNodeWithText("Период не задан", useUnmergedTree = true).assertExists()
-        compose.onAllNodesWithText("На сегодня", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Остаток дня", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithTag(Tags.HOME_BIG, useUnmergedTree = true).assertCountEquals(0)
         compose.onAllNodesWithTag(Tags.HOME_PERIOD).assertCountEquals(0)
     }
@@ -114,7 +137,7 @@ class HeaderGridTest {
     fun accountsOpenWithTheMoneyThereAndTheOtherCurrenciesUnderTheFigure() {
         val data = ScreenshotTest().demo()
         accounts(data)
-        count("На счетах", 1)
+        count("Всего денег", 1)
         count("Сверено", 0)
         count("Проценты по долгам", 1)
         count("Долги", 0)

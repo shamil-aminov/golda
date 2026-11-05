@@ -89,7 +89,7 @@ class BugHuntScenarioTest : GoldaUiTest() {
         compose.onNodeWithText(tr("Траты", "Spending")).performClick()
         compose.waitForIdle()
         back()
-        compose.waitUntil(5_000) { compose.onAllNodes(hasText(tr("На сегодня", "For today"))).fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodes(hasText(tr("Остаток дня", "Left today"))).fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag(Tags.HOME_OTHERS, useUnmergedTree = true).assertIsDisplayed()
     }
 }

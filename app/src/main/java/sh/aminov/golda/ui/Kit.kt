@@ -840,8 +840,8 @@ enum class Spacing(val factor: Float) {
  * «Просторно», as the owner set them by eye). A caption keeps to its value by the value's weight.
  */
 object HeaderSpace {
-    /** A word over its sum, nearer than any caption: 3. */
-    val wordToSum: Dp @Composable @ReadOnlyComposable get() = step(3f)
+    /** A word over its sum, nearer than any caption: 6. */
+    val wordToSum: Dp @Composable @ReadOnlyComposable get() = step(5f)
 
     /** A caption under a chart (the dates under the period bar): 8. */
     val chartCaption: Dp @Composable @ReadOnlyComposable get() = step(8f)
@@ -877,10 +877,10 @@ object ChartSpace {
     /** The bars over their labels, a chart's caption: 10. */
     val barsToLabels: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.chartCaption
 
-    /** Home's tiles over their words, a chart's caption: 10. */
-    val tilesToWords: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.chartCaption
+    /** Home's tiles over their words, a caption to them: 16. */
+    val tilesToWords: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
 
-    /** A word under the tiles over its sum: 4. */
+    /** A word under the tiles over its sum, and the sum over its pace: 6. */
     val wordToSum: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.wordToSum
 
     /** The labels over the day's plan, a caption to them: 16. */

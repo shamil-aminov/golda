@@ -397,6 +397,14 @@ class DebtsEnvelopePropertiesTest {
     }
 
     @Test
+    fun theDayIsOutOfItsPlanUntilItGoesPastIt() {
+        val base = Envelope(debt(1, null), day, day.plusDays(9), 1_000, 0, 0, 5, 4_700, 3_200, null, null)
+        assertEquals(4_700L, base.dayOutOf)
+        assertEquals(4_700L, base.copy(leftTodayMinor = 0).dayOutOf)
+        assertNull(base.copy(leftTodayMinor = -1).dayOutOf)
+    }
+
+    @Test
     fun theLightsEdges() {
         // Six days of ten gone, 600 of 1 000: on the norm.
         assertEquals(Light.YELLOW, envelope(40_000, 60_000).light)

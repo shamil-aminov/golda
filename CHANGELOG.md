@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   screen. A picked bar gives its sum and its pill, a tap on which lets go. The period strip, the category mosaic and the kinds'
   tiles are gone; the details page picks the kind by the same menu.
 - **The tabs' headers by one rule.** A title, then the figure at once, 58 on every screen. Home's title
-  is «На сегодня», two tiles say what went and what is left, the first coloured by how it goes against the norm, and a pill of the days left changes the period.
-  Accounts open with «На счетах», the money there with no debts taken off, the other currencies as plain
+  is «Остаток дня», two tiles say what went and what is left with their pace a day, the first coloured by how it goes against the norm, and a pill of the days left changes the period.
+  Accounts open with «Всего денег», the money there with no debts taken off, the other currencies as plain
   text under the figure, and the interest of all the debts. Insights' period stands in a pill by the kind.
 - **Reviews on Insights.** A card closes the screen, the last three reviews by date
   with what each looked at; a "+" leads to writing one, in place of the mark.

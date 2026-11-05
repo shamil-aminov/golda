@@ -83,6 +83,9 @@ data class Envelope(
     /** How far under the norm the spending stands, the other side of [overNormMinor]; below zero past it. */
     val marginMinor: Long get() = normMinor - spentMinor
 
+    /** What today's figure is out of: the day's plan, or nothing once the day is past it and "из" says no more. */
+    val dayOutOf: Long? get() = perDayMinor.takeIf { leftTodayMinor >= 0 }
+
     /**
      * Near the norm, within 5 % of the period's money, yellow; under it green, past it red. Measured
      * against the money and not the norm: early in a period the norm is small, and a share of it jumps.
