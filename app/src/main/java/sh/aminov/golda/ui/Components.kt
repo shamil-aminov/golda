@@ -1,23 +1,17 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import kotlin.math.roundToInt
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.isImeVisible
@@ -29,25 +23,15 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import sh.aminov.golda.data.OpType
 import sh.aminov.golda.data.OperationFull
@@ -69,63 +53,14 @@ fun BackHidesKeyboard() {
     BackHandler(enabled = WindowInsets.isImeVisible) { keyboard?.hide() }
 }
 
-/**
- * A number whose characters roll to their new values when [value] changes: up when it grows,
- * down when it shrinks. Characters in [quiet] (the kopecks) take [quietColor].
- */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-fun RollingNumber(
-    text: String,
-    value: Long,
-    style: TextStyle,
-    modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.onSurface,
-    quiet: IntRange = IntRange.EMPTY,
-    quietColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-) {
-    val last = remember { mutableLongStateOf(value) }
-    val rising = value >= last.longValue
-    SideEffect { last.longValue = value }
-    val spec = MaterialTheme.motionScheme.fastSpatialSpec<IntOffset>()
-    val tabular = style.merge(Tnum)
-    // The currency symbol after the last space stands still and sits on the digits' baseline. It may
-    // come from a fallback font ("฿") with other metrics, so it is aligned by baseline. The digits
-    // all share one font and simply top-align; their baseline is measured once from a static "0",
-    // never from the rolling digits, whose alignment lines go stale mid-roll.
-    val space = text.lastIndexOf(' ')
-    val symbol = text.substring(space + 1).takeIf { space > 0 && it.isNotEmpty() && it.none(Char::isDigit) }
-    val body = if (symbol != null) text.substring(0, space + 1) else text
-    val measurer = rememberTextMeasurer()
-    val baseline = remember(tabular) { measurer.measure("0", tabular).firstBaseline }
-    Row(modifier.clearAndSetSemantics { contentDescription = text }) {
-        Row(Modifier.alignBy { baseline.roundToInt() }) {
-            // Keyed from the right, so the ones stay the ones when the number grows a digit.
-            body.forEachIndexed { i, char ->
-                key(body.length - i) {
-                    AnimatedContent(
-                        targetState = char,
-                        transitionSpec = {
-                            (slideInVertically(spec) { if (rising) it else -it } togetherWith slideOutVertically(spec) { if (rising) -it else it })
-                                .using(SizeTransform(clip = true))
-                        },
-                        label = "digit",
-                    ) { c -> Text(c.toString(), style = tabular, color = if (i in quiet) quietColor else color, maxLines = 1) }
-                }
-            }
-        }
-        if (symbol != null) Text(symbol, Modifier.alignByBaseline(), style = tabular, color = color, maxLines = 1)
-    }
-}
-
-/** "174,75 $": the cents, for [RollingNumber.quiet]. */
+/** "174,75 $": the cents, for [BigNumber.quiet]. */
 fun centsOf(amount: String): IntRange {
     val comma = amount.indexOf(',')
     return if (comma < 0) IntRange.EMPTY else comma until amount.lastIndexOf(' ')
 }
 
 /**
- * A rolling number that fills the width it is given, up to [maxSp]: the size comes from the
+ * A number that fills the width it is given, up to [maxSp]: the size comes from the
  * available width and the number of characters (tabular figures run about 0.6 em wide).
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -145,7 +80,6 @@ fun BigNumber(
         val fit = with(LocalDensity.current) { (maxWidth * 0.94f / (text.length * 0.66f)).toSp().value }
         val size = minOf(fit, maxSp).sp
         val style = bigFigure(size)
-        // Still digits: the figure changes in place, no rolling.
         Text(
             buildAnnotatedString {
                 text.forEachIndexed { i, c -> if (i in quiet) withStyle(SpanStyle(color = quietColor)) { append(c) } else append(c) }
@@ -191,11 +125,7 @@ fun LazyListScope.operationItems(data: AppData, operations: List<OperationFull>,
             CardTitle(dayLabel(date, today), Modifier.padding(horizontal = Gap.m).padding(top = ListSpace.cards))
         }
         itemsIndexed(list, key = { _, it -> it.op.id }) { i, it ->
-            // New entries slide in, the rest make room.
-            OperationRow(
-                data, it, accountId, onClick, i + 1, list.size + 1,
-                Modifier.padding(horizontal = Gap.m).animateItem(placementSpec = MaterialTheme.motionScheme.defaultSpatialSpec()),
-            )
+            OperationRow(data, it, accountId, onClick, i + 1, list.size + 1, Modifier.padding(horizontal = Gap.m))
         }
     }
 }

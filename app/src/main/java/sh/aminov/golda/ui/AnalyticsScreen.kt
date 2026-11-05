@@ -1,7 +1,6 @@
 package sh.aminov.golda.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -39,14 +38,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
@@ -374,13 +370,11 @@ private fun KindMosaic(regular: Long, daily: Long, big: Long, base: Base, filter
 private fun KindTile(bucket: Bucket, amount: String, empty: Boolean, on: Boolean, quiet: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val tones = LocalTones.current
     val colour = leitmotifColor(KindRank.getValue(bucket), tones)
-    val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
-    val target = when {
+    val fill = when {
         empty -> tones.soft
         quiet -> lerp(colour, MaterialTheme.colorScheme.surface, QUIET)
         else -> colour
     }
-    val fill by animateColorAsState(target, spec, label = "kind")
     val ink = if (empty) tones.text else tileInk(fill)
     Box(
         modifier.clip(RoundedCornerShape(16.dp)).background(fill)
@@ -562,10 +556,6 @@ private fun DayBars(
     val card = tileColor()
     val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
     val density = LocalDensity.current
-    // The bars rise when the period or the kind changes, left to right in a short wave.
-    val grow = remember(days) { Animatable(0f) }
-    val rise = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
-    LaunchedEffect(days) { grow.animateTo(1f, rise) }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val widthPx = with(density) { maxWidth.toPx() }
         val gapPx = with(density) { BarGap.toPx() }
@@ -580,8 +570,7 @@ private fun DayBars(
             Column(Modifier.pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } }) {
                 Canvas(Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS)) {
                     days.forEachIndexed { i, (day, value) ->
-                        val g = (grow.value * 1.5f - 0.5f * i / days.size).coerceIn(0f, 1f)
-                        val h = (if (value > 0) (size.height * value / top).coerceAtLeast(4.dp.toPx()) else 3.dp.toPx()) * g
+                        val h = (if (value > 0) (size.height * value / top).coerceAtLeast(4.dp.toPx()) else 3.dp.toPx())
                         val left = step * i
                         fun shown(color: Color) = if (pickedIndex < 0 || i == pickedIndex) color else lerp(color, card, QUIET)
                         // Never more than half its height: a low bar stays a bar, not an oval.
