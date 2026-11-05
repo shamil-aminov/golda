@@ -56,13 +56,11 @@ object Analytics {
     enum class Bar { DAY, WEEK, MONTH, YEAR }
 
     /** The finest unit that keeps [first]..[last] within [MAX_BARS]; past fourteen years, years all the same. */
-    fun barFor(first: LocalDate, last: LocalDate): Bar = Bar.entries.firstOrNull { barCount(first, last, it) <= MAX_BARS } ?: Bar.YEAR
-
-    private fun barCount(first: LocalDate, last: LocalDate, bar: Bar): Long = when (bar) {
-        Bar.DAY -> ChronoUnit.DAYS.between(first, last) + 1
-        Bar.WEEK -> ChronoUnit.DAYS.between(calendarStart(first, bar), calendarStart(last, bar)) / 7 + 1
-        Bar.MONTH -> ChronoUnit.MONTHS.between(calendarStart(first, bar), calendarStart(last, bar)) + 1
-        Bar.YEAR -> (last.year - first.year).toLong() + 1
+    fun barFor(first: LocalDate, last: LocalDate): Bar = when {
+        ChronoUnit.DAYS.between(first, last) < MAX_BARS -> Bar.DAY
+        ChronoUnit.WEEKS.between(calendarStart(first, Bar.WEEK), calendarStart(last, Bar.WEEK)) < MAX_BARS -> Bar.WEEK
+        ChronoUnit.MONTHS.between(calendarStart(first, Bar.MONTH), calendarStart(last, Bar.MONTH)) < MAX_BARS -> Bar.MONTH
+        else -> Bar.YEAR
     }
 
     /** The first day of the calendar's week (from Monday), month or year around [date]. */

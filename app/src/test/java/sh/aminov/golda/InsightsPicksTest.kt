@@ -10,6 +10,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.KindBlock
+import sh.aminov.golda.domain.Period
+import sh.aminov.golda.domain.PeriodKind
 import java.time.LocalDate
 
 /** The rules of Insights' picks: a second tap lets go, the kinds fit their block. */
@@ -102,6 +104,28 @@ class InsightsPicksTest {
         assertEquals(LocalDate.of(2026, 3, 1), Analytics.barStart(LocalDate.of(2026, 3, 17), LocalDate.of(2025, 1, 1), Analytics.Bar.MONTH))
         assertEquals(LocalDate.of(2026, 1, 1), Analytics.barStart(LocalDate.of(2026, 3, 17), LocalDate.of(2020, 1, 1), Analytics.Bar.YEAR))
         assertEquals(LocalDate.of(2026, 3, 10), Analytics.barStart(LocalDate.of(2026, 3, 17), LocalDate.of(2026, 3, 10), Analytics.Bar.YEAR))
+    }
+
+    @Test
+    fun thePeriods() {
+        val today = LocalDate.of(2026, 10, 24)
+        val own = Period(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1))
+        assertEquals(Period(LocalDate.of(2026, 10, 18), today), Analytics.period(PeriodKind.WEEK, today))
+        assertEquals(Period(LocalDate.of(2026, 9, 25), today), Analytics.period(PeriodKind.MONTH, today))
+        assertEquals(own, Analytics.period(PeriodKind.CUSTOM, today, own))
+        // Nothing picked yet: a week, not an empty screen.
+        assertEquals(Period(LocalDate.of(2026, 10, 18), today), Analytics.period(PeriodKind.CUSTOM, today))
+    }
+
+    @Test
+    fun theLastWeekAndMonthOfTheCapAreStillThere() {
+        // Monday to Sunday, fourteen weeks exactly, and a day over.
+        val monday = LocalDate.of(2026, 1, 5)
+        assertEquals(Analytics.Bar.WEEK, Analytics.barFor(monday, monday.plusDays(14 * 7 - 1L)))
+        assertEquals(Analytics.Bar.MONTH, Analytics.barFor(monday, monday.plusDays(14 * 7L)))
+        // Fourteen calendar months, and one over.
+        assertEquals(Analytics.Bar.MONTH, Analytics.barFor(LocalDate.of(2025, 1, 31), LocalDate.of(2026, 2, 1)))
+        assertEquals(Analytics.Bar.YEAR, Analytics.barFor(LocalDate.of(2025, 1, 31), LocalDate.of(2026, 3, 1)))
     }
 
     @Test
