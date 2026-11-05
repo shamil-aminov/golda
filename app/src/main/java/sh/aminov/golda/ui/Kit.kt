@@ -1290,6 +1290,15 @@ fun Modifier.tapLine(size: TextUnit): Modifier = layout { measurable, constraint
     layout(placeable.width, height) { placeable.place(0, (height - placeable.height) / 2) }
 }
 
+/** Reaches [x] and [y] past its place at each side, taking no more room than its content: for what the content's own padding surrounds. */
+fun Modifier.spill(x: Dp, y: Dp): Modifier = layout { measurable, constraints ->
+    val px = x.roundToPx()
+    val py = y.roundToPx()
+    val wider = if (constraints.hasBoundedWidth) constraints.copy(maxWidth = constraints.maxWidth + 2 * px) else constraints
+    val placeable = measurable.measure(wider.copy(minWidth = 0, minHeight = 0))
+    layout(placeable.width - 2 * px, placeable.height - 2 * py) { placeable.place(-px, -py) }
+}
+
 /** Wider than the space given by [x] at each side, and drawn from [x] further left. */
 fun Modifier.bleed(x: Dp): Modifier = layout { measurable, constraints ->
     val px = x.roundToPx()
