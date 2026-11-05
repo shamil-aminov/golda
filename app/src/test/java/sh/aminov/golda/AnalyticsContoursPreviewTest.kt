@@ -16,6 +16,16 @@ import sh.aminov.golda.ui.pickedColor
 import sh.aminov.golda.ui.softShadow
 import sh.aminov.golda.ui.tileInk
 import sh.aminov.golda.ui.wholePercent
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.unit.Dp
+import sh.aminov.golda.ui.bleed
+import sh.aminov.golda.ui.dayMonth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -643,6 +653,309 @@ private fun CategoriesWithReview(data: AppData) {
             }
             item { VSpace(ListSpace.cards); CardTitle("Все категории", Modifier.padding(horizontal = Gap.m)) }
             categoryRows(c, c.report.categories.size)
+        }
+    }
+}
+
+/**
+ * Round three: everything under the kinds' mosaic. One living list the mosaic rebuilds, its title five
+ * ways; the categories with no page of their own; the days with none; and two whole screens of my own,
+ * beside Insights as it is, in Golda light at «Просторно», into `docs/tasks/analytics-contours/r3-*`.
+ */
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h1400dp-xxhdpi")
+class AnalyticsRound3PreviewTest(private val name: String) {
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun cases() = listOf(
+            "now", "t1", "t2", "t3", "t4", "t5", "reg", "big",
+            "k1", "k1open", "k2", "k3", "d1", "d2", "o1", "o1days", "o2", "o2day",
+        ).map { arrayOf<Any>(it) }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Scaffold(
+                    floatingActionButton = { if (name != "d2") Island() },
+                    floatingActionButtonPosition = FabPosition.Center,
+                ) { padding ->
+                    when (name) {
+                        "now" -> AnalyticsScreen(data, padding) {}
+                        "t1", "k1" -> Screen3(data, padding, "Все траты")
+                        "t2" -> Screen3(data, padding, "Всего")
+                        "t3" -> Screen3(data, padding, "Итого")
+                        "t4" -> Screen3(data, padding, "Куда ушло")
+                        "t5" -> Screen3(data, padding, "Все категории")
+                        "reg" -> Screen3(data, padding, "Все траты", filter = Bucket.REGULAR)
+                        "big" -> Screen3(data, padding, "Все траты", filter = Bucket.BIG)
+                        "k1open" -> Screen3(data, padding, "Все траты", list = Rows.OPEN)
+                        "k2" -> Screen3(data, padding, "Все траты", list = Rows.ALL)
+                        "k3" -> Screen3(data, padding, "Все траты", list = Rows.PAGE)
+                        "d1" -> Screen3(data, padding, "Все траты", days = Days.INLINE)
+                        "d2" -> Box { Screen3(data, padding, "Все траты"); DaysSheet(data) }
+                        "o1" -> Screen3(data, padding, "Все траты", days = Days.TABS)
+                        "o1days" -> Screen3(data, padding, "Все траты", days = Days.TABS, tabDays = true)
+                        "o2" -> Screen3(data, padding, "Все траты", days = Days.FILTER)
+                        else -> Screen3(data, padding, "Все траты", days = Days.FILTER, dayPicked = true)
+                    }
+                }
+            }
+        }
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/r3-$name.png")
+    }
+}
+
+private enum class Rows { FOUR, OPEN, ALL, PAGE }
+private enum class Days { ROW, INLINE, TABS, FILTER }
+
+private fun narrowed(data: AppData, filter: Bucket?): Ctx {
+    val all = ctx(data)
+    val only = data.operations.filter { filter == null || (it.op.type == OpType.EXPENSE && Buckets.of(it.op, data.categoryById) == filter) }
+    return Ctx(data, Analytics.report(only, data.accountById, data.categoryById, all.report.period, data.today, data.zone, data.rates), all.title)
+}
+
+/** Each day's spending by category, for the bars; [filter] narrows it like the tile does. */
+@Composable
+private fun dayStacks(data: AppData, filter: Bucket?): Map<java.time.LocalDate, List<DayPart>> {
+    val tones = LocalTones.current
+    return data.operations.filter { it.op.type == OpType.EXPENSE && (filter == null || Buckets.of(it.op, data.categoryById) == filter) }
+        .groupBy { Ledger.localDate(it.op.timestamp, data.zone) }
+        .mapValues { (_, ops) ->
+            ops.groupBy { it.op.categoryId?.let(data.categoryById::get) }.map { (cat, list) ->
+                DayPart(cat?.key?.let { categoryColor(it, tones) } ?: leitmotifColor(null, tones), cat?.label() ?: "Без категории", -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } })
+            }.filter { it.rub > 0 }.sortedByDescending { it.rub }
+        }
+}
+
+/**
+ * The bars lower than today's 140, their pill over the picked day, the period's ends under them.
+ * [picked] null: no pill and no dot, every day equal.
+ */
+@Composable
+private fun LowBars(c: Ctx, filter: Bucket?, picked: java.time.LocalDate?, high: Dp) {
+    val days = Analytics.bars(c.report.days)
+    val stacks = dayStacks(c.data, filter)
+    val top = days.maxOf { it.second }.coerceAtLeast(1)
+    val ink = MaterialTheme.colorScheme.onSurface
+    val faint = MaterialTheme.colorScheme.outlineVariant
+    Box(Modifier.fillMaxWidth()) {
+        Column {
+            if (picked != null) {
+                val i = days.indexOfFirst { it.first == picked }.coerceAtLeast(0)
+                val label = (if (picked == c.data.today) "Сегодня  " else dayLabel(picked, c.data.today) + "  ") + c.data.base.approx(days[i].second)
+                Box(Modifier.fillMaxWidth().height(32.dp), contentAlignment = Alignment.TopEnd) {
+                    Surface(shape = CircleShape, color = pickedColor(), contentColor = onPickedColor()) {
+                        Text(label, Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    }
+                }
+                VSpace(Gap.s)
+            }
+            Canvas(Modifier.fillMaxWidth().height(high)) {
+                val w = size.width / days.size
+                val bar = w * 0.8f
+                val radius = minOf(bar / 2, 12.dp.toPx())
+                days.forEachIndexed { i, (day, value) ->
+                    val h = if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()
+                    val left = w * i + (w - bar) / 2
+                    val path = Path().apply {
+                        addRoundRect(RoundRect(left, size.height - h, left + bar, size.height, CornerRadius(radius), CornerRadius(radius), CornerRadius.Zero, CornerRadius.Zero))
+                    }
+                    val parts = stacks[day].orEmpty()
+                    val sum = parts.sumOf { it.rub }
+                    if (value > 0 && sum > 0) {
+                        clipPath(path) {
+                            var y = size.height
+                            parts.forEach { p ->
+                                val part = h * p.rub / sum
+                                drawRect(p.color, Offset(left, y - part), Size(bar, part))
+                                y -= part
+                            }
+                        }
+                    } else {
+                        drawPath(path, faint)
+                    }
+                    if (day == picked) drawCircle(ink, 3.dp.toPx(), Offset(left + bar / 2, size.height + 7.dp.toPx()))
+                }
+            }
+            VSpace(Gap.m)
+            Row(Modifier.fillMaxWidth()) {
+                Text(dayMonth(days.first().first), Modifier.weight(1f), style = TextRole.caption)
+                Text(dayMonth(days.last().first), style = TextRole.caption)
+            }
+        }
+    }
+}
+
+/** A part of a card between its title and its rows: the card's colour, no corners, the sides' 16. */
+@Composable
+private fun Middle(content: @Composable () -> Unit) {
+    Surface(Modifier.padding(horizontal = Gap.m).bleed(Gap.s).fillMaxWidth(), color = tileColor()) {
+        Box(Modifier.padding(horizontal = 16.dp)) { content() }
+    }
+}
+
+private fun LazyListScope.more(c: Ctx, hidden: Int, index: Int, count: Int, open: Boolean) {
+    item {
+        val rest = c.report.categories.drop(4).sumOf { it.rubMinor }
+        GroupRow(
+            index, count, Modifier.padding(horizontal = Gap.m), onClick = {},
+            leading = { RowIcon(if (open) R.drawable.ic_close else R.drawable.ic_chevron_down) },
+            trailing = { if (!open) Text(c.data.base.whole(rest), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface) },
+            trailingOnTitle = false,
+        ) { Text(if (open) "Свернуть" else "Ещё " + hidden + " " + kinds(hidden), style = TextRole.rowName) }
+    }
+}
+
+private fun kinds(n: Int) = when {
+    n % 100 in 11..14 -> "категорий"
+    n % 10 == 1 -> "категория"
+    n % 10 in 2..4 -> "категории"
+    else -> "категорий"
+}
+
+/** What is left of a list with [shown] of its categories and one more row at its end. */
+private fun LazyListScope.rowsOf(c: Ctx, shown: Int, extra: Int) {
+    val total = c.report.spentRub.coerceAtLeast(1)
+    val list = c.report.categories.take(shown)
+    list.forEachIndexed { i, spend ->
+        item {
+            val cat = spend.categoryId?.let { c.data.categoryById[it] }
+            val colour = cat?.key?.let { categoryColor(it, LocalTones.current) } ?: leitmotifColor(null, LocalTones.current)
+            GroupRow(
+                i + 1, list.size + 1 + extra, Modifier.padding(horizontal = Gap.m), onClick = {},
+                leading = { RowIcon(categoryIcon(cat?.key), colour) },
+                supporting = { Text(wholePercent(spend.rubMinor.toDouble() / total), style = TextRole.caption) },
+                trailing = { Text(c.data.base.whole(spend.rubMinor), style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface) },
+            ) { Text(cat?.label() ?: "Без категории", style = TextRole.rowName, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        }
+    }
+}
+
+private fun LazyListScope.listCard(c: Ctx, title: String, rows: Rows) {
+    val n = c.report.categories.size
+    val hidden = (n - 4).coerceAtLeast(0)
+    item {
+        VSpace(ListSpace.cards)
+        if (rows == Rows.PAGE) CardTitle(title, Modifier.padding(horizontal = Gap.m)) { Chevron() } else CardTitle(title, Modifier.padding(horizontal = Gap.m))
+    }
+    when (rows) {
+        Rows.ALL -> rowsOf(c, n, 0)
+        Rows.PAGE -> rowsOf(c, 4, 0)
+        Rows.OPEN -> { rowsOf(c, n, 1); more(c, hidden, n + 1, n + 2, open = true) }
+        Rows.FOUR -> if (hidden > 0) { rowsOf(c, 4, 1); more(c, hidden, 5, 6, open = false) } else rowsOf(c, n, 0)
+    }
+}
+
+private fun LazyListScope.dayRows(data: AppData, day: java.time.LocalDate) {
+    val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == day }
+    ops.forEachIndexed { i, op -> item { OperationRow(data, op, null, {}, i + 1, ops.size + 1, Modifier.padding(horizontal = Gap.m)) } }
+}
+
+/** Everything under the accepted top, one way or another; «Разбор» a row and income at the end throughout. */
+@Composable
+private fun Screen3(
+    data: AppData, padding: PaddingValues, title: String, filter: Bucket? = null, list: Rows = Rows.FOUR,
+    days: Days = Days.ROW, tabDays: Boolean = false, dayPicked: Boolean = false,
+) {
+    val all = ctx(data)
+    val c = narrowed(data, filter)
+    val shownTitle = filter?.let { bucketLabel(it) } ?: title
+    val last = c.report.days.last { it.second > 0 }.first
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
+        item { Header2(c) }
+        item { VSpace(ListSpace.cards); KindMosaic(all.report, data.base, false, filter) }
+        when (days) {
+            Days.TABS -> {
+                item { VSpace(ListSpace.cards); CardTitle(shownTitle, Modifier.padding(horizontal = Gap.m)) }
+                item {
+                    Middle {
+                        ChoiceGroup(listOf("Категории", "Дни"), if (tabDays) "Дни" else "Категории", {}, Modifier.fillMaxWidth(), height = 40.dp) { ChoiceText(it) }
+                    }
+                }
+                if (tabDays) {
+                    item { Middle { Box(Modifier.padding(top = ListSpace.titleToRow)) { LowBars(c, filter, last, 96.dp) } } }
+                    dayRows(data, last)
+                } else {
+                    rowsOf(c, 4, 1)
+                    more(c, (c.report.categories.size - 4).coerceAtLeast(0), 5, 6, open = false)
+                }
+            }
+            Days.FILTER -> {
+                item {
+                    VSpace(ListSpace.cards)
+                    Surface(Modifier.padding(horizontal = Gap.s).fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(CardCorner), color = tileColor()) {
+                        Box(Modifier.padding(horizontal = 16.dp, vertical = ListSpace.edge)) { LowBars(c, filter, if (dayPicked) last else null, 72.dp) }
+                    }
+                }
+                if (dayPicked) {
+                    item { VSpace(ListSpace.cards); CardTitle(dayLabel(last, data.today), Modifier.padding(horizontal = Gap.m)) }
+                    dayRows(data, last)
+                } else {
+                    listCard(c, shownTitle, Rows.FOUR)
+                }
+            }
+            Days.INLINE -> {
+                listCard(c, shownTitle, list)
+                item { VSpace(ListSpace.cards); CardTitle("По дням", Modifier.padding(horizontal = Gap.m)) }
+                item { Middle { LowBars(c, filter, last, 96.dp) } }
+                dayRows(data, last)
+            }
+            Days.ROW -> {
+                listCard(c, shownTitle, list)
+                item {
+                    VSpace(ListSpace.cards)
+                    val day = c.report.days.lastOrNull { it.second > 0 }
+                    GroupRow(
+                        0, 1, Modifier.padding(horizontal = Gap.m), onClick = {},
+                        leading = { RowIcon(R.drawable.ic_chart) },
+                        supporting = { Text(day?.let { dayLabel(it.first, data.today) + " " + data.base.whole(it.second) }.orEmpty(), style = TextRole.caption) },
+                        trailing = { Chevron() }, trailingOnTitle = false,
+                    ) { Text("По дням", style = TextRole.rowName) }
+                }
+            }
+        }
+        item {
+            VSpace(ListSpace.cards)
+            GroupRow(
+                0, 1, Modifier.padding(horizontal = Gap.m), onClick = {},
+                leading = { RowIcon(R.drawable.ic_send, iceColor()) },
+                trailing = { Chevron() }, trailingOnTitle = false,
+            ) { Text("Разбор", style = TextRole.rowName) }
+        }
+        incomeRows(all)
+    }
+}
+
+/** Д2: «По дням» as a sheet from below, drawn in place: a real sheet is its own window, which a shot of the root leaves out. */
+@Composable
+private fun DaysSheet(data: AppData) {
+    val c = ctx(data)
+    val last = c.report.days.last { it.second > 0 }.first
+    val top = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0x66000000)), contentAlignment = Alignment.BottomCenter) {
+        Surface(Modifier.fillMaxWidth(), shape = top, color = tileColor()) {
+            Column(Modifier.padding(bottom = ListSpace.edge)) {
+                Box(Modifier.fillMaxWidth().padding(vertical = Gap.m), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(32.dp, 4.dp).background(MaterialTheme.colorScheme.outlineVariant, CircleShape))
+                }
+                Text("По дням", Modifier.padding(horizontal = 24.dp).letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle)
+                VSpace(ListSpace.titleToRow)
+                Box(Modifier.padding(horizontal = 24.dp)) { LowBars(c, null, last, 140.dp) }
+                VSpace(ListSpace.titleToRow)
+                val ops = data.visibleOperations.filter { Ledger.localDate(it.op.timestamp, data.zone) == last }
+                ops.forEachIndexed { i, op -> OperationRow(data, op, null, {}, i + 1, ops.size + 1, Modifier.padding(horizontal = Gap.m)) }
+            }
         }
     }
 }
