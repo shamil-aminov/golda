@@ -157,15 +157,9 @@ fun HomeScreen(
                 // past the even pace in red. The money short of the pale end is the margin.
                 val red = paceColor(Pace.OVER)
                 PeriodBar(envelope.timeShare, envelope.spentShare, paceColor(Pace.LASTS), red)
-                VSpace(HeaderSpace.chartCaption)
-                // Where the bar starts and ends: the chart's caption.
-                Row(Modifier.fillMaxWidth().then(cut)) {
-                    Text(dayMonth(envelope.start), Modifier.weight(1f), style = words, maxLines = 1)
-                    Text(dayMonth(envelope.end), style = words, maxLines = 1)
-                }
                 VSpace(ChartSpace.labelsToPlan)
-                // How the period goes, then what a day was meant to be and what it is. A tap changes the period;
-                // the line takes 48 to tap with no room of its own, the press shows around the words alone.
+                // How the period goes, and what is left to its end. A tap changes the period; the line takes 48
+                // to tap with no room of its own, the press shows around the words alone.
                 val press = remember { MutableInteractionSource() }
                 Row(
                     Modifier.fillMaxWidth().spill(0.dp, TapSpill).fillMaxWidth().clickable(press, indication = null, onClick = onPeriod).padding(vertical = TapSpill).testTag(Tags.HOME_PERIOD),
@@ -173,26 +167,30 @@ fun HomeScreen(
                 ) {
                     val ahead = envelope.daysLeft
                     fun days(n: Long) = plural(n, "день", "дня", "дней", "day", "days")
-                    Text(
-                        buildAnnotatedString {
-                            when (envelope.standing) {
-                                Standing.BROKE -> append(tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go"))
-                                // The bar's red is too pale for words; the error ink reads in both themes, and on
-                                // a bold theme's plate of colour where it does not, the plate's own ink does.
-                                Standing.OVER -> withStyle(SpanStyle(color = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink)) {
-                                    append(tr("Перерасход ", "Overspent ") + whole(-envelope.marginMinor, code))
+                    Row(Modifier.fillMaxWidth().spill(Gap.s, Gap.s).fillMaxWidth().clip(RoundedCornerShape(Gap.s)).indication(press, ripple()).padding(Gap.s)) {
+                        Text(
+                            buildAnnotatedString {
+                                when (envelope.standing) {
+                                    Standing.BROKE -> append(tr("Денег нет, впереди $ahead ${days(ahead)}", "No money left, $ahead ${days(ahead)} to go"))
+                                    // The bar's red is too pale for words; the error ink reads in both themes, and on
+                                    // a bold theme's plate of colour where it does not, the plate's own ink does.
+                                    Standing.OVER -> withStyle(SpanStyle(color = if (contrast(scheme.onErrorContainer, scheme.primaryFixed) >= 4.5) scheme.onErrorContainer else ink)) {
+                                        append(tr("Перерасход ", "Overspent ") + whole(-envelope.marginMinor, code))
+                                    }
+                                    Standing.EVEN -> append(tr("Ровно по норме", "Right on the norm"))
+                                    Standing.MARGIN -> append(tr("Запас ", "Ahead by ") + whole(envelope.marginMinor, code))
                                 }
-                                Standing.EVEN -> append(tr("Ровно по норме", "Right on the norm"))
-                                Standing.MARGIN -> append(tr("Запас ", "Ahead by ") + whole(envelope.marginMinor, code))
-                            }
-                            append(tr(" · план ", " · plan ") + whole(envelope.perDayMinor, code))
-                            envelope.burnMinor?.let { append(tr(" · факт ", " · actual ") + whole(it, code)) }
-                        },
-                        Modifier.weight(1f, fill = false).spill(Gap.s, Gap.s).clip(RoundedCornerShape(Gap.s)).indication(press, ripple())
-                            .padding(Gap.s).letters(words.fontSize).testTag(Tags.HOME_RUNWAY),
-                        style = words,
-                        maxLines = 2,
-                    )
+                            },
+                            Modifier.weight(1f).letters(words.fontSize).testTag(Tags.HOME_RUNWAY),
+                            style = words,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (envelope.standing != Standing.BROKE) {
+                            Spacer(Modifier.width(Gap.s))
+                            Text(whole(envelope.balanceMinor, code) + tr(" до ", " until ") + dayMonth(envelope.end), cut, style = words, maxLines = 1)
+                        }
+                    }
                 }
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))

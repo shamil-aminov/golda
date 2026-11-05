@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   screen. A picked bar gives its sum and its pill, a tap on which lets go. The period strip, the category mosaic and the kinds'
   tiles are gone; the details page picks the kind by the same menu.
 - **The tabs' headers by one rule.** A title, then the figure at once, 58 on every screen. Home's title
-  is «На сегодня», the line under its bar says how the period goes and a tap on it changes the period.
+  is «На сегодня», the line under its bar says how the period goes and what is left to its end, and a tap on it changes the period.
   Accounts open with «На счетах», the money there with no debts taken off, the other currencies as plain
   text under the figure, and the interest of all the debts. Insights' period stands in a pill by the kind.
 - **Reviews on Insights.** A card closes the screen, the last three reviews by date
