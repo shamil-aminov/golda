@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): tshirt r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): checkroom -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M6.00049 21V11H2.82549L1.25049 5L6.75049 3H17.2505L22.7505 5L21.1755 11H18.0005V21H6.00049ZM7.85049 19.2H16.1505V9.2H19.7255L20.5505 6.125L16.9255 4.8H15.5755C15.5255 6.675 13.9755 8.2 12.0005 8.2C10.0255 8.2 8.47549 6.675 8.42549 4.8H7.07549L3.45049 6.125L4.27549 9.2H7.85049V19.2ZM10.2005 4.8C10.2505 5.725 11.0255 6.5 12.0005 6.5C12.9755 6.5 13.7505 5.725 13.8005 4.8H10.2005Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M240-240h480L480-420 240-240Zm185-444q-5 11-14.5 18t-22.5 7q-17 0-28.5-11.5T348-699q0-5 .5-8.5t2.5-7.5q17-38 52-61.5t77-23.5q58 0 99 40.5t41 98.5q0 47-27.5 84T520-526v36l344 258q8 5 12 13.5t4 18.5q0 17-11.5 28.5T840-160H120q-17 0-28.5-11.5T80-200q0-10 4-18.5T96-232l344-258v-70q0-17 12-28.5t29-11.5q25 0 42-18t17-43q0-25-17.5-42T480-720q-18 0-33 9.5T425-684Z" />
+    </group>
 </vector>

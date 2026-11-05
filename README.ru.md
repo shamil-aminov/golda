@@ -230,7 +230,7 @@ tools/    coin.py, который рисует иконку приложения
 
 ## Лицензия
 
-[MIT](LICENSE). Иконки — [Iconoteka](https://iconoteka.com) (MIT, см.
-[third_party/iconoteka/LICENSE](third_party/iconoteka/LICENSE)), цвета следуют
+[MIT](LICENSE). Иконки — [Material Symbols](https://github.com/google/material-design-icons) (Apache 2.0, см.
+[third_party/material-symbols/LICENSE](third_party/material-symbols/LICENSE)), цвета следуют
 шкале Zinc из Tailwind CSS. Сторонние компоненты перечислены в
 [NOTICE](NOTICE).

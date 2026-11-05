@@ -270,17 +270,17 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
                 when (voice.state) {
                     VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = scheme.onSurface)
                     VoiceState.Recording -> Listening(voice.level, fill = actionColor(), ink = onActionColor())
-                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(26.dp))
+                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(24.dp))
                 }
             }
             val addPress = remember { MutableInteractionSource() }
             IconButton(onClick = onAdd, interactionSource = addPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(addPress)) {
-                Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp))
+                Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(24.dp))
             }
             voice.camera?.let { take ->
                 val photoPress = remember { MutableInteractionSource() }
                 IconButton(onClick = take, interactionSource = photoPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(photoPress)) {
-                    Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(26.dp))
+                    Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(24.dp))
                 }
             }
         }

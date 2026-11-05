@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Icons: Material Symbols Rounded,** one weight at 24 across the app, in place of Iconoteka.
+
 - **Navigation on top.** The island goes: the tabs are words over every screen, Сегодня, Траты, Счета, by a tap or a swipe, the bold word following the finger; a person opens Mine with the settings. At the bottom one bar of the ways to write down: the mic, «+» and the camera.
 - **Insights rebuilt around one card.** The header and the chart are one card: the kind
   as its title with a menu, the period behind a calendar, the figure, day bars over the

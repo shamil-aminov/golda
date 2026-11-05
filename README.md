@@ -233,7 +233,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](LICENSE). The icons are from [Iconoteka](https://iconoteka.com) (MIT,
-see [third_party/iconoteka/LICENSE](third_party/iconoteka/LICENSE)), and the
+[MIT](LICENSE). The icons are [Material Symbols](https://github.com/google/material-design-icons) (Apache 2.0,
+see [third_party/material-symbols/LICENSE](third_party/material-symbols/LICENSE)), and the
 colours follow Tailwind CSS's Zinc scale. Third-party components are listed in
 [NOTICE](NOTICE).

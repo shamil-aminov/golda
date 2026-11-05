@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): briefcase r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): work -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M2.00049 21V6H8.00049V4.25C8.00049 3.275 8.77549 2.5 9.75049 2.5H14.2505C15.2255 2.5 16.0005 3.275 16.0005 4.25V6H22.0005V21H2.00049ZM3.85049 19.2H20.1505V12.475C19.8005 12.675 19.3755 12.8 18.9505 12.8H5.05049C4.62549 12.8 4.20049 12.675 3.85049 12.475V19.2ZM18.9505 11C19.6255 11 20.1505 10.475 20.1505 9.8V7.8H3.85049V9.8C3.85049 10.475 4.37549 11 5.05049 11H18.9505ZM14.2005 4.25H9.80049V6H14.2005V4.25Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M160-120q-33 0-56.5-23.5T80-200v-440q0-33 23.5-56.5T160-720h160v-80q0-33 23.5-56.5T400-880h160q33 0 56.5 23.5T640-800v80h160q33 0 56.5 23.5T880-640v440q0 33-23.5 56.5T800-120H160Zm0-80h640v-440H160v440Zm240-520h160v-80H400v80ZM160-200v-440 440Z" />
+    </group>
 </vector>

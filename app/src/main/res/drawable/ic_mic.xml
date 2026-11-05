@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): microphone r-f -->
+<!-- Material Symbols Rounded (Apache-2.0): mic -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M11.0505 23V20.425C6.47549 19.975 3.00049 16.2 3.00049 11.5V10H4.90049V11.5C4.90049 15.5 8.02549 18.625 12.0005 18.625C15.9755 18.625 19.1005 15.5 19.1005 11.5V10H21.0005V11.5C21.0005 16.2 17.5255 19.975 12.9505 20.425V23H11.0505ZM12.0005 16.5C9.20049 16.5 7.00049 14.3 7.00049 11.5V6C7.00049 3.2 9.20049 1 12.0005 1C14.8005 1 17.0005 3.2 17.0005 6V11.5C17.0005 14.3 14.8005 16.5 12.0005 16.5Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M480-400q-50 0-85-35t-35-85v-240q0-50 35-85t85-35q50 0 85 35t35 85v240q0 50-35 85t-85 35Zm0-240Zm-40 480v-83q-92-13-157.5-78T203-479q-2-17 9-29t28-12q17 0 28.5 11.5T284-480q14 70 69.5 115T480-320q72 0 127-45.5T676-480q4-17 15.5-28.5T720-520q17 0 28 12t9 29q-14 91-79 157t-158 79v83q0 17-11.5 28.5T480-120q-17 0-28.5-11.5T440-160Zm40-320q17 0 28.5-11.5T520-520v-240q0-17-11.5-28.5T480-800q-17 0-28.5 11.5T440-760v240q0 17 11.5 28.5T480-480Z" />
+    </group>
 </vector>

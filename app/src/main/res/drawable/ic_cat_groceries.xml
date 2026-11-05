@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): shopping_trolley r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): shopping_cart -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M6.12598 21C5.35098 21 4.75098 20.4 4.75098 19.625C4.75098 18.85 5.35098 18.25 6.12598 18.25C6.90098 18.25 7.50098 18.85 7.50098 19.625C7.50098 20.4 6.90098 21 6.12598 21ZM18.526 21C17.751 21 17.151 20.4 17.151 19.625C17.151 18.85 17.751 18.25 18.526 18.25C19.301 18.25 19.901 18.85 19.901 19.625C19.901 20.4 19.301 21 18.526 21ZM1.15098 4.3C0.650977 4.3 0.250977 3.9 0.250977 3.4C0.250977 2.9 0.650977 2.5 1.15098 2.5H4.47598L4.90098 5H21.501L19.526 16H4.90098L2.85098 4.3H1.15098ZM5.22598 6.85L6.50098 14.15H17.926L19.251 6.85H5.22598Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M280-80q-33 0-56.5-23.5T200-160q0-33 23.5-56.5T280-240q33 0 56.5 23.5T360-160q0 33-23.5 56.5T280-80Zm400 0q-33 0-56.5-23.5T600-160q0-33 23.5-56.5T680-240q33 0 56.5 23.5T760-160q0 33-23.5 56.5T680-80ZM246-720l96 200h280l110-200H246Zm-38-80h590q23 0 35 20.5t1 41.5L692-482q-11 20-29.5 31T622-440H324l-44 80h440q17 0 28.5 11.5T760-320q0 17-11.5 28.5T720-280H280q-45 0-68-39.5t-2-78.5l54-98-144-304H80q-17 0-28.5-11.5T40-840q0-17 11.5-28.5T80-880h65q11 0 21 6t15 17l27 57Zm134 280h280-280Z" />
+    </group>
 </vector>

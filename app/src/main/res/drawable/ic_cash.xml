@@ -1,10 +1,10 @@
-<!-- Iconoteka (MIT, Oleg Turbaba): cash r-s -->
+<!-- Material Symbols Rounded (Apache-2.0): payments -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path
-        android:fillColor="#FF000000"
-        android:pathData="M0.500488 19V5H23.5005V19H0.500488ZM2.35049 17.2H21.6505V6.8H2.35049V17.2ZM12.0005 15.725C9.90049 15.725 8.25049 14.075 8.25049 12C8.25049 9.925 9.90049 8.275 12.0005 8.275C14.1005 8.275 15.7505 9.925 15.7505 12C15.7505 14.075 14.1005 15.725 12.0005 15.725ZM12.0005 13.925C13.0755 13.925 13.9255 13.075 13.9255 12C13.9255 10.925 13.0755 10.075 12.0005 10.075C10.9255 10.075 10.0755 10.925 10.0755 12C10.0755 13.075 10.9255 13.925 12.0005 13.925Z" />
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path android:fillColor="#FF000000" android:pathData="M560-440q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35ZM280-320q-33 0-56.5-23.5T200-400v-320q0-33 23.5-56.5T280-800h560q33 0 56.5 23.5T920-720v320q0 33-23.5 56.5T840-320H280Zm80-80h400q0-33 23.5-56.5T840-480v-160q-33 0-56.5-23.5T760-720H360q0 33-23.5 56.5T280-640v160q33 0 56.5 23.5T360-400Zm400 240H120q-33 0-56.5-23.5T40-240v-400q0-17 11.5-28.5T80-680q17 0 28.5 11.5T120-640v400h640q17 0 28.5 11.5T800-200q0 17-11.5 28.5T760-160ZM280-400v-320 320Z" />
+    </group>
 </vector>
