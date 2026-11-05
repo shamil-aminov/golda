@@ -1,5 +1,11 @@
 package sh.aminov.golda.ui
 
+import sh.aminov.golda.data.VoiceQueue
+import sh.aminov.golda.data.Snapshot
+import java.io.File
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import androidx.core.content.FileProvider
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -97,7 +103,13 @@ import kotlin.math.sqrt
 enum class VoiceState { Idle, Recording, Thinking }
 
 /** [level] is how loud the microphone hears it right now, 0..1. */
-class VoiceControl(val state: VoiceState, val toggle: () -> Unit, val level: () -> Float = { 0f })
+class VoiceControl(
+    val state: VoiceState,
+    val toggle: () -> Unit,
+    val level: () -> Float = { 0f },
+    /** Takes a photo of a receipt; null on a phone with no camera. */
+    val camera: (() -> Unit)? = null,
+)
 
 /**
  * Tap to talk, tap again when done. Results (also of notes understood later
@@ -169,6 +181,25 @@ fun rememberVoice(
         for (request in requests) if (state == VoiceState.Idle) toggle()
     }
 
+    // The phone's own camera, so the app asks for no permission. The photo then takes a note's way.
+    val shot = remember { Snapshot.shot(context.applicationContext) }
+    val photo = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        if (taken) scope.launch {
+            state = VoiceState.Thinking
+            val note = File(VoiceQueue.dir(context), "${System.currentTimeMillis()}.${VoiceQueue.PHOTO}")
+            val ready = withContext(Dispatchers.IO) { runCatching { Snapshot.shrink(shot, note) }.getOrDefault(false) }
+            shot.delete()
+            if (ready) repo.understand(note) else snackbar.showSnackbar(tr("Снимок не получился", "The photo didn't work out"))
+            state = VoiceState.Idle
+        }
+    }
+    val hasCamera = remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) }
+    fun takePhoto() {
+        if (state != VoiceState.Idle) return
+        val uri = FileProvider.getUriForFile(context, context.packageName + ".files", shot)
+        runCatching { photo.launch(uri) }.onFailure { scope.launch { snackbar.showSnackbar(tr("Камера недоступна", "The camera is unavailable")) } }
+    }
+
     // The collector below lives as long as the screen; it must read today's accounts, not the ones it
     // started with, or a lari purchase is announced in rubles because its account wasn't loaded yet.
     val latest by rememberUpdatedState(data)
@@ -198,7 +229,7 @@ fun rememberVoice(
         }
     }
 
-    return VoiceControl(state, ::toggle, recorder::level)
+    return VoiceControl(state, ::toggle, recorder::level, if (hasCamera) ::takePhoto else null)
 }
 
 private fun describe(draft: Draft, data: AppData): String {
@@ -209,7 +240,7 @@ private fun describe(draft: Draft, data: AppData): String {
 
 /**
  * The one bar at the bottom of every tab, floating over the content: the ways of writing something
- * down as plain marks, all alike, the mic and "+". While the mic listens it shows the voice-reactive
+ * down as plain marks, all alike, the mic, "+" and the camera where there is one. While the mic listens it shows the voice-reactive
  * cookie with the stop square; while the note is worked out, the loading indicator.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -245,6 +276,12 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
             val addPress = remember { MutableInteractionSource() }
             IconButton(onClick = onAdd, interactionSource = addPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(addPress)) {
                 Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp))
+            }
+            voice.camera?.let { take ->
+                val photoPress = remember { MutableInteractionSource() }
+                IconButton(onClick = take, interactionSource = photoPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(photoPress)) {
+                    Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(26.dp))
+                }
             }
         }
     }

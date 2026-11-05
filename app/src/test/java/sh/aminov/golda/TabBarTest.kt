@@ -47,7 +47,7 @@ class TabBarTest {
     }
 
     @Test
-    fun theBarHasTheMicAndThePlusAndNoCameraYet() {
+    fun theBarHasTheMicThePlusAndTheCameraWhereThereIsOne() {
         var said = 0
         var added = 0
         compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { EntryBar(VoiceControl(VoiceState.Idle, { said++ }), { added++ }) } }
@@ -55,7 +55,15 @@ class TabBarTest {
         compose.onNodeWithContentDescription("Записать вручную").performClick()
         assertEquals(1, said)
         assertEquals(1, added)
-        compose.onAllNodesWithContentDescription("Камера").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("Снять чек").assertCountEquals(0)
+    }
+
+    @Test
+    fun aPhoneWithACameraHasItsMark() {
+        var taken = 0
+        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { EntryBar(VoiceControl(VoiceState.Idle, {}, camera = { taken++ }), {}) } }
+        compose.onNodeWithContentDescription("Снять чек").performClick()
+        assertEquals(1, taken)
     }
 
     @Test

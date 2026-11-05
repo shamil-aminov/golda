@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Navigation on top.** The island goes: the tabs are words over every screen, Сегодня, Траты, Счета, by a tap or a swipe, the bold word following the finger; a person opens Mine with the settings. At the bottom one bar of the ways to write down, the mic and «+».
+- **Navigation on top.** The island goes: the tabs are words over every screen, Сегодня, Траты, Счета, by a tap or a swipe, the bold word following the finger; a person opens Mine with the settings. At the bottom one bar of the ways to write down: the mic, «+» and the camera.
 - **Insights rebuilt around one card.** The header and the chart are one card: the kind
   as its title with a menu, the period behind a calendar, the figure, day bars over the
   legend, and the day's plan for the everyday kind by days. The average is off the
@@ -48,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   have colours of their own.
 
 ### Added
+
+- **Photo of a receipt.** The camera in the bottom bar takes one with the phone's own camera; it goes to
+  Gemini the way a voice note does and becomes one expense, the shop as its note. A photo waits, retries and
+  counts as «Не разобрано» like a note, and is deleted once understood.
 
 - **"Цветные траты"** on the Theme page, on by default: every row's circle in
   its category's colour, the icon black or white whichever stands out more;

@@ -158,9 +158,9 @@ switched in Settings.
 
 - Accounts, operations and settings stay in the app's private storage
   on your phone. There is no server, no account and no analytics.
-- Voice notes are sent to Google's Gemini API with **your own** key, only to
-  be turned into text and numbers. Google's terms for the Gemini API apply to
-  that audio.
+- Voice notes and photos of receipts are sent to Google's Gemini API with **your
+  own** key, only to be turned into text and numbers, and deleted from the phone
+  once understood. Google's terms for the Gemini API apply to them.
 - The key is encrypted with AES-GCM under an Android Keystore key. It is sent
   in the `x-goog-api-key` header, never in a URL, and is left out of backups.
 - The only other network request fetches the daily exchange rates of the Bank

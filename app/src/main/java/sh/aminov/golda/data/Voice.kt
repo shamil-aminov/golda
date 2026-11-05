@@ -98,13 +98,16 @@ class VoiceRecorder(private val context: Context) {
 }
 
 /**
- * Voice notes not booked yet. A note's file name is the time it was recorded, plus "-N" once N attempts
+ * Voice notes not booked yet, and photos of receipts, which go the same way. A note's file name is the time it was recorded, plus "-N" once N attempts
  * at it have failed. The queue is tried on every start; notes that cannot be understood are set aside
  * in "aside/" and are tried again only when the user asks (Settings → Голос), never on their own.
  */
 object VoiceQueue {
     /** Attempts at a note that Gemini keeps failing (busy, over quota) before it is set aside. */
     const val MAX_ATTEMPTS = 3
+
+    /** A photo's extension in the queue. */
+    const val PHOTO = "jpg"
 
     fun dir(context: Context) = File(context.filesDir, "voice").apply { mkdirs() }
 
@@ -120,10 +123,10 @@ object VoiceQueue {
     fun count(context: Context): Int = (pending(context) + setAside(context)).count { !fresh(it) }
 
     private fun notes(dir: File): List<File> =
-        dir.listFiles { f -> f.isFile && f.extension in AUDIO }.orEmpty().sortedBy { recordedAt(it) }
+        dir.listFiles { f -> f.isFile && f.extension in NOTES }.orEmpty().sortedBy { recordedAt(it) }
 
-    /** What a note can be: Opus (10+), AAC (8–9), and WAV for tests. */
-    private val AUDIO = setOf("ogg", "aac", "m4a", "wav")
+    /** What a note can be: Opus (10+), AAC (8–9), WAV for tests, and a photo. */
+    private val NOTES = setOf("ogg", "aac", "m4a", "wav", PHOTO)
 
     fun recordedAt(file: File): Long = file.nameWithoutExtension.substringBefore('-').toLongOrNull() ?: file.lastModified()
 
@@ -174,26 +177,29 @@ class GeminiException(message: String, val kind: Kind) : Exception(message) {
 /** What turns a note into items: Gemini with the saved key. The instrumented tests swap in their own. */
 fun interface VoiceParser {
     /** Throws only [GeminiException]. */
-    suspend fun parse(audio: File, system: String, model: String): VoiceResult
+    suspend fun parse(note: File, system: String, model: String): VoiceResult
 }
 
 class GeminiParser(private val settings: SettingsStore) : VoiceParser {
-    override suspend fun parse(audio: File, system: String, model: String): VoiceResult {
+    override suspend fun parse(note: File, system: String, model: String): VoiceResult {
         val key = settings.geminiKey() ?: throw GeminiException(tr("нет ключа", "no key"), GeminiException.Kind.NO_KEY)
-        return Gemini.parse(audio, system, key, model)
+        return Gemini.parse(note, system, key, model)
     }
 }
 
 object Gemini {
     const val DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
-    suspend fun parse(audio: File, system: String, key: String, model: String): VoiceResult = withContext(Dispatchers.IO) {
-        val mime = when (audio.extension) {
-            "wav" -> "audio/wav"
-            "aac" -> "audio/aac"
-            "m4a" -> "audio/mp4"
-            else -> "audio/ogg"
-        }
+    /** What a note's file is, for Gemini. */
+    fun mime(note: File): String = when (note.extension) {
+        VoiceQueue.PHOTO -> "image/jpeg"
+        "wav" -> "audio/wav"
+        "aac" -> "audio/aac"
+        "m4a" -> "audio/mp4"
+        else -> "audio/ogg"
+    }
+
+    suspend fun parse(note: File, system: String, key: String, model: String): VoiceResult = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
             .put(
@@ -204,7 +210,7 @@ object Gemini {
                         JSONArray().put(
                             JSONObject().put(
                                 "inlineData",
-                                JSONObject().put("mimeType", mime).put("data", Base64.encodeToString(audio.readBytes(), Base64.NO_WRAP)),
+                                JSONObject().put("mimeType", mime(note)).put("data", Base64.encodeToString(note.readBytes(), Base64.NO_WRAP)),
                             ),
                         ),
                     ),
