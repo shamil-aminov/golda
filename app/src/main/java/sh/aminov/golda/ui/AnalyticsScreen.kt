@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
@@ -161,6 +162,12 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
     val spanned = remember(kept, span, bar) {
         if (span == null || bar == Analytics.Bar.DAY) null else Analytics.report(kept, data.accountById, data.categoryById, span, today, data.zone, data.rates)
     }
+    // A pick shortens the list, and at the screen's end that would pull the chart from under the finger.
+    // What the list loses, the page keeps as room at its very end, so its length never changes.
+    var rowHeight by remember { mutableStateOf(0) }
+    val rowsNow = if (day != null && bar == Analytics.Bar.DAY) dayOps.size else (spanned ?: shown).categories.size
+    val held = (report.categories.size - rowsNow.coerceAtLeast(1)).coerceAtLeast(0) * rowHeight
+    val density = LocalDensity.current
 
     // The whole page, not just the content: a short list left the pager without a back swipe here.
     LazyColumn(Modifier.fillMaxSize(), contentPadding = padding.aboveActions()) {
@@ -217,11 +224,12 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                     }
                 }
                 if (day != null && bar == Analytics.Bar.DAY) dayRows(data, dayOps, onEdit)
-                else (spanned ?: shown).let { rows -> categoryRows(data, rows.categories, rows.spentRub) { opened = it } }
+                else (spanned ?: shown).let { rows -> categoryRows(data, rows.categories, rows.spentRub, { rowHeight = maxOf(rowHeight, it) }) { opened = it } }
             }
             // Income and exchange are not spending: no kind narrows them.
         }
         incomeRows(data, report.incomeRub, report.fxLossRub.takeIf { report.fxVolumeRub > 0 })
+        if (held > 0) item(key = "held") { VSpace(with(density) { held.toDp() }) }
     }
 
     opened?.let { item ->
@@ -391,7 +399,7 @@ private fun KindTile(bucket: Bucket, amount: String, empty: Boolean, on: Boolean
 private data class OpenedCategory(val name: String, val amount: String, val id: Long?)
 
 /** Every category, biggest first, a tap on one opening its purchases. */
-private fun LazyListScope.categoryRows(data: AppData, all: List<CategorySpend>, spent: Long, onOpen: (OpenedCategory) -> Unit) {
+private fun LazyListScope.categoryRows(data: AppData, all: List<CategorySpend>, spent: Long, onHeight: (Int) -> Unit, onOpen: (OpenedCategory) -> Unit) {
     if (all.isEmpty()) {
         item { GroupRow(1, 2, Modifier.padding(horizontal = Gap.m)) { Text(tr("За эти дни трат нет", "No spending in these days"), style = TextRole.rowName) } }
     }
@@ -402,7 +410,7 @@ private fun LazyListScope.categoryRows(data: AppData, all: List<CategorySpend>, 
             val name = categoryName(data, spend)
             val amount = data.base.whole(spend.rubMinor)
             GroupRow(
-                i + 1, all.size + 1, Modifier.padding(horizontal = Gap.m), onClick = { onOpen(OpenedCategory(name, amount, spend.categoryId)) },
+                i + 1, all.size + 1, Modifier.padding(horizontal = Gap.m).onSizeChanged { if (i in 1 until all.lastIndex) onHeight(it.height) }, onClick = { onOpen(OpenedCategory(name, amount, spend.categoryId)) },
                 leading = { RowIcon(categoryIcon(key), if (key == null) leitmotifColor(null, tones) else categoryColor(key, tones)) },
                 supporting = { Text(wholePercent(spend.rubMinor.toDouble() / spent.coerceAtLeast(1)), style = TextRole.caption) },
                 trailing = { Text(amount, style = TextRole.rowAmount, color = MaterialTheme.colorScheme.onSurface) },
