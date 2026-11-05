@@ -38,10 +38,11 @@ class SettingsScenariosTest : GoldaUiTest() {
 
     @Test
     fun localCurrencyIsWhereANewPurchaseStarts() {
-        openSettings()
+        openMoney()
         openRow(tr("Местная валюта", "Local currency"))
         tap("$ USD")
         compose.onNodeWithText("$ USD").assertIsDisplayed() // the row now says it
+        back() // to the contents
         back()
 
         // Home: the local currency leads the line of other currencies.
@@ -63,17 +64,19 @@ class SettingsScenariosTest : GoldaUiTest() {
     fun shownCurrenciesAreExactlyTheOthersLine() {
         assertEquals(setOf("$", "₾"), othersSymbols())
 
-        openSettings()
+        openMoney()
         openRow(tr("Валюты", "Currencies"))
         tap("₾ GEL") // off
         back() // the list page applies as you tap
+        back() // to the contents
         back()
         assertEquals(setOf("$"), othersSymbols())
 
-        openSettings()
+        openMoney()
         openRow(tr("Валюты", "Currencies"))
         tap("฿ THB") // on
         back() // the list page applies as you tap
+        back() // to the contents
         back()
         assertEquals(setOf("$", "฿"), othersSymbols())
     }
@@ -83,7 +86,7 @@ class SettingsScenariosTest : GoldaUiTest() {
 
     @Test
     fun markupMovesTheRates() {
-        openSettings()
+        openMoney()
         openRow(tr("Наценка к ЦБ", "Markup over the CBR"))
         typeIntoFirstField("20")
         tap(tr("Сохранить", "Save"))
@@ -101,14 +104,14 @@ class SettingsScenariosTest : GoldaUiTest() {
 
     @Test
     fun settingsSurviveRecreatingTheActivity() {
-        openSettings()
+        openMoney()
         openRow(tr("Местная валюта", "Local currency"))
         tap("₾ GEL")
         openRow(tr("Наценка к ЦБ", "Markup over the CBR"))
         typeIntoFirstField("15")
         tap(tr("Сохранить", "Save"))
 
-        // Settings stays open across the recreation, showing what was stored.
+        // The section stays open across the recreation, showing what was stored.
         scenario.recreate()
         compose.waitForIdle()
         compose.onNodeWithText("₾ GEL").assertIsDisplayed()

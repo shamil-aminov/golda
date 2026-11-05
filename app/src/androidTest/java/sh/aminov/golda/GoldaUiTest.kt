@@ -59,6 +59,12 @@ abstract class GoldaUiTest {
         compose.waitForIdle()
     }
 
+    /** The section of Settings with the currencies and the rates. */
+    protected fun openMoney() {
+        openSettings()
+        openRow(tr("Валюты и курс", "Currencies and rates"))
+    }
+
     /** A settings row by its title, scrolled into view first. */
     protected fun openRow(title: String) {
         compose.onNodeWithText(title).performScrollTo().performClick()

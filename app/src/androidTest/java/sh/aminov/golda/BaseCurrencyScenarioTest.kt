@@ -38,11 +38,12 @@ class BaseCurrencyScenarioTest : GoldaUiTest() {
     }
 
     private fun pickBase(label: String) {
-        openSettings()
+        openMoney()
         openRow(tr("Основная валюта", "Main currency"))
         // The choice in the sheet, not the row behind it that may say the same.
         compose.onNode(hasText(label) and toggle).performClick()
         compose.waitForIdle()
+        back() // to the contents
         back()
     }
 
