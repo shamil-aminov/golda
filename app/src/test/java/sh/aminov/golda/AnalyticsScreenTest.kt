@@ -5,6 +5,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -88,6 +89,32 @@ class AnalyticsScreenTest {
         tapLastBar()
         shown("Шаурма", 0)
         shown("Жильё")
+    }
+
+    @Test
+    fun thePillsCrossLetsTheDayGoAndKeepsTheKind() {
+        compose.onNodeWithText("Ежедневные").performClick()
+        tapLastBar()
+        shown("Шаурма")
+        shown("Еда", 2)
+        compose.onNodeWithContentDescription("Снять выбор дня").performClick()
+        shown("Шаурма", 0)
+        // The kind stays: its tile, the title, its category.
+        shown("Ежедневные", 2)
+        shown("Еда")
+        compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
+    }
+
+    @Test
+    fun aKindWithNothingStaysATileToPickAndLetGo() {
+        compose.onNodeWithContentDescription("Период").performClick()
+        compose.onNodeWithText("Неделя").performClick()
+        compose.onNodeWithText("Регулярные").performClick()
+        shown("Регулярные", 2)
+        shown("За эти дни трат нет")
+        compose.onAllNodesWithText("Регулярные")[0].performClick()
+        shown("Регулярные")
+        shown("Все траты")
     }
 
     @Test

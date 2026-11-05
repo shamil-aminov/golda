@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   and the category mosaic are gone. A mosaic of the three kinds narrows
   everything under it: one card titled «Все траты» or the kind, day bars over
   all the categories. A tap on a bar swaps the categories for that day's
-  purchases, a second brings them back.
+  purchases; the × in its pill or a second tap brings them back, the kind staying.
+  A kind with nothing in the period is a neutral tile.
 - **Eight new bold themes after Bungie's Marathon** instead of the ten pastel
   ones: Марафон, Ультрамарин, Сигнал, Пиксель, Голограмма, Терминал, Фиолет,
   Плашка. A white or near-black page and quiet lists; the colour is on one

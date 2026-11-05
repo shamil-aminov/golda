@@ -4,8 +4,11 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -40,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -198,6 +202,7 @@ fun AnalyticsScreen(data: AppData, padding: PaddingValues, onEdit: (OperationFul
                         Box(Modifier.padding(start = Space.card, end = Space.card, bottom = Gap.m)) {
                             DayBars(
                                 Analytics.bars(shown.days), today, kind, plan, data.base, barStacks, day,
+                                onClear = { pickedDay = null },
                                 onTap = { pickedDay = Analytics.toggled(day, it)?.toEpochDay() },
                                 onScrub = { pickedDay = it.toEpochDay() },
                             )
@@ -313,7 +318,7 @@ private fun KindMosaic(regular: Long, daily: Long, big: Long, base: Base, filter
     // Room for two lines, grown with the font scale.
     val high = 136.dp * density.fontScale
     val tile: @Composable (Pair<Bucket, Long>, Modifier) -> Unit = { (bucket, rub), modifier ->
-        KindTile(bucket, base.whole(rub), filter == bucket, filter != null && filter != bucket, modifier) { onPick(bucket) }
+        KindTile(bucket, base.whole(rub), rub == 0L, filter == bucket, filter != null && filter != bucket, modifier) { onPick(bucket) }
     }
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Gap.s)) {
         val split = KindBlock.split(kinds[0].second, kinds[1].second, kinds[2].second, maxWidth.value, high.value, gap.value, 128f * density.fontScale, 56f * density.fontScale)
@@ -327,13 +332,22 @@ private fun KindMosaic(regular: Long, daily: Long, big: Long, base: Base, filter
     }
 }
 
-/** One kind: its name and sum on its colour, or on that colour stepped back when another is picked. */
+/**
+ * One kind: its name and sum on its colour, or on that colour stepped back when another is picked.
+ * With nothing in it ([empty]) it has no colour to show: the neutral soft, still a tile to tap, or a pick could not be let go.
+ */
 @Composable
-private fun KindTile(bucket: Bucket, amount: String, on: Boolean, quiet: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val colour = leitmotifColor(KindRank.getValue(bucket), LocalTones.current)
+private fun KindTile(bucket: Bucket, amount: String, empty: Boolean, on: Boolean, quiet: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val tones = LocalTones.current
+    val colour = leitmotifColor(KindRank.getValue(bucket), tones)
     val spec = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
-    val fill by animateColorAsState(if (quiet) lerp(colour, MaterialTheme.colorScheme.surface, QUIET) else colour, spec, label = "kind")
-    val ink = tileInk(fill)
+    val target = when {
+        empty -> tones.soft
+        quiet -> lerp(colour, MaterialTheme.colorScheme.surface, QUIET)
+        else -> colour
+    }
+    val fill by animateColorAsState(target, spec, label = "kind")
+    val ink = if (empty) tones.text else tileInk(fill)
     Box(
         modifier.clip(RoundedCornerShape(16.dp)).background(fill)
             .selectable(selected = on, role = Role.Button, onClick = onClick)
@@ -487,12 +501,13 @@ private val BarsHeight: Dp = 96.dp
  * Day bars in the card: round tops, flat bottoms, stacked in the day's categories. A tap picks a day
  * and a tap on it lets go; a finger scrubs across them. The picked bar has a dot under it and its day
  * and sum ride in a pill above, in a row always kept, so the bars never move under the finger.
+ * The pill's × lets go too: the way out in plain sight, whatever else is picked.
  * The dashed line is the daily budget.
  */
 @Composable
 private fun DayBars(
     days: List<Pair<LocalDate, Long>>, today: LocalDate, kind: PeriodKind, budget: Long?, base: Base, stacks: Map<LocalDate, List<DayPart>>,
-    picked: LocalDate?, onTap: (LocalDate) -> Unit, onScrub: (LocalDate) -> Unit,
+    picked: LocalDate?, onClear: () -> Unit, onTap: (LocalDate) -> Unit, onScrub: (LocalDate) -> Unit,
 ) {
     // The picked day's dot in the ink of its label: it marks the pick, it does not compete with the bars.
     val accent = MaterialTheme.colorScheme.onSurface
@@ -513,24 +528,31 @@ private fun DayBars(
         Column {
             // The pill over the picked bar, kept inside the card.
             var pillWidth by remember { mutableStateOf(0) }
-            Box(Modifier.fillMaxWidth().height(32.dp)) {
+            // 48 high for the finger, the pill's 32 in the middle of it: the 8 under it is the air over the bars.
+            Box(Modifier.fillMaxWidth().height(48.dp)) {
                 if (pickedIndex >= 0) {
                     val (date, rub) = days[pickedIndex]
                     val x = (step * pickedIndex + step / 2 - pillWidth / 2f).coerceIn(0f, (widthPx - pillWidth).coerceAtLeast(0f))
-                    Surface(
-                        modifier = Modifier.offset { IntOffset(x.roundToInt(), 0) }.onSizeChanged { pillWidth = it.width },
-                        shape = CircleShape,
-                        color = pickedColor(),
-                        contentColor = onPickedColor(),
+                    val touch = remember { MutableInteractionSource() }
+                    Box(
+                        Modifier.offset { IntOffset(x.roundToInt(), 0) }.onSizeChanged { pillWidth = it.width }.height(48.dp)
+                            .clickable(touch, indication = null, role = Role.Button, onClick = onClear),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(Gap.s)) {
-                            Text(dayShort(date, today), style = MaterialTheme.typography.labelLarge, maxLines = 1)
-                            Text(base.approx(rub), style = MaterialTheme.typography.labelLarge.merge(Tnum), maxLines = 1)
+                        Surface(shape = CircleShape, color = pickedColor(), contentColor = onPickedColor()) {
+                            Row(
+                                Modifier.indication(touch, ripple()).height(32.dp).padding(start = 12.dp, end = Gap.s),
+                                horizontalArrangement = Arrangement.spacedBy(Gap.s),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(dayShort(date, today), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                                Text(base.approx(rub), style = MaterialTheme.typography.labelLarge.merge(Tnum), maxLines = 1)
+                                Icon(painterResource(R.drawable.ic_close), tr("Снять выбор дня", "Clear the day"), Modifier.size(16.dp))
+                            }
                         }
                     }
                 }
             }
-            VSpace(Gap.s)
             fun at(px: Float) = days[(px / step).toInt().coerceIn(0, days.lastIndex)].first
             Canvas(
                 Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS)
