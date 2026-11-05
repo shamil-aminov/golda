@@ -90,6 +90,7 @@ import sh.aminov.golda.domain.AccountState
 import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Debts
+import sh.aminov.golda.domain.Ledger
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
@@ -235,7 +236,14 @@ fun HomeScreen(
 /** The Accounts header's words, in one place. */
 private object AccountsWords {
     fun title() = tr("На счетах", "In accounts")
-    fun debts() = tr("Долги", "Debts")
+    fun checked(day: String) = tr("Сверено $day", "Checked $day")
+    fun unchecked() = tr("Не сверено", "Not checked")
+    fun interest(without: Int): String {
+        val n = without.toLong()
+        return if (n == 0L) tr("Проценты по долгам", "Interest on debts")
+        else tr("Проценты, кроме $n ", "Interest, except $n ") + plural(n, "долга", "долгов", "долгов", "debt", "debts")
+    }
+    fun perMonth(amount: String) = tr("≈ $amount в месяц", "≈ $amount a month")
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -273,13 +281,16 @@ fun AccountsScreen(
             HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // The title reads straight into the figure, which stands on the other tabs' line; the other currencies
-                // a block under it, then what is owed and its cost, a group away. Every text cut to its letters and
-                // every gap a step of the header's row (HeaderSpace). Each block one TalkBack node.
+                // As the other tabs: a title, its caption, the figure on their line; the other currencies a block
+                // under it, what the debts cost a month a group away. Every text cut to its letters and every gap a
+                // step of the header's row (HeaderSpace). Each block one TalkBack node.
                 val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
                     Text(AccountsWords.title(), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
-                    VSpace(HeaderSpace.titleToFigure)
+                    VSpace(HeaderSpace.valueCaption)
+                    val checked = Ledger.oldestCheck(data.accounts, data.settings.reconciledAt)
+                    Text(checked?.let { AccountsWords.checked(dayOf(it, data)) } ?: AccountsWords.unchecked(), cut, style = words, maxLines = 1)
+                    VSpace(HeaderSpace.figureCaption)
                     val text = data.base.whole(held)
                     BoxWithConstraints {
                         HeroAmount(text, ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL).letters(heroFigureSize(text, maxWidth)), signColor = ink)
@@ -289,24 +300,12 @@ fun AccountsScreen(
                         Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
                     }
                 }
-                val owed = Debts.owedRub(data.states.values)
-                if (owed > 0) {
+                Debts.interest(data.accounts, data.states, data.today, data.rates)?.let { interest ->
                     VSpace(HeaderSpace.group)
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
-                        Text(AccountsWords.debts(), cut, style = words, maxLines = 1)
+                        Text(AccountsWords.interest(interest.without), cut, style = words, maxLines = 1)
                         VSpace(HeaderSpace.valueCaption)
-                        Text(data.base.whole(owed), Modifier.letters(figures.fontSize), style = figures, color = ink, maxLines = 1)
-                    }
-                }
-                Debts.advice(data.accounts, data.states)?.let { advice ->
-                    VSpace(HeaderSpace.block)
-                    val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
-                    Column(Modifier.semantics(mergeDescendants = true) {}) {
-                        Text(head, cut, style = words)
-                        tail?.let {
-                            VSpace(HeaderSpace.valueCaption)
-                            Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
-                        }
+                        Text(AccountsWords.perMonth(data.base.approx(interest.rubMinor)), Modifier.letters(figures.fontSize), style = figures, color = ink, maxLines = 1)
                     }
                 }
             }

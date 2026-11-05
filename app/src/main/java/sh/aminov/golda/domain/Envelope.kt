@@ -73,6 +73,9 @@ data class Envelope(
     /** Gone past the norm, "Сверх нормы 258 ₾"; zero or less is within it. */
     val overNormMinor: Long get() = spentMinor - normMinor
 
+    /** How far under the norm the spending stands, the other side of [overNormMinor]; below zero past it. */
+    val marginMinor: Long get() = normMinor - spentMinor
+
     /** The share of the period gone, today included, 0..1. */
     val timeShare: Float get() = elapsedDays.toFloat() / totalDays
 

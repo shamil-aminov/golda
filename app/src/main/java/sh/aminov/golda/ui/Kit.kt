@@ -845,15 +845,6 @@ object HeaderSpace {
     /** A caption over the big figure: 21. */
     val figureCaption: Dp @Composable @ReadOnlyComposable get() = step(21f)
 
-    /**
-     * A title over the big figure with no caption between them: the title to the caption, the caption's own
-     * letters and the caption to the figure, so the figure stands on the line it has on the other tabs.
-     */
-    val titleToFigure: Dp @Composable get() {
-        val letters = with(LocalDensity.current) { (TextRole.caption.fontSize.toPx() * CAP).roundToInt().toDp() }
-        return valueCaption + letters + figureCaption
-    }
-
     /** Block from block inside a group (the figure and the bar, the dates and the status): 21. */
     val block: Dp @Composable @ReadOnlyComposable get() = step(21f)
 

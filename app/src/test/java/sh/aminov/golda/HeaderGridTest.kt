@@ -18,8 +18,11 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.data.Account
+import sh.aminov.golda.data.AccountType
 import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.ui.AccountsScreen
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.AppData
@@ -101,34 +104,59 @@ class HeaderGridTest {
         GoldaTheme("golda", "LIGHT", "ROOMY") { AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> }) }
     }
 
+    private fun copy(demo: AppData, accounts: List<Account> = demo.accounts, settings: Settings = demo.settings) =
+        AppData(settings, accounts, demo.operations, demo.categories, emptyList(), today = demo.today)
+
+    private fun count(words: String, times: Int) =
+        compose.onAllNodesWithText(words, substring = true, useUnmergedTree = true).assertCountEquals(times)
+
     @Test
-    fun accountsOpenWithTheMoneyThereItsDebtsAndTheOtherCurrenciesUnderTheFigure() {
+    fun accountsOpenWithTheMoneyThereTheCheckAndTheOtherCurrenciesUnderTheFigure() {
         val data = ScreenshotTest().demo()
         accounts(data)
-        compose.onAllNodesWithText("На счетах", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Долги", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText(data.base.whole(21_500_000), useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Проценты", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        count("На счетах", 1)
+        count("Не сверено", 1)
+        count("Проценты по долгам", 1)
+        count("Долги", 0)
         val others = data.others(Debts.heldRub(data.states.values), data.base.code)
         val under = compose.onAllNodesWithText(others, useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
         assertEquals(true, under.top > tagged(Tags.ACCOUNTS_TOTAL).bottom)
     }
 
     @Test
-    fun withoutDebtsThereIsNoBlockOfThem() {
+    fun allAccountsCheckedGiveTheOldestDay() {
         val demo = ScreenshotTest().demo()
-        val free = AppData(demo.settings, demo.accounts.filterNot { with(Debts) { it.isDebt } }, demo.operations, demo.categories, emptyList(), today = demo.today)
-        accounts(free)
-        compose.onAllNodesWithText("Долг", substring = true, useUnmergedTree = true).assertCountEquals(0)
-        compose.onAllNodesWithText("Проценты", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        val day = demo.today.minusDays(21).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        val all = demo.accounts.associate { it.id to day + 86_400_000 } + (demo.accounts.first().id to day)
+        accounts(copy(demo, settings = demo.settings.copy(reconciledAt = all)))
+        count("Сверено 3 октября", 1)
     }
 
     @Test
-    fun aDebtWithoutARateHasItsPairAlone() {
+    fun oneAccountNeverCheckedMeansNotChecked() {
         val demo = ScreenshotTest().demo()
-        val flat = demo.accounts.map { it.copy(interestRate = null) }
-        accounts(AppData(demo.settings, flat, demo.operations, demo.categories, emptyList(), today = demo.today))
-        compose.onAllNodesWithText("Долги", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Проценты", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        accounts(copy(demo, settings = demo.settings.copy(reconciledAt = demo.accounts.drop(1).associate { it.id to 0L })))
+        count("Не сверено", 1)
+    }
+
+    @Test
+    fun withoutDebtsThereIsNoBlockOfThem() {
+        val demo = ScreenshotTest().demo()
+        accounts(copy(demo, accounts = demo.accounts.filterNot { with(Debts) { it.isDebt } }))
+        count("Проценты", 0)
+    }
+
+    @Test
+    fun aDebtWithoutARateIsNamed() {
+        val demo = ScreenshotTest().demo()
+        accounts(copy(demo, accounts = demo.accounts.map { if (it.type == AccountType.LOAN) it.copy(interestRate = null) else it }))
+        count("Проценты, кроме 1 долга", 1)
+    }
+
+    @Test
+    fun noRatesAtAllMeanNoBlock() {
+        val demo = ScreenshotTest().demo()
+        accounts(copy(demo, accounts = demo.accounts.map { it.copy(interestRate = null) }))
+        count("Проценты", 0)
     }
 }

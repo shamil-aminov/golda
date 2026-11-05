@@ -536,7 +536,12 @@ private fun LazyListScope.reviewRows(data: AppData, reviews: List<Review>, onOpe
 
 /** "24 октября", with the year when it was another. */
 private fun writtenOn(review: Review, data: AppData): String {
-    val day = Instant.ofEpochMilli(review.createdAt).atZone(data.zone).toLocalDate()
+    return dayOf(review.createdAt, data)
+}
+
+/** The day of an instant, with the year when it was another. */
+internal fun dayOf(millis: Long, data: AppData): String {
+    val day = Instant.ofEpochMilli(millis).atZone(data.zone).toLocalDate()
     return shortDate(day) + if (day.year == data.today.year) "" else " " + day.year
 }
 
