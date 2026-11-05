@@ -1,5 +1,9 @@
 package sh.aminov.golda.ui
 
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.material3.LocalContentColor
 import sh.aminov.golda.data.VoiceQueue
 import sh.aminov.golda.data.Snapshot
 import java.io.File
@@ -39,12 +43,6 @@ import androidx.compose.ui.semantics.role
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -52,7 +50,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LoadingIndicator
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.Color
@@ -62,14 +59,12 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -77,15 +72,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Matrix
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.graphics.shapes.Morph
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -109,6 +101,8 @@ class VoiceControl(
     val level: () -> Float = { 0f },
     /** Takes a photo of a receipt; null on a phone with no camera. */
     val camera: (() -> Unit)? = null,
+    /** Drops the recording under way, nothing kept. */
+    val cancel: () -> Unit = {},
 )
 
 /**
@@ -177,6 +171,13 @@ fun rememberVoice(
         }
     }
 
+    fun cancel() {
+        if (state != VoiceState.Recording) return
+        haptics.performHapticFeedback(HapticFeedbackType.ToggleOff)
+        recorder.cancel()
+        state = VoiceState.Idle
+    }
+
     LaunchedEffect(requests) {
         for (request in requests) if (state == VoiceState.Idle) toggle()
     }
@@ -229,7 +230,7 @@ fun rememberVoice(
         }
     }
 
-    return VoiceControl(state, ::toggle, recorder::level, if (hasCamera) ::takePhoto else null)
+    return VoiceControl(state, ::toggle, recorder::level, if (hasCamera) ::takePhoto else null, ::cancel)
 }
 
 private fun describe(draft: Draft, data: AppData): String {
@@ -240,8 +241,9 @@ private fun describe(draft: Draft, data: AppData): String {
 
 /**
  * The one bar at the bottom of every tab, floating over the content: the ways of writing something
- * down as plain marks, all alike, the mic, "+" and the camera where there is one. While the mic listens it shows the voice-reactive
- * cookie with the stop square; while the note is worked out, the loading indicator.
+ * down as plain marks, all alike, the camera where there is one, "+" and the mic. While the mic listens
+ * the bar stays where it is and comes alive: cancel on the left, the voice's level in the middle, and
+ * stop where the mic was. While the note is worked out, the loading indicator takes the mic's place.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -261,61 +263,60 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
         contentColor = scheme.onSurface,
     ) {
         Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
-            val micPress = remember { MutableInteractionSource() }
-            IconButton(
-                onClick = voice.toggle,
-                interactionSource = micPress,
-                modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(micPress).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
-            ) {
+            if (voice.state == VoiceState.Recording) {
+                BarMark(voice.cancel) { Icon(painterResource(R.drawable.ic_close), tr("Отменить запись", "Cancel the recording"), Modifier.size(24.dp)) }
+                LevelLine(voice.level)
+            } else {
+                voice.camera?.let { take -> BarMark(take) { Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(24.dp)) } }
+                BarMark(onAdd) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(24.dp)) }
+            }
+            BarMark(voice.toggle, Modifier.semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite }) {
                 when (voice.state) {
                     VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = scheme.onSurface)
-                    VoiceState.Recording -> Listening(voice.level, fill = actionColor(), ink = onActionColor())
+                    VoiceState.Recording -> Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(24.dp))
                     VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(24.dp))
-                }
-            }
-            val addPress = remember { MutableInteractionSource() }
-            IconButton(onClick = onAdd, interactionSource = addPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(addPress)) {
-                Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(24.dp))
-            }
-            voice.camera?.let { take ->
-                val photoPress = remember { MutableInteractionSource() }
-                IconButton(onClick = take, interactionSource = photoPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(photoPress)) {
-                    Icon(painterResource(R.drawable.ic_camera), tr("Снять чек", "Photograph a receipt"), Modifier.size(24.dp))
                 }
             }
         }
     }
 }
 
+/** One place on the bar: a target of the bar's size that gives under the thumb. */
+@Composable
+private fun BarMark(onClick: () -> Unit, modifier: Modifier = Modifier, mark: @Composable () -> Unit) {
+    val press = remember { MutableInteractionSource() }
+    IconButton(onClick = onClick, interactionSource = press, modifier = modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press)) { mark() }
+}
+
 private val ToolbarItemWidth = 72.dp
 private val ToolbarItemHeight = 48.dp
-/** The bar: 60, the 48 targets and [ToolbarInset] (6) round them on every side. */
-internal val ToolbarHeight = 60.dp
-private val ToolbarInset = (ToolbarHeight - ToolbarItemHeight) / 2
+/** Round the 48 targets on every side, a step of the φ row. */
+private val ToolbarInset = 10.dp
+/** The bar: 68, the 48 targets and [ToolbarInset] round them. */
+internal val ToolbarHeight = ToolbarItemHeight + ToolbarInset * 2
 
-/** A circle that keeps turning into a nine-sided cookie and back, with the stop square on it. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** How many strokes the level keeps, the newest on the right. */
+private const val LEVEL_STROKES = 16
+
+/** The voice as a running line of strokes, one a moment, as wide as a place on the bar. */
 @Composable
-private fun Listening(level: () -> Float, fill: Color, ink: Color) {
-    // Silence is a circle; the louder the voice, the more of a cookie it becomes.
-    var loudness by remember { mutableFloatStateOf(0f) }
+private fun LevelLine(level: () -> Float) {
+    val strokes = remember { mutableStateListOf<Float>().apply { repeat(LEVEL_STROKES) { add(0f) } } }
     LaunchedEffect(Unit) {
         while (true) {
             // Speech peaks sit well under full scale; the square root lifts quiet talk into view.
-            loudness = sqrt((level() * 3f).coerceIn(0f, 1f))
+            strokes.removeAt(0)
+            strokes.add(sqrt((level() * 3f).coerceIn(0f, 1f)))
             delay(60)
         }
     }
-    val progress by animateFloatAsState(loudness, MaterialTheme.motionScheme.fastSpatialSpec(), label = "voice")
-    val morph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Cookie9Sided) }
-    val turn by rememberInfiniteTransition(label = "listening")
-        .animateFloat(0f, 360f, infiniteRepeatable(tween(8000, easing = LinearEasing)), label = "turn")
-    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.matchParentSize()) {
-            val path = morph.toPath(progress.coerceIn(0f, 1f))
-            path.transform(Matrix().apply { scale(size.width, size.height) })
-            rotate(turn) { drawPath(path, fill) }
+    val ink = LocalContentColor.current
+    Canvas(Modifier.size(ToolbarItemWidth, 32.dp)) {
+        val step = size.width / LEVEL_STROKES
+        strokes.forEachIndexed { i, value ->
+            val half = size.height / 2 * value.coerceAtLeast(0.08f)
+            val x = step * (i + 0.5f)
+            drawLine(ink, Offset(x, size.height / 2 - half), Offset(x, size.height / 2 + half), 2.dp.toPx(), StrokeCap.Round)
         }
-        Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(20.dp), tint = ink)
     }
 }

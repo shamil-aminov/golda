@@ -36,7 +36,7 @@ internal val TabBarHeight = 48.dp
 
 /**
  * The tabs as words over every screen, on the page's own colour so rows scroll under it unseen: a tap
- * or a swipe moves between them, and the word in bold follows the finger. The person at the end opens
+ * or a swipe moves between them, and the word in bold follows the finger. The gear at the end opens
  * the settings.
  */
 @Composable
@@ -71,7 +71,7 @@ fun TabBar(words: List<String>, position: () -> Float, onSelect: (Int) -> Unit, 
         Spacer(Modifier.weight(1f))
         // Its glyph's right edge on the cards' text.
         IconButton(onClick = onSettings, modifier = Modifier.offset(x = 12.dp)) {
-            Icon(painterResource(R.drawable.ic_person), tr("Настройки", "Settings"), tint = scheme.onSurfaceVariant)
+            Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onSurfaceVariant)
         }
     }
 }

@@ -58,6 +58,19 @@ class TabBarTest {
     }
 
     @Test
+    fun recordingShowsCancelAndStopInPlaceOfTheWaysToWriteDown() {
+        var cancelled = 0
+        var stopped = 0
+        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { EntryBar(VoiceControl(VoiceState.Recording, { stopped++ }, camera = {}, cancel = { cancelled++ }), {}) } }
+        compose.onAllNodesWithContentDescription("Снять чек").assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("Записать вручную").assertCountEquals(0)
+        compose.onNodeWithContentDescription("Отменить запись").performClick()
+        compose.onNodeWithContentDescription("Слушаю. Нажми, когда закончишь").performClick()
+        assertEquals(1, cancelled)
+        assertEquals(1, stopped)
+    }
+
+    @Test
     fun aPhoneWithACameraHasItsMark() {
         var taken = 0
         compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { EntryBar(VoiceControl(VoiceState.Idle, {}, camera = { taken++ }), {}) } }
