@@ -50,7 +50,10 @@ open class GoldaApplication : Application() {
 }
 
 const val ACTION_VOICE = "sh.aminov.golda.VOICE"
-const val TAB_ACCOUNTS = 1
+enum class Tab { HOME, ACCOUNTS, INSIGHTS }
+
+/** The tabs from left to right, in the toolbar and in the swipe. To reorder them, this line alone. */
+val TabOrder = listOf(Tab.HOME, Tab.INSIGHTS, Tab.ACCOUNTS)
 
 /** Which tab a notification opens. */
 const val EXTRA_TAB = "golda.tab"
@@ -71,7 +74,7 @@ class MainActivity : ComponentActivity() {
     private val voiceRequests = Channel<Unit>(Channel.CONFLATED)
 
     /** Tabs to open, from notifications. */
-    private val tabRequests = Channel<Int>(Channel.CONFLATED)
+    private val tabRequests = Channel<Tab>(Channel.CONFLATED)
 
     /** Before Android 13 the app's own language is applied here; from 13 the system does it. */
     override fun attachBaseContext(newBase: Context) {
@@ -124,7 +127,7 @@ class MainActivity : ComponentActivity() {
 
     private fun handle(intent: Intent) {
         if (intent.action == ACTION_VOICE) voiceRequests.trySend(Unit)
-        intent.getIntExtra(EXTRA_TAB, -1).takeIf { it >= 0 }?.let { tabRequests.trySend(it) }
+        Tab.entries.firstOrNull { it.name == intent.getStringExtra(EXTRA_TAB) }?.let { tabRequests.trySend(it) }
     }
 
     /** adb shell am start -n sh.aminov.golda.dev/sh.aminov.golda.MainActivity --ez golda.samples true; debug and dev builds only. */

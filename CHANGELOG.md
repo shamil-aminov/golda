@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Tabs in a new order: Home, Insights, Accounts,** in the toolbar and the swipe.
 - **Insights rebuilt around one filter.** The header carries the period behind a
   calendar and the review behind a mark on the average's line; the period strip
   and the category mosaic are gone. A mosaic of the three kinds narrows

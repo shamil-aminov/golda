@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import sh.aminov.golda.GoldaApplication
-import sh.aminov.golda.TAB_ACCOUNTS
+import sh.aminov.golda.Tab
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.domain.tr
@@ -207,7 +207,7 @@ class ReconcileReminder(context: Context, params: WorkerParameters) : CoroutineW
             tr("Сверь балансы", "Check your balances"),
             tr("Неделя прошла. Открой банк и сравни счета в Golda, забытые траты найдутся сами",
                 "A week has passed. Open your bank and compare the accounts in Golda; forgotten purchases will show up"),
-            tab = TAB_ACCOUNTS,
+            tab = Tab.ACCOUNTS,
         )
         return Result.success()
     }
