@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Tabs in a new order: Home, Insights, Accounts,** in the toolbar and the swipe.
+- **Navigation on top.** The island goes: the tabs are words over every screen, Сегодня, Траты, Счета, by a tap or a swipe, the bold word following the finger; a person opens Mine with the settings. At the bottom one bar of the ways to write down, the mic and «+».
 - **Insights rebuilt around one card.** The header and the chart are one card: the kind
   as its title with a menu, the period behind a calendar, the figure, day bars over the
   legend, and the day's plan for the everyday kind by days. The average is off the
   screen. A picked bar gives its sum and its pill, a tap on which lets go. The period strip, the category mosaic and the kinds'
   tiles are gone; the details page picks the kind by the same menu.
 - **The tabs' headers by one rule.** A title, then the figure at once, 58 on every screen. Home's title
-  is «На сегодня», the line under its bar says how the period goes and what is left to its end, and a tap on it changes the period.
+  is «На сегодня», two tiles say what went and what is left, the first coloured by how it goes against the norm, and a pill of the days left changes the period.
   Accounts open with «На счетах», the money there with no debts taken off, the other currencies as plain
   text under the figure, and the interest of all the debts. Insights' period stands in a pill by the kind.
 - **Reviews on Insights.** A card closes the screen, the last three reviews by date

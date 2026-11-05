@@ -149,7 +149,7 @@ switched in Settings.
    Rough numbers are fine; reconciling fixes them later.
 3. **Get a Gemini API key** in
    [Google AI Studio](https://aistudio.google.com/apikey). Then open
-   Settings (the gear on the Home tile) → **Voice and reviews** → **Gemini key** and paste it. The free
+   Settings (the person over the tabs, then **Settings**) → **Voice and reviews** → **Gemini key** and paste it. The free
    tier is enough to try it, and with billing on, a voice note costs a tiny
    fraction of a cent.
 4. **Tap the gold mic** and say what you bought.
@@ -223,7 +223,7 @@ domain/   Money maths with no Android dependency: rates, ledger, budget,
           interest, debts, the voice-answer mapper. Covered by JVM tests.
 data/     Room database, DataStore settings, CBR rates, Gemini client,
           Keystore vault, backups, reminders, the demo fill.
-ui/       Jetpack Compose screens, the toolbar and the palette.
+ui/       Jetpack Compose screens, the tabs, the entry bar and the palette.
 tools/    coin.py, which draws the launcher icon.
 ```
 

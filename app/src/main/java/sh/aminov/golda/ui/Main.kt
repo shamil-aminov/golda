@@ -493,7 +493,7 @@ private fun MainScreen(
             ) { index ->
                     when (TabOrder[index]) {
                         Tab.HOME -> HomeScreen(
-                            data, padding, homeList, onSettings = { page = Page.Mine }, onPeriod = { periodOpen = true },
+                            data, padding, homeList, onPeriod = { periodOpen = true },
                             onPayment = { sheet = Sheet.Entry(EntryRequest(payment = it)) },
                         ) { sheet = Sheet.Entry(EntryRequest(editing = it)) }
                         Tab.ACCOUNTS -> AccountsScreen(

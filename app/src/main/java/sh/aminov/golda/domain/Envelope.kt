@@ -17,8 +17,11 @@ import kotlin.math.abs
  * Everything is in the card's own currency and measured by the card's balance, so spending that was
  * never written down still counts once the card is reconciled.
  */
-/** What the period's caption says on Home. */
-enum class Standing { BROKE, OVER, EVEN, MARGIN }
+/** How near the norm reads as near it, in percent of the period's money. */
+private const val NEAR_NORM_PERCENT = 5L
+
+/** How the money goes against the even pace, the colour of what went on Home. */
+enum class Light { GREEN, YELLOW, RED }
 
 data class Envelope(
     val account: Account,
@@ -80,12 +83,14 @@ data class Envelope(
     /** How far under the norm the spending stands, the other side of [overNormMinor]; below zero past it. */
     val marginMinor: Long get() = normMinor - spentMinor
 
-    /** Where the period stands against the norm, by the whole units shown: less than half a unit either way is even. */
-    val standing: Standing get() = when {
-        balanceMinor <= 0 -> Standing.BROKE
-        Fmt.whole(abs(marginMinor), currency) == "0" -> Standing.EVEN
-        marginMinor < 0 -> Standing.OVER
-        else -> Standing.MARGIN
+    /**
+     * Near the norm, within 5 % of the period's money, yellow; under it green, past it red. Measured
+     * against the money and not the norm: early in a period the norm is small, and a share of it jumps.
+     */
+    val light: Light get() = when {
+        abs(marginMinor) * 100 <= fundsMinor.coerceAtLeast(0) * NEAR_NORM_PERCENT -> Light.YELLOW
+        marginMinor > 0 -> Light.GREEN
+        else -> Light.RED
     }
 
     /** The share of the period gone, today included, 0..1. */

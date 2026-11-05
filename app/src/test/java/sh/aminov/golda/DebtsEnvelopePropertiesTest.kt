@@ -23,8 +23,7 @@ import sh.aminov.golda.domain.Budget
 import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.Envelope
 import sh.aminov.golda.domain.Envelopes
-import sh.aminov.golda.domain.Fmt
-import sh.aminov.golda.domain.Standing
+import sh.aminov.golda.domain.Light
 import sh.aminov.golda.domain.Rates
 import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
@@ -385,34 +384,25 @@ class DebtsEnvelopePropertiesTest {
         }
     }
 
-    private fun standing(balance: Long, spent: Long) =
+    private fun envelope(balance: Long, spent: Long) =
         Envelope(debt(1, null), day, day.plusDays(9), balance, spent, 0, 5, 0, 0, null, null)
 
     @Test
-    fun theStandingFollowsTheMarginByTheUnitsShown() = prop {
-        checkAll(Arb.long(1L..1_000_000_000L), Arb.long(0L..1_000_000_000L)) { balance, spent ->
-            val e = standing(balance, spent)
-            val shown = Fmt.whole(kotlin.math.abs(e.marginMinor), e.currency) != "0"
-            assertEquals(
-                when {
-                    !shown -> Standing.EVEN
-                    e.marginMinor < 0 -> Standing.OVER
-                    else -> Standing.MARGIN
-                },
-                e.standing,
-            )
+    fun theLightGoesByTheMoneyAgainstTheNorm() = prop {
+        checkAll(Arb.long(0L..1_000_000_000L), Arb.long(0L..1_000_000_000L)) { balance, spent ->
+            val e = envelope(balance, spent)
+            val near = kotlin.math.abs(e.marginMinor) * 20 <= e.fundsMinor
+            assertEquals(if (near) Light.YELLOW else if (e.marginMinor > 0) Light.GREEN else Light.RED, e.light)
         }
     }
 
     @Test
-    fun noMoneyLeftComesFirstAndHalfAUnitIsEven() {
-        assertEquals(Standing.BROKE, standing(0, 1_000).standing)
-        assertEquals(Standing.BROKE, standing(-1, 0).standing)
-        // Six days of ten gone, 600 of 1 000 spent: to the kopeck on the norm.
-        assertEquals(Standing.EVEN, standing(40_000, 60_000).standing)
-        // A quarter of a unit under it still reads "0".
-        assertEquals(Standing.EVEN, standing(40_040, 60_000).standing)
-        assertEquals(Standing.MARGIN, standing(60_000, 40_000).standing)
-        assertEquals(Standing.OVER, standing(20_000, 80_000).standing)
+    fun theLightsEdges() {
+        // Six days of ten gone, 600 of 1 000: on the norm.
+        assertEquals(Light.YELLOW, envelope(40_000, 60_000).light)
+        // 50 past the norm is 5 % of the money, still near it; 51 is not.
+        assertEquals(Light.YELLOW, envelope(35_000, 65_000).light)
+        assertEquals(Light.RED, envelope(34_000, 66_000).light)
+        assertEquals(Light.GREEN, envelope(60_000, 40_000).light)
     }
 }

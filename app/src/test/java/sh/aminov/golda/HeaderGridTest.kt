@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -46,7 +47,7 @@ class HeaderGridTest {
     }
 
     private fun home(data: AppData = ScreenshotTest().demo()) = compose.setContent {
-        GoldaTheme("golda", "LIGHT", "ROOMY") { HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, { periods++ }, onEdit = {}) }
+        GoldaTheme("golda", "LIGHT", "ROOMY") { HomeScreen(data, PaddingValues(), rememberLazyListState(), { periods++ }, onEdit = {}) }
     }
 
     private fun bounds(description: String) = compose.onNodeWithContentDescription(description).fetchSemanticsNode().boundsInRoot
@@ -59,7 +60,7 @@ class HeaderGridTest {
         compose.setContent {
             GoldaTheme("golda", "LIGHT", "ROOMY") {
                 when (tab.value) {
-                    0 -> HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
+                    0 -> HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, onEdit = {})
                     1 -> AnalyticsScreen(data, PaddingValues()) {}
                     else -> AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> })
                 }
@@ -77,13 +78,14 @@ class HeaderGridTest {
     }
 
     @Test
-    fun theLineUnderTheBarSaysHowItGoesAndChangesThePeriod() {
+    fun theTilesSayWhatWentAndWhatIsLeftAndThePillChangesThePeriod() {
         home()
         compose.onAllNodesWithText("На сегодня", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Перерасход", substring = true, useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText(" до ", substring = true, useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("план", substring = true, useUnmergedTree = true).assertCountEquals(0)
-        assertEquals(true, tagged(Tags.HOME_RUNWAY).top > tagged(Tags.HOME_BIG).bottom)
+        compose.onAllNodesWithText("Ушло", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Осталось", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Ещё ", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("Настройки").assertCountEquals(0)
+        assertEquals(true, tagged(Tags.HOME_SPENT).top > tagged(Tags.HOME_BIG).bottom)
         compose.onNodeWithTag(Tags.HOME_PERIOD).performClick()
         assertEquals(1, periods)
     }
