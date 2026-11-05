@@ -50,21 +50,29 @@ class HeaderGridTest {
     private fun tagged(tag: String) = compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
 
     @Test
-    fun theGearAndTheFigureStandAsOnInsights() {
-        val insights = androidx.compose.runtime.mutableStateOf(false)
+    fun theFigureStandsOnOneLineOnAllThreeTabsAndTheGearWhereTheCalendarIs() {
+        val tab = androidx.compose.runtime.mutableStateOf(0)
         val data = ScreenshotTest().demo()
         compose.setContent {
             GoldaTheme("golda", "LIGHT", "ROOMY") {
-                if (insights.value) AnalyticsScreen(data, PaddingValues()) {} else HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
+                when (tab.value) {
+                    0 -> HomeScreen(data, PaddingValues(), rememberLazyListState(), {}, {}, onEdit = {})
+                    1 -> AnalyticsScreen(data, PaddingValues()) {}
+                    else -> AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> })
+                }
             }
         }
         val gear = bounds("Настройки")
-        val figure = tagged(Tags.HOME_BIG)
-        insights.value = true
+        val home = tagged(Tags.HOME_BIG)
+        tab.value = 1
         compose.waitForIdle()
         assertEquals(gear, bounds("Период"))
-        assertEquals(figure.top, tagged(Tags.INSIGHTS_TOTAL).top, 1f)
-        assertEquals(figure.left, tagged(Tags.INSIGHTS_TOTAL).left, 1f)
+        assertEquals(home.top, tagged(Tags.INSIGHTS_TOTAL).top, 1f)
+        assertEquals(home.left, tagged(Tags.INSIGHTS_TOTAL).left, 1f)
+        tab.value = 2
+        compose.waitForIdle()
+        assertEquals(home.top, tagged(Tags.ACCOUNTS_TOTAL).top, 1f)
+        assertEquals(home.left, tagged(Tags.ACCOUNTS_TOTAL).left, 1f)
     }
 
     @Test
@@ -88,11 +96,25 @@ class HeaderGridTest {
         compose.onAllNodesWithTag(Tags.HOME_PERIOD).assertCountEquals(0)
     }
 
+    private fun accounts(data: AppData) = compose.setContent {
+        GoldaTheme("golda", "LIGHT", "ROOMY") { AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> }) }
+    }
+
     @Test
-    fun accountsOpenWithTheTotalAsATitle() {
+    fun accountsOpenWithTheTotalAndTheOtherCurrenciesUnderIt() {
         val data = ScreenshotTest().demo()
-        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { AccountsScreen(data, PaddingValues(), {}, {}, { _, _, _ -> }) } }
+        accounts(data)
         compose.onAllNodesWithText("Всего", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText("Всего на счетах", useUnmergedTree = true).assertCountEquals(0)
+        val others = data.others(data.states.values.sumOf { it.rubMinor }, data.base.code)
+        compose.onAllNodesWithText(others, useUnmergedTree = true).assertCountEquals(1)
+    }
+
+    @Test
+    fun withOneCurrencyTheCaptionCountsTheAccounts() {
+        val demo = ScreenshotTest().demo()
+        val settings = demo.settings.copy(displayCurrencies = emptyList(), localCurrency = demo.base.code)
+        accounts(AppData(settings, demo.accounts, demo.operations, demo.categories, emptyList(), today = demo.today))
+        compose.onAllNodesWithText("${demo.accounts.size} счетов", useUnmergedTree = true).assertCountEquals(1)
     }
 }

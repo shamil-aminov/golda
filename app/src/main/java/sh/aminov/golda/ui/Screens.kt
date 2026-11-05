@@ -267,19 +267,21 @@ fun AccountsScreen(
             HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // A title, then how much. Every text cut to its letters and every gap a step of the header's row
-                // (HeaderSpace): the title a figure's step over the total, the other currencies a block under it,
-                // the debt's cost a group away. Each block one TalkBack node.
+                // As the other tabs: a title, its caption, the figure on their line. Every text cut to its letters
+                // and every gap a step of the header's row (HeaderSpace), the debt's cost a group away. Each block
+                // one TalkBack node. With one currency there are none to show: how many accounts it adds up.
                 val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
                     Text(tr("Всего", "Total"), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
+                    VSpace(HeaderSpace.valueCaption)
+                    val count = data.accounts.size.toLong()
+                    val others = data.others(total, data.base.code).ifBlank { "$count " + plural(count, "счёт", "счёта", "счетов", "account", "accounts") }
+                    Text(others, cut, style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     VSpace(HeaderSpace.figureCaption)
                     val text = data.base.whole(total)
                     BoxWithConstraints {
-                        HeroAmount(text, ink, Modifier.letters(heroFigureSize(text, maxWidth)).testTag(Tags.ACCOUNTS_TOTAL), signColor = ink)
+                        HeroAmount(text, ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL).letters(heroFigureSize(text, maxWidth)), signColor = ink)
                     }
-                    VSpace(HeaderSpace.block)
-                    Text(data.others(total, data.base.code), Modifier.letters(figures.fontSize), style = figures, color = ink)
                 }
                 Debts.advice(data.accounts, data.states)?.let { advice ->
                     VSpace(HeaderSpace.group)
