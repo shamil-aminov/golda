@@ -1,0 +1,95 @@
+package sh.aminov.golda
+
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.ParameterizedRobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.ui.AnalyticsScreen
+import sh.aminov.golda.ui.GoldaTheme
+import sh.aminov.golda.ui.GoldaToolbar
+import sh.aminov.golda.ui.Tags
+import sh.aminov.golda.ui.ToolbarTab
+import sh.aminov.golda.ui.VoiceControl
+import sh.aminov.golda.ui.VoiceState
+import java.util.TimeZone
+
+@Composable
+private fun IslandForFrames() = GoldaToolbar(
+    tabs = listOf(
+        ToolbarTab(R.drawable.ic_home, R.drawable.ic_home_fill, "Главная"),
+        ToolbarTab(R.drawable.ic_wallet, R.drawable.ic_wallet_fill, "Счета"),
+        ToolbarTab(R.drawable.ic_chart, R.drawable.ic_chart_fill, "Аналитика"),
+    ),
+    selected = 2, position = { 2f }, onSelect = {}, voice = VoiceControl(VoiceState.Idle, {}), onAdd = {},
+)
+
+private val frames = mapOf(
+    "day-b" to "", "day-s" to "sub", "day-r" to "right", "week-b" to "", "week-s" to "sub", "kind-b" to "", "kind-s" to "sub",
+    "kd-b" to "", "kd-l" to "line", "kd-s" to "sub", "z-b" to "", "z-n" to "nozero", "z-1" to "one",
+)
+
+/** TEMPORARY, not committed. */
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
+class InsightsFramesPreviewTest(private val name: String) {
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun cases() = frames.keys.map { arrayOf<Any>(it) }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+        System.setProperty("golda.f", frames.getValue(name))
+    }
+
+    @After fun back() { System.clearProperty("golda.f") }
+
+    private fun week() {
+        compose.onNodeWithContentDescription("Период").performClick()
+        compose.onNodeWithText("Неделя").performClick()
+    }
+    private fun bar(x: Float) = compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width * x, height / 2f)) }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Scaffold(floatingActionButton = { IslandForFrames() }, floatingActionButtonPosition = FabPosition.Center) { padding ->
+                    AnalyticsScreen(data, padding) {}
+                }
+            }
+        }
+        when (name.substringBefore('-')) {
+            "day" -> { week(); bar(0.97f) }
+            "week" -> bar(0.69f)
+            "kind" -> compose.onNodeWithText("Регулярные").performClick()
+            "kd" -> { week(); compose.onNodeWithText("Ежедневные").performClick(); bar(0.97f) }
+            "z" -> if (name != "z-1") week()
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/title/$name.png")
+    }
+}
