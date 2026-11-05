@@ -67,6 +67,7 @@ import sh.aminov.golda.domain.Draft
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.Settings
 import java.time.LocalDate
+import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.domain.label
 import sh.aminov.golda.domain.plural
@@ -78,6 +79,8 @@ private sealed interface Page {
     /** Gemini's reviews, with the period insights had picked for a new one. */
     data class Reviews(val from: Long, val to: Long) : Page
     data class ReviewPage(val id: Long, val from: Long, val to: Long) : Page
+    /** Insights' card in full: what is picked on it, in epoch days. */
+    data class Spending(val filter: Bucket?, val from: Long, val to: Long, val barFrom: Long?, val barTo: Long?) : Page
     data object Theme : Page
     /** A section of Settings, under its contents. */
     data class Section(val section: SettingsSection) : Page
@@ -94,13 +97,14 @@ private fun keyOf(page: Page?): String = when (page) {
     is Page.AccountPage -> "a:${page.id}"
     is Page.Reviews -> "rs:${page.from}:${page.to}"
     is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
+    is Page.Spending -> "sp:${page.filter?.name.orEmpty()}:${page.from}:${page.to}:${page.barFrom ?: ""}:${page.barTo ?: ""}"
     null -> ""
 }
 
 /** How deep a page sits: the tabs, a page opened from them, a page opened from that one. */
 private fun depth(page: Page?): Int = when (page) {
     null -> 0
-    Page.Settings, is Page.AccountPage, is Page.Reviews -> 1
+    Page.Settings, is Page.AccountPage, is Page.Reviews, is Page.Spending -> 1
     Page.Theme, is Page.Section, is Page.ReviewPage -> 2
     Page.OwnTheme -> 3
 }
@@ -118,6 +122,7 @@ private val PageSaver = Saver<Page?, String>(
             "a" -> parts.getOrNull(1)?.toLongOrNull()?.let { Page.AccountPage(it) }
             "rs" -> Page.Reviews(parts[1].toLong(), parts[2].toLong())
             "r" -> Page.ReviewPage(parts[1].toLong(), parts[2].toLong(), parts[3].toLong())
+            "sp" -> Page.Spending(Bucket.entries.firstOrNull { it.name == parts[1] }, parts[2].toLong(), parts[3].toLong(), parts[4].toLongOrNull(), parts[5].toLongOrNull())
             else -> null
         }
     },
@@ -376,6 +381,13 @@ private fun MainScreen(
                 onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )
+            is Page.Spending -> InsightsDetails(
+                data, current.filter,
+                Period(LocalDate.ofEpochDay(current.from), LocalDate.ofEpochDay(current.to)),
+                current.barFrom?.let { from -> current.barTo?.let { to -> Period(LocalDate.ofEpochDay(from), LocalDate.ofEpochDay(to)) } },
+                onBack = { page = null },
+                onEdit = { sheet = Sheet.Entry(EntryRequest(editing = it)) },
+            )
             is Page.Reviews -> {
                 val reviews by repo.reviews.collectAsStateWithLifecycle(initialValue = emptyList())
                 val period = Period(LocalDate.ofEpochDay(current.from), LocalDate.ofEpochDay(current.to))
@@ -497,7 +509,10 @@ private fun MainScreen(
                             onSavePayment = { scope.launch { repo.saveObligation(it) } },
                             onDeletePayment = { id -> scope.launch { repo.deleteObligation(id) } },
                         )
-                        Tab.INSIGHTS -> AnalyticsScreen(data, padding, onEdit = { sheet = Sheet.Entry(EntryRequest(editing = it)) }) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
+                        Tab.INSIGHTS -> AnalyticsScreen(
+                            data, padding,
+                            onDetails = { filter, period, bar -> page = Page.Spending(filter, period.from.toEpochDay(), period.to.toEpochDay(), bar?.from?.toEpochDay(), bar?.to?.toEpochDay()) },
+                        ) { p -> page = Page.Reviews(p.from.toEpochDay(), p.to.toEpochDay()) }
                     }
                 }
                 // Rows scroll under the clock: a band of the page's colour, over the pager, keeps them from

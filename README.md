@@ -78,8 +78,8 @@ loud is the moment you notice you are spending.
   period. You get reminders, a payoff estimate, an early-repayment calculator
   and a hint on which debt to pay first.
 - **Insights.** A mosaic of the three kinds of spending, a tile narrowing all
-  under it. Days as bars stacked by category, a tap showing that day's
-  purchases; categories as a list, the average per day, income, and how much
+  under it. Bars stacked by category with a short legend; a second level holds
+  the categories and a day's purchases. The average per day, income, and how much
   currency exchange cost you against the CBR rate.
 - **Reviews.** Gemini checks a period's spending like a careful bookkeeper:
   what to look into (a payment that looks doubled, fees, exchange losses, a

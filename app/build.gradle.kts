@@ -195,7 +195,7 @@ tasks.register<JavaExec>("pitest") {
                 "--excludedMethods", "equals,hashCode,toString,component*,copy*,copy\$default",
                 "--targetTests", "sh.aminov.golda.*Test",
                 // Screens and Gemini need Robolectric and say nothing about the domain's logic.
-                "--excludedTestClasses", "sh.aminov.golda.ScreenshotTest,sh.aminov.golda.GeminiEvalTest,sh.aminov.golda.ThemeSettingsTest,sh.aminov.golda.CurrencyCardsPreviewTest,sh.aminov.golda.AccountSublineTest,sh.aminov.golda.SettingsSectionsTest,sh.aminov.golda.AnalyticsScreenTest,sh.aminov.golda.InsightsPagerTest,sh.aminov.golda.InsightsScrollTest",
+                "--excludedTestClasses", "sh.aminov.golda.ScreenshotTest,sh.aminov.golda.GeminiEvalTest,sh.aminov.golda.ThemeSettingsTest,sh.aminov.golda.CurrencyCardsPreviewTest,sh.aminov.golda.AccountSublineTest,sh.aminov.golda.SettingsSectionsTest,sh.aminov.golda.AnalyticsScreenTest,sh.aminov.golda.InsightsPagerTest,sh.aminov.golda.InsightsScrollTest,sh.aminov.golda.InsightsDetailsTest",
                 "--sourceDirs", sources.path,
                 "--classPathFile", list.path,
                 // The app's own classes reach the unit tests as a jar, which Pitest would not mutate by itself.

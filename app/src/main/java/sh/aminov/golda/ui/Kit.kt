@@ -864,9 +864,6 @@ object ChartSpace {
     /** The card's title over the line that says when and how much, a caption to its value: 16. */
     val titleToLine: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
 
-    /** Room left under the title's baseline for its tails, taken out of the gap below: the card would cut them. */
-    val titleDescent: Dp = 6.dp
-
     /** That line over the bars, a block: 26. */
     val lineToBars: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
 
@@ -876,11 +873,11 @@ object ChartSpace {
     /** The labels over the day's plan, a caption to them: 16. */
     val labelsToPlan: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
 
-    /** The labels, or the plan, over the first row's circle, a block: 26. */
-    val labelsToList: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
+    /** The labels, or the plan, over the legend, a block: 26. */
+    val labelsToLegend: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.block
 
-    /** A two-line row is taller than its circle: its circle sits this much under the row's top. */
-    val rowOverCircle: Dp = 4.dp
+    /** A legend's row from the next, letters from letters: 16. */
+    val legendRows: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.valueCaption
 }
 
 /**
@@ -1388,8 +1385,6 @@ fun CardTitle(
     quiet: Boolean = false,
     /** The rows under it have icons: they add half the circles' gap over their circle, not the letters'. */
     icons: Boolean = true,
-    /** What follows sets its own gap from the title's letters, not a row. */
-    tight: Boolean = false,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val style = if (quiet) TextRole.rowName.copy(fontWeight = TextRole.Accent) else TextRole.groupTitle
@@ -1398,7 +1393,7 @@ fun CardTitle(
     // Out to the rows' card edge, 8 from the screen, like GroupRow.
     Surface(modifier.bleed(Gap.s).fillMaxWidth(), shape = groupShape(0, if (alone) 1 else 2), color = tileColor()) {
         Row(
-            Modifier.padding(start = Space.card, end = 12.dp, top = ListSpace.edge, bottom = if (tight) ChartSpace.titleDescent else if (alone) ListSpace.edge else ListSpace.titleToRow - rowHalf),
+            Modifier.padding(start = Space.card, end = 12.dp, top = ListSpace.edge, bottom = if (alone) ListSpace.edge else ListSpace.titleToRow - rowHalf),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(title, Modifier.weight(1f).semantics { heading() }.letters(style.fontSize), style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)

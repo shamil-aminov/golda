@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -21,14 +22,16 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.domain.Period
 import sh.aminov.golda.ui.AnalyticsScreen
 import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.Tags
+import java.time.LocalDate
 import java.util.TimeZone
 
-/** Insights on the demo data, by hand: the kind's tile narrows the one card, a bar swaps its rows. */
+/** Insights on the demo data, by hand: the kind's tile narrows the one card, a bar its legend, the rest of the card opens the details. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h1600dp-xxhdpi")
@@ -36,13 +39,14 @@ class AnalyticsScreenTest {
     @get:Rule val compose = createComposeRule()
 
     private var reviewed: Period? = null
+    private var details: Triple<Bucket?, Period, Period?>? = null
 
     @Before
     fun open() {
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
         I18n.russian = true
         val data = ScreenshotTest().demo()
-        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { AnalyticsScreen(data, PaddingValues()) { reviewed = it } } }
+        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { AnalyticsScreen(data, PaddingValues(), { kind, period, bar -> details = Triple(kind, period, bar) }) { reviewed = it } } }
     }
 
     private fun shown(text: String, times: Int = 1) = compose.onAllNodesWithText(text).assertCountEquals(times)
@@ -96,10 +100,9 @@ class AnalyticsScreenTest {
         compose.onAllNodesWithContentDescription("Снять выбор дня").assertCountEquals(0)
         tapLastBar()
         line("За 19–24 октября ·")
-        // The rent is in an earlier week; no single purchases, the same rows, the card's title as it was.
+        // The rent is in an earlier week; the legend is this bar's, the card's title as it was.
         shown("Жильё", 0)
         shown("Еда")
-        shown("Шаурма", 0)
         shown("Все траты")
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
         shown("Жильё")
@@ -107,14 +110,13 @@ class AnalyticsScreenTest {
     }
 
     @Test
-    fun aDaysBarSwapsTheCategoriesForItsPurchasesAndASecondTapBringsThemBack() {
+    fun aDaysBarNarrowsTheLegendAndASecondTapBringsItBack() {
         week()
         tapLastBar()
-        shown("Шаурма")
+        shown("Еда")
         shown("Покупки", 0)
         line("За субботу, 24 октября ·")
         tapLastBar()
-        shown("Шаурма", 0)
         shown("Покупки")
     }
 
@@ -123,10 +125,9 @@ class AnalyticsScreenTest {
         week()
         compose.onNodeWithText("Ежедневные").performClick()
         tapLastBar()
-        shown("Шаурма")
-        shown("Еда", 2)
+        line("За субботу, 24 октября ·")
         compose.onNodeWithContentDescription("Снять выбор дня").performClick()
-        shown("Шаурма", 0)
+        compose.onAllNodesWithText("За субботу", substring = true).assertCountEquals(0)
         // The kind stays: its tile, the title, its category.
         shown("Ежедневные", 2)
         shown("Еда")
@@ -155,14 +156,41 @@ class AnalyticsScreenTest {
         week()
         tapLastBar()
         compose.onNodeWithText("Разовые").performClick()
-        shown("Шаурма", 0)
+        compose.onAllNodesWithText("За субботу", substring = true).assertCountEquals(0)
         shown("Покупки")
     }
 
     @Test
-    fun everyCategoryIsOnTheCard() {
+    fun theLegendRepeatsTheBarsLayers() {
         shown("Жильё")
-        shown("Транспорт")
+        shown("Еда")
+        shown("Остальное")
+        shown("Транспорт", 0)
+    }
+
+    @Test
+    fun theTitleAndTheLegendOpenTheDetailsWithWhatIsPicked() {
+        compose.onNodeWithText("Все траты", useUnmergedTree = true).performClick()
+        assertEquals(null, details!!.first)
+        assertEquals(null, details!!.third)
+        details = null
+        compose.onNodeWithText("Ежедневные").performClick()
+        tapLastBar()
+        compose.onNodeWithText("Еда", useUnmergedTree = true).performClick()
+        assertEquals(Bucket.DAILY, details!!.first)
+        assertEquals(LocalDate.of(2026, 10, 19), details!!.third!!.from)
+    }
+
+    @Test
+    fun theBarsAndTheCrossDoNotOpenTheDetails() {
+        tapLastBar()
+        compose.onNodeWithContentDescription("Снять выбор дня").performClick()
+        assertNull(details)
+    }
+
+    @Test
+    fun theCardSaysDetailsAloud() {
+        compose.onNodeWithContentDescription("Подробнее").assertExists()
     }
 
     @Test
