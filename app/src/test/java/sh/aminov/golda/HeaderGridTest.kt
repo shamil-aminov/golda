@@ -18,6 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.ui.AccountsScreen
 import sh.aminov.golda.ui.AnalyticsScreen
@@ -101,20 +102,22 @@ class HeaderGridTest {
     }
 
     @Test
-    fun accountsOpenWithTheTotalAndTheOtherCurrenciesUnderIt() {
+    fun accountsOpenWithTheBalanceItsDebtsAndTheOtherCurrenciesUnderTheFigure() {
         val data = ScreenshotTest().demo()
         accounts(data)
-        compose.onAllNodesWithText("Всего", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Всего на счетах", useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Баланс", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Долги " + data.base.whole(21_500_000), useUnmergedTree = true).assertCountEquals(1)
         val others = data.others(data.states.values.sumOf { it.rubMinor }, data.base.code)
-        compose.onAllNodesWithText(others, useUnmergedTree = true).assertCountEquals(1)
+        val under = compose.onAllNodesWithText(others, useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
+        assertEquals(true, under.top > tagged(Tags.ACCOUNTS_TOTAL).bottom)
     }
 
     @Test
-    fun withOneCurrencyTheCaptionCountsTheAccounts() {
+    fun withoutDebtsTheCaptionSaysSoAndTheFigureKeepsItsLine() {
         val demo = ScreenshotTest().demo()
-        val settings = demo.settings.copy(displayCurrencies = emptyList(), localCurrency = demo.base.code)
-        accounts(AppData(settings, demo.accounts, demo.operations, demo.categories, emptyList(), today = demo.today))
-        compose.onAllNodesWithText("${demo.accounts.size} счетов", useUnmergedTree = true).assertCountEquals(1)
+        val free = AppData(demo.settings, demo.accounts.filterNot { with(Debts) { it.isDebt } }, demo.operations, demo.categories, emptyList(), today = demo.today)
+        accounts(free)
+        compose.onAllNodesWithText("Долгов нет", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Долги", substring = true, useUnmergedTree = true).assertCountEquals(0)
     }
 }

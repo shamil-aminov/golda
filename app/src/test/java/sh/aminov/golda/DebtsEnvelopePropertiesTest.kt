@@ -3,7 +3,9 @@ package sh.aminov.golda
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.double
 import io.kotest.property.arbitrary.int
+import io.kotest.property.arbitrary.list
 import io.kotest.property.arbitrary.long
+import io.kotest.property.arbitrary.pair
 import io.kotest.property.checkAll
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -310,5 +312,20 @@ class DebtsEnvelopePropertiesTest {
         assertEquals(32L, e.daysLeft)
         assertEquals("GEL", e.currency)
         assertNull(Envelopes.current(emptyList(), ops, Settings(), start, zone))
+    }
+
+    @Test
+    fun theDebtsAreWhatTheBalanceTakesOff() = prop {
+        val types = AccountType.entries
+        checkAll(Arb.list(Arb.pair(Arb.int(types.indices), Arb.long(-1_000_000_000L..1_000_000_000L)), 0..8)) { rows ->
+            val states = rows.mapIndexed { i, (type, rub) ->
+                AccountState(Account(i + 1L, "a$i", "RUB", types[type], includeInFree = false, sort = i), rub, rub)
+            }
+            val owed = Debts.owedRub(states)
+            assertTrue(owed >= 0)
+            // The balance with the debts given back is the money alone: nothing else takes anything off.
+            val money = states.sumOf { s -> if (with(Debts) { s.account.isDebt }) s.rubMinor.coerceAtLeast(0) else s.rubMinor }
+            assertEquals(money, states.sumOf { it.rubMinor } + owed)
+        }
     }
 }

@@ -864,6 +864,9 @@ object HeaderSpace {
  * the letters, the bars and the rows' circles.
  */
 object ChartSpace {
+    /** The big figure over the bars, a group: 42. */
+    val figureToBars: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.group
+
     /** The bars over their labels, a chart's caption: 10. */
     val barsToLabels: Dp @Composable @ReadOnlyComposable get() = HeaderSpace.chartCaption
 

@@ -249,7 +249,7 @@ fun AnalyticsScreen(
                     Text(span?.let { barCaption(it.from, it.to, bar) } ?: periodLine(period, today), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     VSpace(HeaderSpace.figureCaption)
                     BoxWithConstraints { HeroAmount(figure, ink, Modifier.testTag(Tags.INSIGHTS_TOTAL).letters(heroFigureSize(sizedFor, maxWidth)), signColor = ink, sizedFor = sizedFor) }
-                    VSpace(HeaderSpace.block)
+                    VSpace(ChartSpace.figureToBars)
                     if (spending) {
                         DayBars(bars, bar, last, plan, data.base, barStacks, day, onTap = pick::tapBar)
                         VSpace(ChartSpace.labelsToLegend)
