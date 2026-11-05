@@ -78,28 +78,13 @@ class ScaleTest {
     }
 
     @Test
-    fun longRangesAreDrawnInWeeksOrMonths() {
-        fun days(n: Int) = (0 until n).map { today.minusDays((n - 1 - it).toLong()) to 100L }
-        assertEquals(Analytics.Bar.DAY, Analytics.barFor(62))
-        assertEquals(Analytics.Bar.WEEK, Analytics.barFor(63))
-        assertEquals(Analytics.Bar.WEEK, Analytics.barFor(400))
-        assertEquals(Analytics.Bar.MONTH, Analytics.barFor(401))
-        // A month stays in days.
-        assertEquals(days(30), Analytics.bars(days(30)))
-        // Ninety days in weeks from the first day: 13 bars, the last one short, nothing lost.
-        val weeks = Analytics.bars(days(90))
-        assertEquals(13, weeks.size)
-        assertEquals(700L, weeks.first().second)
-        assertEquals(600L, weeks.last().second)
-        assertEquals(9_000L, weeks.sumOf { it.second })
-        assertEquals(today.minusDays(89), weeks.first().first)
-        // Ten years in months: about 120 bars, the first starting on the first day, not before it.
-        val decade = days(3_653)
-        val months = Analytics.bars(decade)
-        assertTrue("${months.size} bars", months.size in 120..122)
-        assertEquals(decade.first().first, months.first().first)
-        assertEquals(1, months[1].first.dayOfMonth)
-        assertEquals(365_300L, months.sumOf { it.second })
-        assertTrue(Analytics.bars(emptyList()).isEmpty())
+    fun theReviewStepsItsDaysFinerThanTheChart() {
+        val ops = years(2)
+        val data = AppData(Settings(), accounts, ops, categories, listOf(Rate("GEL", 34.0, today.toString())), today = today)
+        fun text(days: Long) = ReviewPrompt.data(Period(today.minusDays(days - 1), today), ops, data.accountById, data.categoryById, data.rates, today, zone)
+        assertTrue(text(62).contains("Ежедневное по дням"))
+        assertTrue(text(63).contains("Ежедневное по неделям"))
+        assertTrue(text(400).contains("Ежедневное по неделям"))
+        assertTrue(text(401).contains("Ежедневное по месяцам"))
     }
 }

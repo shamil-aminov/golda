@@ -44,35 +44,54 @@ data class Report(
 )
 
 object Analytics {
-    /** What one bar stands for over a period of [days] days. */
     /** Tapped again, what was picked lets go; anything else takes its place. */
     fun <T> toggled(current: T?, tapped: T): T? = if (current == tapped) null else tapped
 
-    enum class Bar { DAY, WEEK, MONTH }
+    /**
+     * The most bars the chart holds: as many as still take a fingertip each, and just enough for two
+     * weeks of days and for the thirteen calendar months a year from any day touches.
+     */
+    const val MAX_BARS = 14
 
-    fun barFor(days: Int): Bar = when {
-        days <= 62 -> Bar.DAY
-        days <= 400 -> Bar.WEEK
-        else -> Bar.MONTH
+    enum class Bar { DAY, WEEK, MONTH, YEAR }
+
+    /** The finest unit that keeps [first]..[last] within [MAX_BARS]; past fourteen years, years all the same. */
+    fun barFor(first: LocalDate, last: LocalDate): Bar = Bar.entries.firstOrNull { barCount(first, last, it) <= MAX_BARS } ?: Bar.YEAR
+
+    private fun barCount(first: LocalDate, last: LocalDate, bar: Bar): Long = when (bar) {
+        Bar.DAY -> ChronoUnit.DAYS.between(first, last) + 1
+        Bar.WEEK -> ChronoUnit.DAYS.between(calendarStart(first, bar), calendarStart(last, bar)) / 7 + 1
+        Bar.MONTH -> ChronoUnit.MONTHS.between(calendarStart(first, bar), calendarStart(last, bar)) + 1
+        Bar.YEAR -> (last.year - first.year).toLong() + 1
     }
 
-    /**
-     * The day a [date] counts under, for bars of [bar] over a period from [first]: itself, the first
-     * day of its week from [first], or the first of its month (never before [first]).
-     */
-    fun barStart(date: LocalDate, first: LocalDate, bar: Bar): LocalDate = when (bar) {
+    /** The first day of the calendar's week (from Monday), month or year around [date]. */
+    private fun calendarStart(date: LocalDate, bar: Bar): LocalDate = when (bar) {
         Bar.DAY -> date
-        Bar.WEEK -> first.plusDays(ChronoUnit.DAYS.between(first, date) / 7 * 7)
-        Bar.MONTH -> date.withDayOfMonth(1).let { if (it.isBefore(first)) first else it }
+        Bar.WEEK -> date.minusDays(date.dayOfWeek.value - 1L)
+        Bar.MONTH -> date.withDayOfMonth(1)
+        Bar.YEAR -> date.withDayOfYear(1)
     }
 
     /**
-     * Days summed into bars that can be told apart: a day each up to two months, a week each up to a
-     * year, a month each beyond. Ten years is 120 bars, not 3 650 lines thinner than a pixel.
+     * The day a [date] counts under, for bars of [bar] over a period from [first]: the start of its
+     * calendar unit, never before [first]. Calendar units, so a bar is a week one knows; only the
+     * period's edges can cut one short, and its label says by how much.
      */
+    fun barStart(date: LocalDate, first: LocalDate, bar: Bar): LocalDate = calendarStart(date, bar).let { if (it.isBefore(first)) first else it }
+
+    /** The last day of the bar that starts on [start], never after [last]. */
+    fun barEnd(start: LocalDate, last: LocalDate, bar: Bar): LocalDate = when (bar) {
+        Bar.DAY -> start
+        Bar.WEEK -> calendarStart(start, bar).plusDays(6)
+        Bar.MONTH -> start.withDayOfMonth(start.lengthOfMonth())
+        Bar.YEAR -> start.withDayOfYear(start.lengthOfYear())
+    }.let { if (it.isAfter(last)) last else it }
+
+    /** Days summed into bars of the unit [barFor] gives. */
     fun bars(days: List<Pair<LocalDate, Long>>): List<Pair<LocalDate, Long>> {
         val first = days.firstOrNull()?.first ?: return emptyList()
-        val bar = barFor(days.size)
+        val bar = barFor(first, days.last().first)
         if (bar == Bar.DAY) return days
         return days.groupBy { barStart(it.first, first, bar) }.map { (start, list) -> start to list.sumOf { it.second } }
     }

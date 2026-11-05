@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import sh.aminov.golda.domain.Analytics
 import sh.aminov.golda.domain.KindBlock
+import java.time.LocalDate
 
 /** The rules of Insights' picks: a second tap lets go, the kinds fit their block. */
 class InsightsPicksTest {
@@ -21,6 +22,90 @@ class InsightsPicksTest {
             if (a != b) assertEquals(b, Analytics.toggled(a, b))
         }
     }
+
+    private fun days(first: LocalDate, count: Int, each: (Int) -> Long = { 100L }) = (0 until count).map { first.plusDays(it.toLong()) to each(it) }
+
+    @Test
+    fun barsStayWithinTheCapAndLoseNothing() = prop {
+        // Up to twelve years: any such span touches at most fourteen calendar ones.
+        checkAll(Arb.int(0..20_000), Arb.int(1..4_500), Arb.long(0L..1_000_000L)) { offset, count, money ->
+            val all = days(LocalDate.of(2000, 1, 1).plusDays(offset.toLong()), count) { (money * (it % 7)) }
+            val bars = Analytics.bars(all)
+            assertTrue("${bars.size} bars", bars.size <= Analytics.MAX_BARS)
+            assertEquals(all.sumOf { it.second }, bars.sumOf { it.second })
+        }
+    }
+
+    @Test
+    fun theUnitIsTheFinestThatFits() = prop {
+        checkAll(Arb.int(0..20_000), Arb.int(1..1_500)) { offset, count ->
+            val first = LocalDate.of(2000, 1, 1).plusDays(offset.toLong())
+            val last = first.plusDays(count - 1L)
+            val bar = Analytics.barFor(first, last)
+            if (bar != Analytics.Bar.DAY) {
+                // One unit finer would not have fitted.
+                val finer = Analytics.Bar.entries[bar.ordinal - 1]
+                val starts = generateSequence(first) { it.plusDays(1) }.takeWhile { !it.isAfter(last) }.map { Analytics.barStart(it, first, finer) }.distinct().count()
+                assertTrue("$first $last $bar", starts > Analytics.MAX_BARS)
+            }
+        }
+    }
+
+    @Test
+    fun aBarsSpanHoldsItsDaysAndNoOthers() = prop {
+        checkAll(Arb.int(0..20_000), Arb.int(1..1_500)) { offset, count ->
+            val first = LocalDate.of(2000, 1, 1).plusDays(offset.toLong())
+            val last = first.plusDays(count - 1L)
+            val bar = Analytics.barFor(first, last)
+            var day = first
+            while (!day.isAfter(last)) {
+                val start = Analytics.barStart(day, first, bar)
+                val end = Analytics.barEnd(start, last, bar)
+                assertTrue("$day $start $end", !day.isBefore(start) && !day.isAfter(end) && !start.isBefore(first) && !end.isAfter(last))
+                // The next day starts the next bar or stays in this one.
+                if (day == end && day != last) assertEquals(day.plusDays(1), Analytics.barStart(day.plusDays(1), first, bar))
+                day = day.plusDays(1)
+            }
+        }
+    }
+
+    @Test
+    fun theUnitsByPeriod() {
+        val sat = LocalDate.of(2026, 10, 24)
+        fun back(n: Long) = Analytics.barFor(sat.minusDays(n - 1), sat)
+        assertEquals(Analytics.Bar.DAY, back(7))
+        assertEquals(Analytics.Bar.DAY, back(14))
+        assertEquals(Analytics.Bar.WEEK, back(15))
+        assertEquals(Analytics.Bar.WEEK, back(30))
+        assertEquals(Analytics.Bar.MONTH, back(365))
+        assertEquals(Analytics.Bar.YEAR, back(5 * 365))
+    }
+
+    @Test
+    fun aMonthsWeeksAreTheCalendars() {
+        val first = LocalDate.of(2026, 9, 25)
+        val bars = Analytics.bars(days(first, 30))
+        // Fri 25 to Sun 27 is cut short by the period; the weeks after it start on Mondays.
+        assertEquals(listOf(first, LocalDate.of(2026, 9, 28), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 12), LocalDate.of(2026, 10, 19)), bars.map { it.first })
+        assertEquals(listOf(300L, 700L, 700L, 700L, 600L), bars.map { it.second })
+        assertEquals(LocalDate.of(2026, 9, 27), Analytics.barEnd(first, LocalDate.of(2026, 10, 24), Analytics.Bar.WEEK))
+        assertEquals(LocalDate.of(2026, 10, 24), Analytics.barEnd(LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 24), Analytics.Bar.WEEK))
+    }
+
+    @Test
+    fun monthsAndYearsEndWithTheCalendar() {
+        val last = LocalDate.of(2030, 6, 1)
+        assertEquals(LocalDate.of(2026, 2, 28), Analytics.barEnd(LocalDate.of(2026, 2, 3), last, Analytics.Bar.MONTH))
+        assertEquals(LocalDate.of(2028, 12, 31), Analytics.barEnd(LocalDate.of(2028, 1, 1), last, Analytics.Bar.YEAR))
+        assertEquals(last, Analytics.barEnd(LocalDate.of(2030, 1, 1), last, Analytics.Bar.YEAR))
+        assertEquals(LocalDate.of(2028, 3, 3), Analytics.barEnd(LocalDate.of(2028, 3, 3), last, Analytics.Bar.DAY))
+        assertEquals(LocalDate.of(2026, 3, 1), Analytics.barStart(LocalDate.of(2026, 3, 17), LocalDate.of(2025, 1, 1), Analytics.Bar.MONTH))
+        assertEquals(LocalDate.of(2026, 1, 1), Analytics.barStart(LocalDate.of(2026, 3, 17), LocalDate.of(2020, 1, 1), Analytics.Bar.YEAR))
+        assertEquals(LocalDate.of(2026, 3, 10), Analytics.barStart(LocalDate.of(2026, 3, 17), LocalDate.of(2026, 3, 10), Analytics.Bar.YEAR))
+    }
+
+    @Test
+    fun noDaysNoBars() = assertTrue(Analytics.bars(emptyList()).isEmpty())
 
     @Test
     fun theKindsFitTheirBlockAndStayReadable() = prop {

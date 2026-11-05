@@ -46,6 +46,10 @@ class AnalyticsScreenTest {
     }
 
     private fun shown(text: String, times: Int = 1) = compose.onAllNodesWithText(text).assertCountEquals(times)
+    private fun week() {
+        compose.onNodeWithContentDescription("Период").performClick()
+        compose.onNodeWithText("Неделя").performClick()
+    }
     private fun tapLastBar() = compose.onNodeWithTag(Tags.INSIGHTS_BARS).performTouchInput { click(Offset(width - 2f, height / 2f)) }
 
     @Test
@@ -74,25 +78,43 @@ class AnalyticsScreenTest {
     }
 
     @Test
-    fun theDayPlanShowsOnlyForTheDaily() {
-        compose.onNodeWithText("Регулярные").performClick()
-        shown("План", 0)
+    fun theDayPlanShowsOnlyForTheDailyByDays() {
         compose.onNodeWithText("Ежедневные").performClick()
+        // A month is in weeks: a plan for a day means nothing against them.
+        compose.onAllNodesWithText("План", substring = true).assertCountEquals(0)
+        week()
         compose.onAllNodesWithText("План", substring = true).assertCountEquals(1)
+        compose.onNodeWithText("Разовые").performClick()
+        compose.onAllNodesWithText("План", substring = true).assertCountEquals(0)
     }
 
     @Test
-    fun aBarSwapsTheCategoriesForItsDayAndASecondTapBringsThemBack() {
+    fun aWeeksBarNarrowsTheCategoriesAndTheCrossBringsThemBack() {
+        shown("Все траты")
         tapLastBar()
-        shown("Шаурма")
+        // The rent is in an earlier week; no single purchases, the same rows, the card's title as it was.
         shown("Жильё", 0)
-        tapLastBar()
+        shown("Еда")
         shown("Шаурма", 0)
+        shown("Все траты")
+        compose.onNodeWithContentDescription("Снять выбор дня").performClick()
         shown("Жильё")
     }
 
     @Test
+    fun aDaysBarSwapsTheCategoriesForItsPurchasesAndASecondTapBringsThemBack() {
+        week()
+        tapLastBar()
+        shown("Шаурма")
+        shown("Покупки", 0)
+        tapLastBar()
+        shown("Шаурма", 0)
+        shown("Покупки")
+    }
+
+    @Test
     fun thePillsCrossLetsTheDayGoAndKeepsTheKind() {
+        week()
         compose.onNodeWithText("Ежедневные").performClick()
         tapLastBar()
         shown("Шаурма")
@@ -107,8 +129,7 @@ class AnalyticsScreenTest {
 
     @Test
     fun aKindWithNothingStaysATileToPickAndLetGo() {
-        compose.onNodeWithContentDescription("Период").performClick()
-        compose.onNodeWithText("Неделя").performClick()
+        week()
         compose.onNodeWithText("Регулярные").performClick()
         shown("Регулярные", 2)
         shown("За эти дни трат нет")
@@ -119,10 +140,11 @@ class AnalyticsScreenTest {
 
     @Test
     fun anotherKindLetsTheDayGo() {
+        week()
         tapLastBar()
-        compose.onNodeWithText("Регулярные").performClick()
+        compose.onNodeWithText("Разовые").performClick()
         shown("Шаурма", 0)
-        shown("Жильё")
+        shown("Покупки")
     }
 
     @Test
