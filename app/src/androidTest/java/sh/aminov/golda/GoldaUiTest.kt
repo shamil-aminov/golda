@@ -55,9 +55,7 @@ abstract class GoldaUiTest {
     }
 
     protected fun openSettings() {
-        compose.onNodeWithContentDescription(tr("Моё", "Mine")).performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText(tr("Настройки", "Settings")).performClick()
+        compose.onNodeWithContentDescription(tr("Настройки", "Settings")).performClick()
         compose.waitForIdle()
     }
 

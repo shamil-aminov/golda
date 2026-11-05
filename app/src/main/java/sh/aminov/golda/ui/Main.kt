@@ -73,8 +73,6 @@ import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
 
 private sealed interface Page {
-    /** What is yours, behind the person over the tabs. */
-    data object Mine : Page
     data object Settings : Page
     data class AccountPage(val id: Long) : Page
     /** Gemini's reviews, with the period insights had picked for a new one. */
@@ -91,7 +89,6 @@ private sealed interface Page {
 
 /** A page as a short string: what survives the activity being recreated, and its saved state's key. */
 private fun keyOf(page: Page?): String = when (page) {
-    Page.Mine -> "me"
     Page.Settings -> "s"
     Page.Theme -> "th"
     Page.OwnTheme -> "ot"
@@ -106,10 +103,9 @@ private fun keyOf(page: Page?): String = when (page) {
 /** How deep a page sits: the tabs, a page opened from them, a page opened from that one. */
 private fun depth(page: Page?): Int = when (page) {
     null -> 0
-    Page.Mine, is Page.AccountPage, is Page.Reviews, Page.Spending -> 1
-    Page.Settings, is Page.ReviewPage -> 2
-    Page.Theme, is Page.Section -> 3
-    Page.OwnTheme -> 4
+    Page.Settings, is Page.AccountPage, is Page.Reviews, Page.Spending -> 1
+    Page.Theme, is Page.Section, is Page.ReviewPage -> 2
+    Page.OwnTheme -> 3
 }
 
 /** A page survives the activity being recreated (a language switch), written as a short string. */
@@ -118,7 +114,6 @@ private val PageSaver = Saver<Page?, String>(
     restore = { value ->
         val parts = value.split(':')
         when (parts.first()) {
-            "me" -> Page.Mine
             "s" -> Page.Settings
             "th" -> Page.Theme
             "ot" -> Page.OwnTheme
@@ -300,13 +295,12 @@ private fun MainScreen(
         ) { current ->
         pages.SaveableStateProvider(keyOf(current)) {
         when (current) {
-            Page.Mine -> MineScreen(onBack = { page = null }, onSettings = { page = Page.Settings })
             Page.Settings, is Page.Section -> SettingsScreen(
                 data = data,
                 section = (current as? Page.Section)?.section,
                 onSection = { page = Page.Section(it) },
-                // A section goes back to the contents, the contents to what is yours.
-                onBack = { page = if (current is Page.Section) Page.Settings else Page.Mine },
+                // A section goes back to the contents, the contents to the tabs.
+                onBack = { page = if (current is Page.Section) Page.Settings else null },
                 onChange = change,
                 snackbar = snackbar,
                 onRefreshRates = { done ->
@@ -467,7 +461,7 @@ private fun MainScreen(
                         // Follows the swipe, not only where it settles.
                         position = { pager.currentPage + pager.currentPageOffsetFraction },
                         onSelect = { index -> reconciling = false; scope.launch { pager.animateScrollToPage(index) } },
-                        onMine = { page = Page.Mine },
+                        onSettings = { page = Page.Settings },
                     )
                 },
                 floatingActionButton = { EntryBar(voice, onAdd = { sheet = Sheet.Entry(EntryRequest()) }) },

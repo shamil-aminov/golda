@@ -19,12 +19,11 @@ import org.robolectric.annotation.GraphicsMode
 import sh.aminov.golda.domain.I18n
 import sh.aminov.golda.ui.EntryBar
 import sh.aminov.golda.ui.GoldaTheme
-import sh.aminov.golda.ui.MineScreen
 import sh.aminov.golda.ui.TabBar
 import sh.aminov.golda.ui.VoiceControl
 import sh.aminov.golda.ui.VoiceState
 
-/** The tabs on top, the ways of writing down at the bottom, and what opens behind the person. */
+/** The tabs on top and the ways of writing down at the bottom. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
@@ -34,16 +33,16 @@ class TabBarTest {
     @Before fun russian() { I18n.russian = true }
 
     @Test
-    fun aWordOpensItsTabThePersonWhatIsYoursAndTheWordFollowsThePosition() {
+    fun aWordOpensItsTabThePersonTheSettingsAndTheWordFollowsThePosition() {
         var picked = -1
-        var mine = 0
-        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { TabBar(listOf("Сегодня", "Траты", "Счета"), { 0.8f }, { picked = it }, { mine++ }) } }
+        var settings = 0
+        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { TabBar(listOf("Сегодня", "Траты", "Счета"), { 0.8f }, { picked = it }, { settings++ }) } }
         compose.onNodeWithText("Траты").assertIsSelected()
         compose.onNodeWithText("Сегодня").assertIsNotSelected()
         compose.onNodeWithText("Счета").performClick()
         assertEquals(2, picked)
-        compose.onNodeWithContentDescription("Моё").performClick()
-        assertEquals(1, mine)
+        compose.onNodeWithContentDescription("Настройки").performClick()
+        assertEquals(1, settings)
     }
 
     @Test
@@ -64,14 +63,5 @@ class TabBarTest {
         compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { EntryBar(VoiceControl(VoiceState.Idle, {}, camera = { taken++ }), {}) } }
         compose.onNodeWithContentDescription("Снять чек").performClick()
         assertEquals(1, taken)
-    }
-
-    @Test
-    fun mineLeadsToTheSettingsAndShowsNothingEmpty() {
-        var settings = 0
-        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { MineScreen({}, { settings++ }) } }
-        compose.onNodeWithText("Настройки").performClick()
-        assertEquals(1, settings)
-        compose.onAllNodesWithContentDescription("Семья").assertCountEquals(0)
     }
 }

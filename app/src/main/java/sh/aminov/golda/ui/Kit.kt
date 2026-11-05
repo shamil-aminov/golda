@@ -1513,8 +1513,6 @@ object Tags {
     const val INSIGHTS_BARS = "insights-bars"
 
     /** Home's "· N дней до зарплаты". */
-    /** The person over the tabs. */
-    const val MINE = "mine"
     const val HOME_PERIOD = "home-period"
     const val HOME_SPENT = "home-spent"
 
