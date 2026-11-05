@@ -79,12 +79,18 @@ private sealed interface Page {
     data class Reviews(val from: Long, val to: Long) : Page
     data class ReviewPage(val id: Long, val from: Long, val to: Long) : Page
     data object Theme : Page
+    /** A section of Settings, under its contents. */
+    data class Section(val section: SettingsSection) : Page
+    /** The generator, under the theme page. */
+    data object OwnTheme : Page
 }
 
 /** A page as a short string: what survives the activity being recreated, and its saved state's key. */
 private fun keyOf(page: Page?): String = when (page) {
     Page.Settings -> "s"
     Page.Theme -> "th"
+    Page.OwnTheme -> "ot"
+    is Page.Section -> "ss:${page.section.name}"
     is Page.AccountPage -> "a:${page.id}"
     is Page.Reviews -> "rs:${page.from}:${page.to}"
     is Page.ReviewPage -> "r:${page.id}:${page.from}:${page.to}"
@@ -95,7 +101,8 @@ private fun keyOf(page: Page?): String = when (page) {
 private fun depth(page: Page?): Int = when (page) {
     null -> 0
     Page.Settings, is Page.AccountPage, is Page.Reviews -> 1
-    Page.Theme, is Page.ReviewPage -> 2
+    Page.Theme, is Page.Section, is Page.ReviewPage -> 2
+    Page.OwnTheme -> 3
 }
 
 /** A page survives the activity being recreated (a language switch), written as a short string. */
@@ -106,6 +113,8 @@ private val PageSaver = Saver<Page?, String>(
         when (parts.first()) {
             "s" -> Page.Settings
             "th" -> Page.Theme
+            "ot" -> Page.OwnTheme
+            "ss" -> Page.Section(SettingsSection.valueOf(parts[1]))
             "a" -> parts.getOrNull(1)?.toLongOrNull()?.let { Page.AccountPage(it) }
             "rs" -> Page.Reviews(parts[1].toLong(), parts[2].toLong())
             "r" -> Page.ReviewPage(parts[1].toLong(), parts[2].toLong(), parts[3].toLong())
@@ -280,9 +289,12 @@ private fun MainScreen(
         ) { current ->
         pages.SaveableStateProvider(keyOf(current)) {
         when (current) {
-            Page.Settings -> SettingsScreen(
+            Page.Settings, is Page.Section -> SettingsScreen(
                 data = data,
-                onBack = { page = null },
+                section = (current as? Page.Section)?.section,
+                onSection = { page = Page.Section(it) },
+                // A section goes back to the contents, the contents to the tabs.
+                onBack = { page = if (current is Page.Section) Page.Settings else null },
                 onChange = change,
                 snackbar = snackbar,
                 onRefreshRates = { done ->
@@ -352,6 +364,15 @@ private fun MainScreen(
                 colouredRows = data.settings.colouredRows,
                 onColouredRows = { on -> change { it.copy(colouredRows = on) } },
                 onSpacing = { spacing -> change { it.copy(spacing = spacing) } },
+                onOwn = { page = Page.OwnTheme },
+                onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
+            )
+            Page.OwnTheme -> OwnThemeScreen(
+                current = data.settings.palette,
+                mode = data.settings.themeMode,
+                saved = data.settings.savedThemes,
+                onBack = { page = Page.Theme },
+                onApply = { key -> change { it.copy(palette = key) } },
                 onSave = { key -> change { it.copy(savedThemes = (it.savedThemes + key).distinct()) } },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )
@@ -365,7 +386,7 @@ private fun MainScreen(
                     onBack = { page = null },
                     onOpen = { id -> page = Page.ReviewPage(id, current.from, current.to) },
                     hasKey = data.settings.hasGeminiKey,
-                    onAddKey = { page = Page.Settings },
+                    onAddKey = { page = Page.Section(SettingsSection.VOICE) },
                     onReview = { done ->
                         scope.launch {
                             val result = repo.review(period)

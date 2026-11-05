@@ -77,6 +77,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.annotation.DrawableRes
 import sh.aminov.golda.R
 import sh.aminov.golda.data.Bucket
 import sh.aminov.golda.data.Category
@@ -96,9 +97,21 @@ import java.time.format.DateTimeFormatter
 /** Which small sheet is open over the settings. */
 private enum class Edit { Local, Base, Shown, Markup, Key, Model, ReviewModel, Language, Notes }
 
+/** A page of Settings, one level under its contents. */
+enum class SettingsSection(private val ru: String, private val en: String) {
+    MONEY("Валюты и курс", "Currencies and rates"),
+    VOICE("Голос и разборы", "Voice and reviews"),
+    DATA("Копии и данные", "Backups and data"),
+    REMINDERS("Напоминания", "Reminders"),
+    ;
+
+    val title: String get() = tr(ru, en)
+}
+
 /**
- * Settings as grouped lists, one value per row; a row opens a small sheet where that value is
- * the big number. Ordered by how often a traveller comes here: where you are first, the language last.
+ * Settings in two levels: the contents, a row per section with where it stands, and the [section]'s own
+ * page of grouped rows, one value per row; a row opens a small sheet where that value is the big number.
+ * Ordered by how often a traveller comes here: where you are first, the language last.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -119,6 +132,9 @@ fun SettingsScreen(
     onDiscardVoice: () -> Unit = {},
     /** Opens the theme page. */
     onTheme: () -> Unit = {},
+    /** The section shown; null, the contents. */
+    section: SettingsSection? = null,
+    onSection: (SettingsSection) -> Unit = {},
 ) {
     var edit by remember { mutableStateOf<Edit?>(null) }
     var confirmWipe by remember { mutableStateOf(false) }
@@ -142,96 +158,121 @@ fun SettingsScreen(
     val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
-        topBar = { CollapsingHeader(tr("Настройки", "Settings"), onBack, bar) },
+        topBar = { CollapsingHeader(section?.title ?: tr("Настройки", "Settings"), onBack, bar) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         // Like Accounts: a small label over each group, the group one card of rows.
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.xl)) {
-            SettingsGroup(
-                tr("Где я", "Where I am"),
-                SettingItem(tr("Местная валюта", "Local currency"), currencyLabel(s.localCurrency) + tr(", для новых трат и голоса", ", for new purchases and voice")) { edit = Edit.Local },
-                SettingItem(tr("Основная валюта", "Main currency"), currencyLabel(s.baseCurrency) + tr(", крупные цифры и итоги", ", big numbers and totals")) { edit = Edit.Base },
-                SettingItem(tr("Валюты", "Currencies"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown },
-            )
-
-            val ratesDay = data.ratesDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            val foreign = s.displayCurrencies.filter { it != "RUB" }.filter { data.rates.official(it) != null && data.rates.display(it) != null }
-            SettingsGroup(
-                tr("Курс", "Rates"),
-                SettingItem(tr("Наценка к ЦБ", "Markup over the CBR"), Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup },
-                *foreign.map { code ->
-                    SettingItem("1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽", tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2))
-                }.toTypedArray(),
-                // Rarely needed, so a plain row at the end rather than a button in the header.
-                SettingItem(
-                    tr("Обновить курс", "Update rates"),
-                    if (updatingRates) tr("Обновляю", "Updating") else data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) },
-                ) {
-                    if (!updatingRates) {
-                        updatingRates = true
-                        onRefreshRates { updatingRates = false }
+            when (section) {
+                null -> {
+                    val backup = when {
+                        s.autoBackupFolder == null -> tr("Копия каждую неделю выключена", "Weekly copy off")
+                        s.lastAutoBackup == 0L -> tr("Копия каждую неделю", "A copy every week")
+                        else -> tr("Последняя копия ", "Last copy ") + fullDate(Instant.ofEpochMilli(s.lastAutoBackup).atZone(ZoneId.systemDefault()).toLocalDate())
                     }
-                },
-            )
-
-            val defaults = Settings()
-            fun modelLine(model: String, default: String) = model + if (model == default) tr(", по умолчанию", ", default") else ""
-            SettingsGroup(
-                "Gemini",
-                SettingItem(tr("Ключ Gemini", "Gemini key"), if (s.hasGeminiKey) tr("Сохранён", "Saved") else tr("Нет", "None")) { edit = Edit.Key },
-                SettingItem(tr("Модель для голоса", "Voice model"), modelLine(s.geminiModel, defaults.geminiModel)) { edit = Edit.Model },
-                SettingItem(tr("Модель для разборов", "Review model"), modelLine(s.reviewModel, defaults.reviewModel)) { edit = Edit.ReviewModel },
-                // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
-                *listOfNotNull(
-                    if (voiceBacklog > 0) SettingItem(tr("Не разобрано: $voiceBacklog", "Not processed: $voiceBacklog"), tr("Голосовые ждут разбора", "Voice notes waiting to be processed")) { edit = Edit.Notes } else null,
-                ).toTypedArray(),
-            )
-
-            SettingsGroup(
-                tr("Данные", "Data"),
-                SettingItem(tr("Сохранить копию", "Save a backup"), tr("Всё, кроме ключа, в один файл", "Everything but the key, in one file")) {
-                    exporter.launch("golda-${LocalDate.now()}.json")
-                },
-                SettingItem(tr("Восстановить", "Restore"), tr("Заменить всё содержимым файла", "Replace everything with a file")) {
-                    importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
-                },
-                // On: a folder is picked once, then a copy goes there every week by itself.
-                SettingItem(
-                    tr("Копия каждую неделю", "A copy every week"),
-                    when {
-                        s.autoBackupFolder == null -> tr("В папку, которую выберешь, хранятся последние ${AutoBackup.KEEP}", "Into a folder you pick, the last ${AutoBackup.KEEP} kept")
-                        s.lastAutoBackup == 0L -> tr("Первая сейчас появится в папке", "The first one is on its way")
-                        else -> tr("Последняя ", "Last one ") + fullDate(Instant.ofEpochMilli(s.lastAutoBackup).atZone(ZoneId.systemDefault()).toLocalDate())
-                    },
-                    checked = s.autoBackupFolder != null,
-                ) {
-                    if (s.autoBackupFolder == null) {
-                        folderPicker.launch(null)
-                    } else {
-                        onChange { it.copy(autoBackupFolder = null) }
-                        AutoBackup.apply(context, null)
+                    SettingsGroup(
+                        null,
+                        SettingItem(
+                            SettingsSection.MONEY.title,
+                            "${Currencies.symbol(s.localCurrency)} " + tr("местная", "local") + " · ${Currencies.symbol(s.baseCurrency)} " + tr("основная", "main") +
+                                tr(" · наценка ", " · markup ") + Fmt.number(s.markup * 100, 1) + " %",
+                            icon = R.drawable.ic_cash,
+                        ) { onSection(SettingsSection.MONEY) },
+                        SettingItem(tr("Тема", "Theme"), themeLabel(s.palette) + " · " + modeLabel(s.themeMode).lowercase(I18n.locale), icon = R.drawable.ic_palette, onClick = onTheme),
+                        // A failed voice note must not get lost a level down: it takes the summary while it lasts.
+                        SettingItem(
+                            SettingsSection.VOICE.title,
+                            if (voiceBacklog > 0) notProcessed(voiceBacklog) else "Gemini · " + if (s.hasGeminiKey) tr("ключ сохранён", "key saved") else tr("ключа нет", "no key"),
+                            icon = R.drawable.ic_mic,
+                        ) { onSection(SettingsSection.VOICE) },
+                        SettingItem(SettingsSection.DATA.title, backup, icon = R.drawable.ic_folder) { onSection(SettingsSection.DATA) },
+                        SettingItem(
+                            SettingsSection.REMINDERS.title,
+                            if (s.reconcileReminder) tr("Сверка по воскресеньям", "Reconcile on Sundays") else tr("Выключены", "Off"),
+                            icon = R.drawable.ic_bell,
+                        ) { onSection(SettingsSection.REMINDERS) },
+                        SettingItem(tr("Язык", "Language"), languageName(currentLanguage()), icon = R.drawable.ic_globe) { edit = Edit.Language },
+                    )
+                }
+                SettingsSection.MONEY -> {
+                    SettingsGroup(
+                        tr("Где я", "Where I am"),
+                        SettingItem(tr("Местная валюта", "Local currency"), currencyLabel(s.localCurrency)) { edit = Edit.Local },
+                        SettingItem(tr("Основная валюта", "Main currency"), currencyLabel(s.baseCurrency)) { edit = Edit.Base },
+                        SettingItem(tr("Валюты", "Currencies"), s.displayCurrencies.joinToString(" ") { Currencies.symbol(it) }) { edit = Edit.Shown },
+                    )
+                    val ratesDay = data.ratesDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                    val foreign = s.displayCurrencies.filter { it != "RUB" }.filter { data.rates.official(it) != null && data.rates.display(it) != null }
+                    SettingsGroup(
+                        tr("Курс", "Rates"),
+                        SettingItem(tr("Наценка к ЦБ", "Markup over the CBR"), Fmt.number(s.markup * 100, 1) + " %") { edit = Edit.Markup },
+                        *foreign.map { code ->
+                            SettingItem("1 ${Currencies.symbol(code)} = ${Fmt.number(data.rates.display(code)!!, 2)} ₽", tr("ЦБ ", "CBR ") + Fmt.number(data.rates.official(code)!!, 2))
+                        }.toTypedArray(),
+                        // Rarely needed, so a plain row at the end rather than a button in the header.
+                        SettingItem(
+                            tr("Обновить курс", "Update rates"),
+                            if (updatingRates) tr("Обновляю", "Updating") else data.ratesDate?.let { tr("ЦБ на ", "CBR of ") + (ratesDay?.let(::fullDate) ?: it) },
+                        ) {
+                            if (!updatingRates) {
+                                updatingRates = true
+                                onRefreshRates { updatingRates = false }
+                            }
+                        },
+                    )
+                }
+                SettingsSection.VOICE -> SettingsGroup(
+                    null,
+                    SettingItem(tr("Ключ Gemini", "Gemini key"), if (s.hasGeminiKey) tr("Сохранён", "Saved") else tr("Нет", "None")) { edit = Edit.Key },
+                    SettingItem(tr("Модель для голоса", "Voice model"), s.geminiModel) { edit = Edit.Model },
+                    SettingItem(tr("Модель для разборов", "Review model"), s.reviewModel) { edit = Edit.ReviewModel },
+                    // Notes recorded but not booked: waiting for the network or the key, or set aside after a failure.
+                    *listOfNotNull(
+                        if (voiceBacklog > 0) SettingItem(notProcessed(voiceBacklog)) { edit = Edit.Notes } else null,
+                    ).toTypedArray(),
+                )
+                SettingsSection.DATA -> {
+                    SettingsGroup(
+                        null,
+                        SettingItem(tr("Сохранить копию", "Save a backup")) {
+                            exporter.launch("golda-${LocalDate.now()}.json")
+                        },
+                        SettingItem(tr("Восстановить", "Restore")) {
+                            importer.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+                        },
+                        // On: a folder is picked once, then a copy goes there every week by itself.
+                        SettingItem(
+                            tr("Копия каждую неделю", "A copy every week"),
+                            s.lastAutoBackup.takeIf { s.autoBackupFolder != null && it != 0L }?.let {
+                                tr("Последняя ", "Last one ") + fullDate(Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate())
+                            },
+                            checked = s.autoBackupFolder != null,
+                        ) {
+                            if (s.autoBackupFolder == null) {
+                                folderPicker.launch(null)
+                            } else {
+                                onChange { it.copy(autoBackupFolder = null) }
+                                AutoBackup.apply(context, null)
+                            }
+                        },
+                    )
+                    // The one irreversible thing stands apart, last, in the error colour; the confirmation carries the alarm.
+                    SettingsGroup(null, SettingItem(tr("Стереть всё", "Erase everything"), danger = true) { confirmWipe = true })
+                }
+                SettingsSection.REMINDERS -> {
+                    val reminder: (Boolean) -> Unit = { on ->
+                        onChange { it.copy(reconcileReminder = on) }
+                        ReconcileSchedule.apply(context, on)
                     }
-                },
-            )
-
-            val reminder: (Boolean) -> Unit = { on ->
-                onChange { it.copy(reconcileReminder = on) }
-                ReconcileSchedule.apply(context, on)
+                    SettingsGroup(
+                        null,
+                        // The whole row is the switch, for TalkBack too.
+                        SettingItem(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), checked = s.reconcileReminder) {
+                            reminder(!s.reconcileReminder)
+                        },
+                    )
+                }
             }
-            SettingsGroup(
-                tr("Напоминания", "Reminders"),
-                // The whole row is the switch, for TalkBack too.
-                SettingItem(tr("Напоминать о сверке", "Reconcile reminder"), tr("По воскресеньям в 19:00", "Sundays at 19:00"), checked = s.reconcileReminder) {
-                    reminder(!s.reconcileReminder)
-                },
-            )
-
-            SettingsGroup(tr("Оформление", "Appearance"), SettingItem(tr("Тема", "Theme"), themeLabel(s.palette), onClick = onTheme))
-            SettingsGroup(tr("Язык", "Language"), SettingItem(tr("Язык приложения", "App language"), languageName(currentLanguage())) { edit = Edit.Language })
-
-            // The one irreversible thing stands apart, last, in the error colour; the confirmation carries the alarm.
-            VSpace(Gap.l)
-            SettingsGroup(null, SettingItem(tr("Стереть всё", "Erase everything"), tr("Счета, операции и настройки", "Accounts, operations and settings"), danger = true) { confirmWipe = true })
         }
     }
 
@@ -310,20 +351,25 @@ internal fun fullDate(date: LocalDate): String = date.format(DateTimeFormatter.o
 /** "15-го" / "day 15". */
 private fun dayOfMonth(day: Int): String = tr("$day-го", "day $day")
 
+/** "Не разобрано: 3": voice notes waiting, in the contents and in their section alike. */
+private fun notProcessed(count: Int) = tr("Не разобрано: $count", "Not processed: $count")
+
 /** One setting: its title, what it is set to under it; [checked] makes the whole row a switch. */
-private class SettingItem(
+internal class SettingItem(
     val title: String,
     val summary: String? = null,
     val danger: Boolean = false,
     val checked: Boolean? = null,
+    /** A section's row in the contents: its sign in the tonal circle. */
+    @param:DrawableRes val icon: Int? = null,
     val onClick: (() -> Unit)? = null,
 )
 
-/** A group of settings as Accounts shows its rows: the title opening one card; no title for a row set apart. */
+/** A group of settings as Accounts shows its rows: the title opening one card; no title for rows that need none. */
 @Composable
-private fun SettingsGroup(title: String?, vararg items: SettingItem) {
+internal fun SettingsGroup(title: String?, vararg items: SettingItem) {
     // The page has its own big title, so a group's is the quieter step.
-    if (title != null) CardTitle(title, Modifier.padding(top = Gap.l), quiet = true, icons = false)
+    if (title != null) CardTitle(title, Modifier.padding(top = Gap.l), quiet = true, icons = false) else VSpace(Gap.l)
     val head = if (title != null) 1 else 0
     items.forEachIndexed { i, item ->
         val checked = item.checked
@@ -331,6 +377,7 @@ private fun SettingsGroup(title: String?, vararg items: SettingItem) {
             i + head, items.size + head,
             if (checked != null) Modifier.semantics { role = Role.Switch; toggleableState = ToggleableState(checked) } else Modifier,
             onClick = item.onClick,
+            leading = item.icon?.let { { RowIcon(it) } },
             supporting = item.summary?.let { { Text(it) } },
             trailing = checked?.let { { CheckSwitch(it, null) } },
             trailingOnTitle = false,
@@ -347,7 +394,7 @@ private fun SettingsGroup(title: String?, vararg items: SettingItem) {
 
 /** A small sheet with one choice; picking usually closes it, [done] adds a "Готово" for several. */
 @Composable
-private fun PickSheet(caption: String, onDismiss: () -> Unit, done: Boolean = false, content: @Composable () -> Unit) {
+internal fun PickSheet(caption: String, onDismiss: () -> Unit, done: Boolean = false, content: @Composable () -> Unit) {
     FormSheet(onDismiss = onDismiss, actions = if (done) ({ PrimaryAction(tr("Готово", "Done"), onDismiss) }) else null) {
         Caption(caption)
         VSpace(Gap.m)

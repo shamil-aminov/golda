@@ -9,8 +9,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.selectable
 import android.app.WallpaperManager
@@ -69,11 +67,23 @@ import sh.aminov.golda.domain.tr
 /** The theme's name for the settings row: a preset's own name, or "Своя" for a generated one. */
 fun themeLabel(key: String?): String = if (ThemeSpec.parse(key) != null) tr("Своя", "Custom") else Palette.of(key).label
 
+/** A theme mode's name, on its choice and in the settings' contents. */
+internal fun modeLabel(mode: String): String = when (mode) {
+    ThemeMode.LIGHT.name -> tr("Светлая", "Light")
+    ThemeMode.DARK.name -> tr("Тёмная", "Dark")
+    else -> tr("Как система", "System")
+}
+
+private fun spacingLabel(spacing: Spacing): String = when (spacing) {
+    Spacing.COMPACT -> tr("Плотно", "Compact")
+    Spacing.NORMAL -> tr("Обычно", "Normal")
+    Spacing.ROOMY -> tr("Просторно", "Roomy")
+}
+
 /**
- * The theme page. Light or dark on top, for every theme; then the ready themes, calm and bold, and
- * the kept ones; under them a generator that needs one colour and two choices (style, contrast) and
- * builds the rest. Every change is applied at once, so the page itself is the preview; the colour
- * slider applies when let go.
+ * The theme page. Light or dark on top, for every theme; the three things every theme shares in one
+ * card; then the ready themes, calm and bold, and the kept ones; last the way to a theme of one's own
+ * ([OwnThemeScreen]). Every change is applied at once, so the page itself is the preview.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -84,7 +94,8 @@ fun ThemeScreen(
     onBack: () -> Unit,
     onApply: (String) -> Unit,
     onMode: (String) -> Unit,
-    onSave: (String) -> Unit,
+    /** Opens the generator. */
+    onOwn: () -> Unit,
     onForget: (String) -> Unit,
     oled: Boolean = false,
     onOled: (Boolean) -> Unit = {},
@@ -94,8 +105,85 @@ fun ThemeScreen(
     onSpacing: (String) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
-    val context = LocalContext.current
     // The chips show the half the app is in now, so a pick looks the way it will.
+    val dark = isDarkMode(mode, isSystemInDarkTheme())
+    var pickingSpacing by remember { mutableStateOf(false) }
+    val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    Scaffold(
+        modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
+        topBar = { CollapsingHeader(tr("Тема", "Theme"), onBack, bar) },
+    ) { padding ->
+        Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l)) {
+            // One switch for every theme, ready or own: each has a light and a dark half.
+            // Segmented rows on a page reach the cards' edge, 8 from the screen, as on Insights.
+            ChoiceGroup(ThemeMode.entries, ThemeMode.entries.firstOrNull { it.name == mode } ?: ThemeMode.SYSTEM, { onMode(it.name) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
+                ChoiceText(modeLabel(it.name))
+            }
+            // What holds for every theme: how much air the lists have, each row's circle in its
+            // category's colour as in Аналитика, every dark half on pure black for OLED screens.
+            SettingsGroup(
+                null,
+                SettingItem(tr("Плотность", "Density"), spacingLabel(Spacing.of(spacing))) { pickingSpacing = true },
+                SettingItem(tr("Цветные траты", "Coloured spending"), checked = colouredRows) { onColouredRows(!colouredRows) },
+                SettingItem(tr("Чистый чёрный", "Pure black"), checked = oled) { onOled(!oled) },
+            )
+            // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val chip = (maxWidth - Gap.s * 3) / 4
+                @Composable
+                fun Grid(label: String, items: List<Triple<String, String, Tones>>, onLong: ((String) -> Unit)? = null) {
+                    VSpace(Gap.l)
+                    GroupLabel(label)
+                    VSpace(Gap.s)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalArrangement = Arrangement.spacedBy(Gap.s)) {
+                        items.forEach { (key, name, tones) ->
+                            ThemeChip(name, tones, key == current, chip, onClick = { onApply(key) }, onLongClick = onLong?.let { { it(key) } })
+                        }
+                    }
+                }
+                Column {
+                    Grid(tr("Спокойные", "Calm"), Palette.entries.filter { !it.bold }.map { Triple(it.key, it.label, it.tones(dark)) })
+                    Grid(tr("Смелые", "Bold"), Palette.entries.filter { it.bold }.map { Triple(it.key, it.label, it.tones(dark)) })
+                    // A long press forgets a kept one.
+                    if (saved.isNotEmpty()) {
+                        Grid(tr("Сохранённые", "Kept"), saved.mapIndexed { i, key -> Triple(key, tr("Своя ", "Custom ") + (i + 1), tonesFor(key, dark)) }, onForget)
+                    }
+                }
+            }
+            // A generated theme not kept has no chip to show it is the one in use: the row says it.
+            SettingsGroup(
+                null,
+                SettingItem(tr("Своя тема", "Your own theme"), tr("Включена", "On").takeIf { ThemeSpec.parse(current) != null }, icon = R.drawable.ic_edit, onClick = onOwn),
+            )
+        }
+    }
+    if (pickingSpacing) {
+        PickSheet(tr("Плотность списков", "List density"), { pickingSpacing = false }) {
+            ChoiceGroup(Spacing.entries, Spacing.of(spacing), { onSpacing(it.name); pickingSpacing = false }, Modifier.fillMaxWidth()) {
+                ChoiceText(spacingLabel(it))
+            }
+        }
+    }
+}
+
+/**
+ * A theme of one's own, a level under the theme page: one colour and two choices (style, contrast)
+ * build the rest. Every change is applied at once, so the page itself is the preview; the colour
+ * slider applies when let go.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OwnThemeScreen(
+    current: String,
+    mode: String,
+    saved: List<String>,
+    onBack: () -> Unit,
+    onApply: (String) -> Unit,
+    onSave: (String) -> Unit,
+    onForget: (String) -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    val context = LocalContext.current
     val dark = isDarkMode(mode, isSystemInDarkTheme())
     // The generator starts from the theme in use: its own spec, or a preset's hue.
     var spec by remember { mutableStateOf(ThemeSpec.parse(current) ?: ThemeSpec(hue = Palette.of(current).tones(dark).seedHue)) }
@@ -110,7 +198,7 @@ fun ThemeScreen(
         // Up top, like Android's own bars: a generated theme not kept yet can be kept; a kept one in use
         // can be deleted (it stays on, unkept, so "Сохранить" brings it back). Presets need neither.
         topBar = {
-            CollapsingHeader(tr("Тема", "Theme"), onBack, bar) {
+            CollapsingHeader(tr("Своя тема", "Your own theme"), onBack, bar) {
                 when {
                     custom && current !in saved -> Button(
                         onClick = { onSave(current) },
@@ -125,78 +213,6 @@ fun ThemeScreen(
         },
     ) { padding ->
         Column(Modifier.padding(padding).verticalScroll(rememberScrollState()).padding(horizontal = Gap.m).padding(bottom = Gap.l)) {
-            // One switch for every theme, ready or own: each has a light and a dark half.
-            GroupLabel(tr("Светлая или тёмная", "Light or dark"))
-            VSpace(Gap.s)
-            // Segmented rows on a page reach the cards' edge, 8 from the screen, as on Insights.
-            ChoiceGroup(ThemeMode.entries, ThemeMode.entries.firstOrNull { it.name == mode } ?: ThemeMode.SYSTEM, { onMode(it.name) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
-                ChoiceText(
-                    when (it) {
-                        ThemeMode.SYSTEM -> tr("Как система", "System")
-                        ThemeMode.LIGHT -> tr("Светлая", "Light")
-                        ThemeMode.DARK -> tr("Тёмная", "Dark")
-                    },
-                )
-            }
-            // Every dark half on pure black, for OLED screens. The whole line flips the switch.
-            VSpace(Gap.s)
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(oled, role = Role.Switch) { onOled(it) },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(tr("Чистый чёрный", "Pure black"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                CheckSwitch(oled) { onOled(it) }
-            }
-            // Each row's circle in its category's colour, as in Аналитика.
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 56.dp).toggleable(colouredRows, role = Role.Switch) { onColouredRows(it) },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(tr("Цветные траты", "Coloured spending"), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                CheckSwitch(colouredRows) { onColouredRows(it) }
-            }
-            // How much air the lists have: one setting for every list, like the mode for every theme.
-            VSpace(Gap.l)
-            GroupLabel(tr("Плотность списков", "List density"))
-            VSpace(Gap.s)
-            ChoiceGroup(Spacing.entries, Spacing.of(spacing), { onSpacing(it.name) }, Modifier.bleed(Gap.s).fillMaxWidth()) {
-                ChoiceText(
-                    when (it) {
-                        Spacing.COMPACT -> tr("Плотно", "Compact")
-                        Spacing.NORMAL -> tr("Обычно", "Normal")
-                        Spacing.ROOMY -> tr("Просторно", "Roomy")
-                    },
-                )
-            }
-            // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val chip = (maxWidth - Gap.s * 3) / 4
-                @Composable
-                fun Grid(label: String, items: List<Triple<String, String, Tones>>, onLong: ((String) -> Unit)? = null) {
-                    VSpace(Gap.l)
-                    GroupLabel(label)
-                    VSpace(Gap.s)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalArrangement = Arrangement.spacedBy(Gap.s)) {
-                        items.forEach { (key, name, tones) ->
-                            ThemeChip(name, tones, key == current, chip, onClick = {
-                                ThemeSpec.parse(key)?.let { spec = it }
-                                onApply(key)
-                            }, onLongClick = onLong?.let { { it(key) } })
-                        }
-                    }
-                }
-                Column {
-                    Grid(tr("Спокойные", "Calm"), Palette.entries.filter { !it.bold }.map { Triple(it.key, it.label, it.tones(dark)) })
-                    Grid(tr("Смелые", "Bold"), Palette.entries.filter { it.bold }.map { Triple(it.key, it.label, it.tones(dark)) })
-                    // A long press forgets a kept one.
-                    if (saved.isNotEmpty()) {
-                        Grid(tr("Сохранённые", "Kept"), saved.mapIndexed { i, key -> Triple(key, tr("Своя ", "Custom ") + (i + 1), tonesFor(key, dark)) }, onForget)
-                    }
-                }
-            }
-            VSpace(Gap.l)
-            GroupLabel(tr("Своя из одного цвета", "Your own, from one colour"))
-            VSpace(Gap.s)
             // Twelve hues to start from, and the slider for anything between them.
             // Two rows of six, each a 40 dp target that says which colour it is.
             (0 until 2).forEach { row ->
