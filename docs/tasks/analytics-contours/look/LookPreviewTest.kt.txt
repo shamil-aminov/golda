@@ -1,0 +1,393 @@
+package sh.aminov.golda
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.ParameterizedRobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.data.Bucket
+import sh.aminov.golda.data.OpType
+import sh.aminov.golda.domain.Analytics
+import sh.aminov.golda.domain.Base
+import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.domain.KindBlock
+import sh.aminov.golda.domain.Ledger
+import sh.aminov.golda.domain.PeriodKind
+import sh.aminov.golda.domain.label
+import sh.aminov.golda.ui.AppData
+import sh.aminov.golda.ui.CardCorner
+import sh.aminov.golda.ui.DayPart
+import sh.aminov.golda.ui.Gap
+import sh.aminov.golda.ui.GoldaTheme
+import sh.aminov.golda.ui.LocalTones
+import sh.aminov.golda.ui.TextRole
+import sh.aminov.golda.ui.VSpace
+import sh.aminov.golda.ui.bucketLabel
+import sh.aminov.golda.ui.categoryColor
+import sh.aminov.golda.ui.dayMonth
+import sh.aminov.golda.ui.leitmotifColor
+import sh.aminov.golda.ui.letters
+import sh.aminov.golda.ui.tileColor
+import sh.aminov.golda.ui.tileInk
+import sh.aminov.golda.ui.wholePercent
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.TimeZone
+import kotlin.math.ln
+
+private enum class Lay { BLOCK, COLS, ROWS, AUTO }
+private enum class Pct { NONE, FLEX }
+private class Kind(val b: Bucket, val rub: Long)
+private val rank = mapOf(Bucket.REGULAR to 0, Bucket.DAILY to 1, Bucket.BIG to 2)
+private val GAP = 4.dp
+private val HIGH = 136.dp
+
+@Composable
+private fun Tile(k: Kind, total: Long, base: Base, w: Dp, h: Dp, pct: Pct, row: Boolean = false) {
+    val tones = LocalTones.current
+    val empty = k.rub == 0L
+    val fill = if (empty) tones.soft else leitmotifColor(rank.getValue(k.b), tones)
+    val ink = if (empty) tones.text else tileInk(fill)
+    val amount = base.whole(k.rub * 100)
+    val share = if (pct == Pct.FLEX && !empty) wholePercent(k.rub.toDouble() / total.coerceAtLeast(1)) else null
+    val measure = rememberTextMeasurer()
+    val density = LocalDensity.current
+    fun px(t: String, role: androidx.compose.ui.text.TextStyle) = with(density) { measure.measure(t, role).size.width.toDp() }
+    Box(Modifier.width(w).height(h).clip(RoundedCornerShape(16.dp)).background(fill)) {
+        if (row) {
+            Row(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(bucketLabel(k.b), Modifier.weight(1f), style = TextRole.caption, color = ink, maxLines = 1)
+                Text(amount, style = TextRole.rowAmount, color = ink, maxLines = 1)
+                share?.let { Text(it, Modifier.padding(start = 12.dp).width(44.dp), style = TextRole.caption, color = ink, maxLines = 1, textAlign = TextAlign.End) }
+            }
+        } else {
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp)) {
+                Text(bucketLabel(k.b), Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, color = ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                VSpace(Gap.s)
+                val tall = h >= 76.dp
+                val side = share != null && !tall && px(amount, TextRole.rowAmount) + 8.dp + px(share, TextRole.caption) <= w - 24.dp
+                Row(Modifier.letters(TextRole.rowAmount.fontSize)) {
+                    Text(amount, Modifier.weight(1f), style = TextRole.rowAmount, color = ink, maxLines = 1)
+                    if (side) Text(share!!, style = TextRole.caption, color = ink, maxLines = 1)
+                }
+                if (share != null && tall) {
+                    VSpace(Gap.s)
+                    Text(share, Modifier.letters(TextRole.caption.fontSize), style = TextRole.caption, color = ink, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/** Widths by share, none under [least]: what the small ones take comes from the others by their shares. */
+private fun widths(shares: List<Float>, room: Float, least: Float): List<Float> {
+    val raw = shares.map { it * room }
+    val short = raw.sumOf { maxOf(least - it, 0f).toDouble() }.toFloat()
+    val free = raw.sumOf { maxOf(it - least, 0f).toDouble() }.toFloat().coerceAtLeast(1f)
+    return raw.map { if (it <= least) least else it - (it - least) / free * short }
+}
+
+@Composable
+private fun Mosaic(r: Long, d: Long, g: Long, base: Base, lay: Lay, pct: Pct, wide: Dp? = null, column: Float = 128f) {
+    val kinds = listOf(Kind(Bucket.REGULAR, r), Kind(Bucket.DAILY, d), Kind(Bucket.BIG, g)).sortedByDescending { it.rub }
+    val total = kinds.sumOf { it.rub }
+    Box((if (wide != null) Modifier.width(wide) else Modifier.fillMaxWidth()).padding(horizontal = Gap.s)) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val full = maxWidth
+            val room = full.value - GAP.value * 2
+            val auto = kinds[0].rub * 2 < total && room >= 120f * 3
+            when (if (lay == Lay.AUTO) (if (auto) Lay.COLS else Lay.BLOCK) else lay) {
+                Lay.COLS -> {
+                    val ws = widths(kinds.map { it.rub.toFloat() / total.coerceAtLeast(1) }, room, minOf(120f, room / 3))
+                    Row(Modifier.height(HIGH), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+                        kinds.forEachIndexed { i, k -> Tile(k, total, base, ws[i].dp, HIGH, pct) }
+                    }
+                }
+                Lay.ROWS -> {
+                    val tall = HIGH.value - GAP.value * 2
+                    val hs = widths(kinds.map { it.rub.toFloat() / total.coerceAtLeast(1) }, tall, 38f)
+                    Column(verticalArrangement = Arrangement.spacedBy(GAP)) {
+                        kinds.forEachIndexed { i, k -> Tile(k, total, base, full, hs[i].dp, pct, row = true) }
+                    }
+                }
+                else -> {
+                    val s = KindBlock.split(kinds[0].rub, kinds[1].rub, kinds[2].rub, full.value, HIGH.value, GAP.value, column, 56f)
+                    val right = full - GAP - s.left.dp
+                    Row(Modifier.height(HIGH), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+                        Tile(kinds[0], total, base, s.left.dp, HIGH, pct)
+                        Column(verticalArrangement = Arrangement.spacedBy(GAP)) {
+                            Tile(kinds[1], total, base, right, HIGH - GAP - s.low.dp, pct)
+                            Tile(kinds[2], total, base, right, s.low.dp, pct)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private enum class Layers { NOW, TOP3, HAIR, BOTH, ONE, ONE_PICKED, THICK }
+
+private class Bar(val date: LocalDate, val end: LocalDate, val value: Long, val parts: List<DayPart>)
+
+@Composable
+private fun barsOf(data: AppData, kind: PeriodKind): Pair<List<Bar>, Analytics.Bar> {
+    val tones = LocalTones.current
+    val period = Analytics.period(kind, data.today)
+    val only = data.operations.filter { it.op.type == OpType.EXPENSE }
+    val report = Analytics.report(only, data.accountById, data.categoryById, period, data.today, data.zone, data.rates)
+    val first = report.days.first().first
+    val last = report.days.last().first
+    val unit = Analytics.barFor(first, last)
+    val stacks = only.groupBy { Analytics.barStart(Ledger.localDate(it.op.timestamp, data.zone), first, unit) }.mapValues { (_, ops) ->
+        ops.groupBy { it.op.categoryId?.let(data.categoryById::get) }.map { (cat, list) ->
+            DayPart(cat?.key?.let { categoryColor(it, tones) } ?: leitmotifColor(null, tones), cat?.label() ?: "Без категории", -list.sumOf { o -> o.postings.sumOf { p -> p.rubMinor } })
+        }.filter { it.rub > 0 }.sortedByDescending { it.rub }
+    }
+    return Analytics.bars(report.days).map { (d, rub) -> Bar(d, Analytics.barEnd(d, last, unit), rub, stacks[d].orEmpty()) } to unit
+}
+
+private fun mark(b: Bar, unit: Analytics.Bar) = if (unit == Analytics.Bar.DAY) b.date.dayOfWeek.getDisplayName(TextStyle.SHORT_STANDALONE, I18n.locale).take(2).replaceFirstChar { it.titlecase(I18n.locale) }
+else "${b.date.dayOfMonth}–${dayMonth(b.end)}"
+
+@Composable
+private fun BarsCard(data: AppData, kind: PeriodKind, layers: Layers, log: Boolean = false) {
+    val (bars, unit) = barsOf(data, kind)
+    val density = LocalDensity.current
+    val card = tileColor()
+    val floor = MaterialTheme.colorScheme.outlineVariant
+    val neutral = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+    val rest = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+    val top = bars.maxOf { it.value }.coerceAtLeast(1)
+    Surface(Modifier.fillMaxWidth().padding(horizontal = Gap.s), shape = RoundedCornerShape(CardCorner), color = card) {
+        Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 26.dp)) {
+            Text("Все траты", Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle)
+            VSpace(48.dp)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val gap = with(density) { 4.dp.toPx() }
+                val step = (with(density) { maxWidth.toPx() } + gap) / bars.size
+                val bw = step - gap
+                Column {
+                    Canvas(Modifier.fillMaxWidth().height(96.dp)) {
+                        bars.forEachIndexed { i, b ->
+                            val share = if (log) (ln(1.0 + b.value / 100.0) / ln(1.0 + top / 100.0)).toFloat() else b.value.toFloat() / top
+                            val h = if (b.value > 0) (size.height * share).coerceAtLeast(4.dp.toPx()) else 3.dp.toPx()
+                            val left = step * i
+                            val path = Path().apply { addRoundRect(RoundRect(left, size.height - h, left + bw, size.height, CornerRadius(minOf(6.dp.toPx(), h / 2, bw / 2)))) }
+                            val picked = layers == Layers.ONE_PICKED && b.value == bars.maxOf { it.value }
+                            when {
+                                b.value == 0L -> drawPath(path, floor)
+                                (layers == Layers.ONE || layers == Layers.ONE_PICKED) && !picked -> drawPath(path, neutral)
+                                else -> {
+                                    var list: List<Pair<Color, Long>> = b.parts.map { it.color to it.rub }
+                                    if ((layers == Layers.TOP3 || layers == Layers.BOTH) && list.size > 3) list = list.take(3) + (rest to list.drop(3).sumOf { it.second })
+                                    if (layers == Layers.THICK) {
+                                        // A colour only for a layer of 8 dp or more; the biggest always has one; the rest one quiet layer.
+                                        val sum0 = list.sumOf { it.second }.toFloat()
+                                        val (own, thin) = list.withIndex().partition { (n, l) -> n == 0 || h * l.second / sum0 >= 8.dp.toPx() }
+                                        list = own.map { it.value } + if (thin.isEmpty()) emptyList() else listOf(rest to thin.sumOf { it.value.second })
+                                    }
+                                    val hair = if (layers == Layers.HAIR || layers == Layers.BOTH) 1.dp.toPx() else 0f
+                                    val least = if (layers == Layers.HAIR || layers == Layers.BOTH) 3.dp.toPx() else if (layers == Layers.THICK) 4.dp.toPx() else 0f
+                                    val sum = list.sumOf { it.second }.toFloat()
+                                    var sizes = list.map { maxOf(h * it.second / sum, least) }
+                                    // What the thin ones took comes off the biggest.
+                                    val over = sizes.sum() - h
+                                    if (over > 0) sizes = listOf(sizes[0] - over) + sizes.drop(1)
+                                    clipPath(path) {
+                                        var y = size.height
+                                        list.forEachIndexed { j, (c, _) ->
+                                            drawRect(c, Offset(left, y - sizes[j]), Size(bw, (sizes[j] - if (j < list.lastIndex) hair else 0f).coerceAtLeast(0f)))
+                                            y -= sizes[j]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    VSpace(Gap.m)
+                    Box(Modifier.fillMaxWidth().height(16.dp)) {
+                        bars.forEachIndexed { i, b ->
+                            Text(
+                                mark(b, unit), Modifier.offset(x = with(density) { (step * i + bw / 2).toDp() } - 36.dp).width(72.dp),
+                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val p = mapOf(
+    "33" to Triple(33_400L, 33_300L, 33_300L), "40" to Triple(40_000L, 35_000L, 25_000L), "45" to Triple(45_000L, 30_000L, 25_000L),
+    "49" to Triple(49_000L, 26_000L, 25_000L), "50" to Triple(50_000L, 25_000L, 25_000L), "492" to Triple(49_000L, 49_000L, 2_000L),
+    "long" to Triple(4_000_000L, 3_500_000L, 1_234_567L),
+)
+private val q = mapOf(
+    "e33" to Triple(33_400L, 33_300L, 33_300L), "e50" to Triple(50_000L, 49_000L, 1_000L), "e98" to Triple(98_000L, 1_000L, 1_000L), "e60" to Triple(60_000L, 30_000L, 10_000L),
+    "e80" to Triple(80_000L, 20_000L, 0L), "e100" to Triple(100_000L, 0L, 0L), "elong" to Triple(9_000_000L, 5_000_000L, 1_234_567L),
+)
+
+
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h152dp-xxhdpi")
+class LookMosaicPreviewTest(private val name: String) {
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun names(): List<Array<Any>> {
+            val a = p.keys.flatMap { k -> listOf("B", "C", "R").map { "p$it-$k" } } + listOf("n33C", "n33R", "n33B", "n40C", "n40R", "n40B", "nlongC", "nlongR")
+            val b = q.keys.map { "q-$it" } + listOf("q-nlong", "q-n98", "q-n33")
+            return (a + b).map { arrayOf<Any>(it) }
+        }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Box(Modifier.fillMaxSize().background(LocalTones.current.page).padding(vertical = 8.dp)) {
+                    when {
+                        name.startsWith("q-n") -> {
+                            val t = q.getValue(mapOf("q-nlong" to "elong", "q-n98" to "e98", "q-n33" to "e33").getValue(name))
+                            Mosaic(t.first, t.second, t.third, data.base, Lay.AUTO, Pct.FLEX, 320.dp, 156f)
+                        }
+                        name.startsWith("q-") -> q.getValue(name.drop(2)).let { Mosaic(it.first, it.second, it.third, data.base, Lay.AUTO, Pct.FLEX, null, 156f) }
+                        name.startsWith("n") -> {
+                            val key = name.drop(1).dropLast(1)
+                            val lay = mapOf('C' to Lay.COLS, 'R' to Lay.ROWS, 'B' to Lay.BLOCK).getValue(name.last())
+                            p.getValue(key).let { Mosaic(it.first, it.second, it.third, data.base, lay, Pct.NONE, 320.dp) }
+                        }
+                        else -> {
+                            val lay = mapOf('C' to Lay.COLS, 'R' to Lay.ROWS, 'B' to Lay.BLOCK).getValue(name[1])
+                            p.getValue(name.substringAfter('-')).let { Mosaic(it.first, it.second, it.third, data.base, lay, Pct.NONE) }
+                        }
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/look/$name.png")
+    }
+}
+
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h262dp-xxhdpi")
+class LookBarsPreviewTest(private val name: String) {
+    companion object {
+        private val v = mapOf("b0" to Layers.NOW, "b1" to Layers.TOP3, "b2" to Layers.HAIR, "b3" to Layers.BOTH, "b4" to Layers.ONE, "b4p" to Layers.ONE_PICKED, "b5" to Layers.THICK)
+
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun names() = (v.keys.flatMap { listOf("$it-m", "$it-w") } + listOf("l1-m", "l1-w")).map { arrayOf<Any>(it) }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        val kind = if (name.endsWith("w")) PeriodKind.WEEK else PeriodKind.MONTH
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Box(Modifier.fillMaxSize().background(LocalTones.current.page).padding(vertical = 8.dp)) {
+                    if (name.startsWith("l1")) BarsCard(data, kind, Layers.NOW, log = true) else BarsCard(data, kind, v.getValue(name.substringBefore('-')))
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/look/$name.png")
+    }
+}
+
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h430dp-xxhdpi")
+class LookSummaryPreviewTest(private val name: String) {
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
+        fun names() = listOf("month", "week", "equal").flatMap { listOf("s-$it-a", "s-$it-b") }.map { arrayOf<Any>(it) }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        val after = name.endsWith("b")
+        val kind = if (name.contains("month")) PeriodKind.MONTH else PeriodKind.WEEK
+        val period = Analytics.period(kind, data.today)
+        val r = Analytics.report(data.operations, data.accountById, data.categoryById, period, data.today, data.zone, data.rates)
+        val t = if (name.contains("equal")) Triple(33_400L, 33_300L, 33_300L) else Triple(r.regularRub / 100, r.dailyRub / 100, r.bigRub / 100)
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Column(Modifier.fillMaxSize().background(LocalTones.current.page).padding(vertical = 8.dp)) {
+                    Mosaic(t.first, t.second, t.third, data.base, if (after) Lay.AUTO else Lay.BLOCK, if (after) Pct.FLEX else Pct.NONE, null, if (after) 156f else 128f)
+                    VSpace(26.dp)
+                    BarsCard(data, kind, if (after) Layers.THICK else Layers.NOW)
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/look/$name.png")
+    }
+}
