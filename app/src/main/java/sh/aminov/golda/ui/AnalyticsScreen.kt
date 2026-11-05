@@ -556,7 +556,14 @@ private fun DayBars(
         val gapPx = with(density) { BarGap.toPx() }
         val step = (widthPx + gapPx) / days.size
         val barWidth = step - gapPx
-        Column {
+        fun at(px: Float) = days[(px / step).toInt().coerceIn(0, days.lastIndex)].first
+        // A sideways finger anywhere on the chart, the labels and the pill's row too: left to the tabs,
+        // it would swipe to the next one. Up and down stays the screen's.
+        Column(
+            Modifier.pointerInput(days) {
+                detectHorizontalDragGestures(onDragStart = { onScrub(at(it.x)) }) { change, _ -> onScrub(at(change.position.x)) }
+            },
+        ) {
             // The pill over the picked bar, kept inside the card.
             var pillWidth by remember { mutableStateOf(0) }
             // 48 high for the finger, the pill's 32 in the middle of it: the 8 under it is the air over the bars.
@@ -584,13 +591,9 @@ private fun DayBars(
                     }
                 }
             }
-            fun at(px: Float) = days[(px / step).toInt().coerceIn(0, days.lastIndex)].first
             Canvas(
                 Modifier.fillMaxWidth().height(BarsHeight).testTag(Tags.INSIGHTS_BARS)
-                    .pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } }
-                    .pointerInput(days) {
-                        detectHorizontalDragGestures(onDragStart = { onScrub(at(it.x)) }) { change, _ -> onScrub(at(change.position.x)) }
-                    },
+                    .pointerInput(days, picked) { detectTapGestures { onTap(at(it.x)) } },
             ) {
                 days.forEachIndexed { i, (day, value) ->
                     val g = (grow.value * 1.5f - 0.5f * i / days.size).coerceIn(0f, 1f)
