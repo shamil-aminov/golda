@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   tiles are gone; the details page picks the kind by the same menu.
 - **The tabs' headers by one rule.** A title, a caption, the figure. Home's title is the status,
   a tap on it changes the period, «Можно сегодня» names the figure, plan and actual sit under the
-  bar. Accounts open with «На счетах», the money there with no debts taken off, the debts as its caption, the other currencies under the figure. The figure stands on one line on all three tabs, the gear where Insights' calendar does.
+  bar. Accounts open with «На счетах», the money there with no debts taken off, the other currencies under the figure, the debts beside the interest. The figure stands on one line on all three tabs, the gear where Insights' calendar does.
 - **Reviews on Insights.** A card closes the screen, the last three reviews by date
   with what each looked at; a "+" leads to writing one, in place of the mark.
 - **Rows of a group stand one step apart to the last,** however short they are.

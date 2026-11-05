@@ -106,18 +106,29 @@ class HeaderGridTest {
         val data = ScreenshotTest().demo()
         accounts(data)
         compose.onAllNodesWithText("На счетах", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Долги " + data.base.whole(21_500_000), useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Долги", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText(data.base.whole(21_500_000), useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Проценты", substring = true, useUnmergedTree = true).assertCountEquals(1)
         val others = data.others(Debts.heldRub(data.states.values), data.base.code)
         val under = compose.onAllNodesWithText(others, useUnmergedTree = true)[0].fetchSemanticsNode().boundsInRoot
         assertEquals(true, under.top > tagged(Tags.ACCOUNTS_TOTAL).bottom)
     }
 
     @Test
-    fun withoutDebtsTheCaptionSaysSoAndTheFigureKeepsItsLine() {
+    fun withoutDebtsThereIsNoBlockOfThem() {
         val demo = ScreenshotTest().demo()
         val free = AppData(demo.settings, demo.accounts.filterNot { with(Debts) { it.isDebt } }, demo.operations, demo.categories, emptyList(), today = demo.today)
         accounts(free)
-        compose.onAllNodesWithText("Долгов нет", useUnmergedTree = true).assertCountEquals(1)
-        compose.onAllNodesWithText("Долги", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Долг", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Проценты", substring = true, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test
+    fun aDebtWithoutARateHasItsPairAlone() {
+        val demo = ScreenshotTest().demo()
+        val flat = demo.accounts.map { it.copy(interestRate = null) }
+        accounts(AppData(demo.settings, flat, demo.operations, demo.categories, emptyList(), today = demo.today))
+        compose.onAllNodesWithText("Долги", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithText("Проценты", substring = true, useUnmergedTree = true).assertCountEquals(0)
     }
 }

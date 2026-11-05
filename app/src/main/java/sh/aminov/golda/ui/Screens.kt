@@ -232,11 +232,10 @@ fun HomeScreen(
     }
 }
 
-/** The Accounts header's words, in one place: the title and what its caption says of the debts. */
+/** The Accounts header's words, in one place. */
 private object AccountsWords {
     fun title() = tr("На счетах", "In accounts")
-    fun debts(amount: String) = tr("Долги $amount", "Debts $amount")
-    fun noDebts() = tr("Долгов нет", "No debts")
+    fun debts() = tr("Долги", "Debts")
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -274,16 +273,13 @@ fun AccountsScreen(
             HeroTile(Modifier.padding(horizontal = Gap.s), vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
-                // As the other tabs: a title, its caption, the figure on their line, the other currencies a block
-                // under it, the debt's cost a group away. Every text cut to its letters and every gap a step of the
-                // header's row (HeaderSpace). Each block one TalkBack node. The figure is the money there; the caption names the debts apart.
+                // The title reads straight into the figure, which stands on the other tabs' line; the other currencies
+                // a block under it, then what is owed and its cost, a group away. Every text cut to its letters and
+                // every gap a step of the header's row (HeaderSpace). Each block one TalkBack node.
                 val cut = Modifier.letters(words.fontSize)
                 Column(Modifier.semantics(mergeDescendants = true) {}) {
                     Text(AccountsWords.title(), Modifier.letters(TextRole.groupTitle.fontSize), style = TextRole.groupTitle, color = ink, maxLines = 1)
-                    VSpace(HeaderSpace.valueCaption)
-                    val owed = Debts.owedRub(data.states.values)
-                    Text(if (owed > 0) AccountsWords.debts(data.base.whole(owed)) else AccountsWords.noDebts(), cut, style = words, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    VSpace(HeaderSpace.figureCaption)
+                    VSpace(HeaderSpace.titleToFigure)
                     val text = data.base.whole(held)
                     BoxWithConstraints {
                         HeroAmount(text, ink, Modifier.testTag(Tags.ACCOUNTS_TOTAL).letters(heroFigureSize(text, maxWidth)), signColor = ink)
@@ -293,8 +289,17 @@ fun AccountsScreen(
                         Text(it, Modifier.letters(figures.fontSize), style = figures, color = ink)
                     }
                 }
-                Debts.advice(data.accounts, data.states)?.let { advice ->
+                val owed = Debts.owedRub(data.states.values)
+                if (owed > 0) {
                     VSpace(HeaderSpace.group)
+                    Column(Modifier.semantics(mergeDescendants = true) {}) {
+                        Text(AccountsWords.debts(), cut, style = words, maxLines = 1)
+                        VSpace(HeaderSpace.valueCaption)
+                        Text(data.base.whole(owed), Modifier.letters(figures.fontSize), style = figures, color = ink, maxLines = 1)
+                    }
+                }
+                Debts.advice(data.accounts, data.states)?.let { advice ->
+                    VSpace(HeaderSpace.block)
                     val (head, tail) = advice.split("\n", limit = 2).let { it.first() to it.getOrNull(1) }
                     Column(Modifier.semantics(mergeDescendants = true) {}) {
                         Text(head, cut, style = words)
