@@ -357,7 +357,7 @@ private fun inPeriod(data: AppData, period: Period, filter: Bucket?, also: (Oper
             (filter == null || Buckets.of(full.op, data.categoryById) == filter) && also(full)
     }.sortedByDescending { it.op.timestamp }
 
-/** The caption names the quantity, like Можно сегодня and Всего на счетах: "Траты за октябрь", or "За 30 дней" for the last days. */
+/** The caption names the quantity, like Можно сегодня: "Траты за октябрь", or "За 30 дней" for the last days. */
 private fun periodCaption(period: Period, today: LocalDate): String {
     val span = ReviewPrompt.title(period, today)
     return when {
