@@ -136,11 +136,13 @@ object ReviewPrompt {
                 appendLine("- ${name(p.categoryId)}: сейчас ничего; было ${rub(p.rubMinor)}")
             }
             appendLine()
-            when (Analytics.barFor(report.dailyDays.size)) {
-                Analytics.Bar.DAY -> appendLine("Ежедневное по дням: " + report.dailyDays.joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue} ${weekdays[d.dayOfWeek.value - 1]} ${minor / 100}" })
+            // Its own steps, not the chart's: a text can hold far more than a finger can tap.
+            val daily = report.dailyDays
+            when {
+                daily.size <= 62 -> appendLine("Ежедневное по дням: " + daily.joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue} ${weekdays[d.dayOfWeek.value - 1]} ${minor / 100}" })
                 // A long period by weeks or months, so the lines stay readable and the request short.
-                Analytics.Bar.WEEK -> appendLine("Ежедневное по неделям, с даты: " + Analytics.bars(report.dailyDays).joinToString("; ") { (d, minor) -> "${d.dayOfMonth}.${d.monthValue}.${d.year} ${minor / 100}" })
-                Analytics.Bar.MONTH -> appendLine("Ежедневное по месяцам: " + Analytics.bars(report.dailyDays).joinToString("; ") { (d, minor) -> "${d.monthValue}.${d.year} ${minor / 100}" })
+                daily.size <= 400 -> appendLine("Ежедневное по неделям, с даты: " + daily.chunked(7).joinToString("; ") { week -> week.first().first.let { d -> "${d.dayOfMonth}.${d.monthValue}.${d.year} ${week.sumOf { it.second } / 100}" } })
+                else -> appendLine("Ежедневное по месяцам: " + daily.groupBy { it.first.withDayOfMonth(1) }.entries.joinToString("; ") { (d, month) -> "${d.monthValue}.${d.year} ${month.sumOf { it.second } / 100}" })
             }
             appendLine()
             // How many of each weekday the period had, for an honest average per weekday.

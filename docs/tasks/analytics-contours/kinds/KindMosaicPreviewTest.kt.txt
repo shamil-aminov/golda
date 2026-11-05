@@ -1,0 +1,67 @@
+package sh.aminov.golda
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.dp
+import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.ParameterizedRobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import sh.aminov.golda.domain.I18n
+import sh.aminov.golda.ui.GoldaTheme
+import sh.aminov.golda.ui.KindMosaic
+import sh.aminov.golda.ui.LocalTones
+import java.util.TimeZone
+
+private class M(val regular: Long, val daily: Long, val big: Long, val narrow: Boolean = false)
+
+private val mosaics = mapOf(
+    "e33" to M(33_400, 33_300, 33_300), "e50" to M(50_000, 49_000, 1_000), "e98" to M(98_000, 1_000, 1_000), "e60" to M(60_000, 30_000, 10_000),
+    "e80" to M(80_000, 20_000, 0), "e100" to M(100_000, 0, 0), "e0" to M(0, 0, 0), "elong" to M(9_000_000, 5_000_000, 1_234_567),
+    "enarrow" to M(9_000_000, 5_000_000, 1_234_567, true), "e98n" to M(98_000, 1_000, 1_000, true),
+)
+
+/** TEMPORARY, not committed: the real kinds' mosaic at the proportions it has to survive. */
+@RunWith(ParameterizedRobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(qualifiers = "w411dp-h152dp-xxhdpi")
+class KindMosaicPreviewTest(private val name: String, private val percent: Boolean) {
+    companion object {
+        @JvmStatic @ParameterizedRobolectricTestRunner.Parameters(name = "{0}-{1}")
+        fun cases() = mosaics.keys.flatMap { listOf(arrayOf<Any>(it, false), arrayOf<Any>(it, true)) }
+    }
+
+    @get:Rule val compose = createComposeRule()
+
+    @Before
+    fun fixTheWorld() {
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+        I18n.russian = true
+    }
+
+    @Test fun shot() {
+        val data = ScreenshotTest().demo()
+        val m = mosaics.getValue(name)
+        compose.setContent {
+            GoldaTheme("golda", "LIGHT", "ROOMY") {
+                Box(Modifier.fillMaxSize().background(LocalTones.current.page).padding(vertical = 8.dp)) {
+                    Box(if (m.narrow) Modifier.width(320.dp) else Modifier) {
+                        KindMosaic(m.regular * 100, m.daily * 100, m.big * 100, data.base, null, percent) {}
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("../docs/tasks/analytics-contours/kinds/$name${if (percent) "-p" else ""}.png")
+    }
+}

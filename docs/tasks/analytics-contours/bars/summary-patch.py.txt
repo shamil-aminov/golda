@@ -1,0 +1,62 @@
+p = "C:/Users/sh/Desktop/workshop/golda-wt/currency-cards/app/src/main/java/sh/aminov/golda/ui/AnalyticsScreen.kt"
+s = open(p, encoding='utf-8', newline='').read()
+def sub(a, b):
+    global s
+    assert a in s, a
+    s = s.replace(a, b, 1)
+
+sub('''    val top = maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1)
+    val density = LocalDensity.current
+''', '''    val spending = days.map { it.second }.filter { it > 0 }.sorted()
+    val usual = spending.getOrNull(spending.size / 2) ?: 0L
+    val cuts = if (cutting) days.map { it.second }.filter { usual > 0 && it >= usual * 10 }.toSet() else emptySet()
+    val rest = days.map { it.second }.filter { it !in cuts }.maxOrNull() ?: 0L
+    val top = if (cuts.isEmpty()) maxOf(days.maxOf { it.second }, budget ?: 0L).coerceAtLeast(1) else (rest * 1.25f).toLong().coerceAtLeast(1)
+    val card = tileColor()
+    val density = LocalDensity.current
+''')
+sub('''    picked: LocalDate?, onClear: () -> Unit,''', '''    cutting: Boolean, picked: LocalDate?, onClear: () -> Unit,''')
+sub('''data.base, barStacks, day,
+''', '''data.base, barStacks, filter == null, day,
+''')
+sub('''        val step = widthPx / days.size
+''', '''        val gapPx = with(density) { (if (days.size <= 7) 4.dp else 2.dp).toPx() }
+        val step = (widthPx + gapPx) / days.size
+''')
+sub('''            Box(Modifier.fillMaxWidth().height(48.dp)) {
+                if (pickedIndex >= 0) {
+''', '''            Box(Modifier.fillMaxWidth().height(48.dp)) {
+                days.forEachIndexed { i, (_, rub) ->
+                    if (rub in cuts && i != pickedIndex) {
+                        val wide = 96.dp
+                        val cx = with(density) { (step * i + (step - gapPx) / 2).toDp() } - wide / 2
+                        Text(
+                            base.whole(rub), Modifier.offset(x = cx, y = 26.dp).width(wide), style = TextRole.caption,
+                            color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center, maxLines = 1,
+                        )
+                    }
+                }
+                if (pickedIndex >= 0) {
+''')
+sub('''                val barWidth = step * 0.8f
+                val gapPx = 1.dp.toPx()
+                val radius = minOf(barWidth / 2, 12.dp.toPx())
+''', '''                val barWidth = step - gapPx
+                val radius = minOf(barWidth / 4, 8.dp.toPx())
+''')
+sub('''                    val h = (if (value > 0) (size.height * value / top).coerceAtLeast(radius) else 3.dp.toPx()) * g
+                    val left = step * i + (step - barWidth) / 2
+''', '''                    val h = (if (value > 0) (size.height * minOf(value, top) / top).coerceAtLeast(radius) else 3.dp.toPx()) * g
+                    val left = step * i
+''')
+sub('''drawRect(color, Offset(left, y - part), Size(barWidth, (part - gapPx).coerceAtLeast(0f)))''', '''drawRect(color, Offset(left, y - part), Size(barWidth, part))''')
+sub('''                    if (i == pickedIndex) drawCircle(''', '''                    if (value in cuts) {
+                        val y = size.height - h + 16.dp.toPx()
+                        listOf(0f, 6.dp.toPx()).forEach { d ->
+                            drawLine(card, Offset(left - 2.dp.toPx(), y + d + 4.dp.toPx()), Offset(left + barWidth + 2.dp.toPx(), y + d - 4.dp.toPx()), strokeWidth = 2.dp.toPx())
+                        }
+                    }
+                    if (i == pickedIndex) drawCircle(''')
+sub('''val x = (step * pickedIndex + step / 2 - pillWidth / 2f)''', '''val x = (step * pickedIndex + (step - gapPx) / 2 - pillWidth / 2f)''')
+sub('''(step * i + step / 2).toDp() } - LABEL / 2''', '''(step * i + (step - gapPx) / 2).toDp() } - LABEL / 2''')
+open(p, 'w', encoding='utf-8', newline='').write(s)

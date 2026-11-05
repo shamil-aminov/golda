@@ -77,9 +77,10 @@ loud is the moment you notice you are spending.
 - **Debts.** Credit cards and loans have a rate, a payment day and a grace
   period. You get reminders, a payoff estimate, an early-repayment calculator
   and a hint on which debt to pay first.
-- **Insights.** Spending by category as a mosaic sized by share, by day as
-  bars stacked by category, the average per day, income, and how much currency
-  exchange cost you against the CBR rate.
+- **Insights.** A mosaic of the three kinds of spending, a tile narrowing all
+  under it. Days as bars stacked by category, a tap showing that day's
+  purchases; categories as a list, the average per day, income, and how much
+  currency exchange cost you against the CBR rate.
 - **Reviews.** Gemini checks a period's spending like a careful bookkeeper:
   what to look into (a payment that looks doubled, fees, exchange losses, a
   regular payment that came out different), or "nothing unusual", and the
@@ -191,7 +192,7 @@ turn into operations, and the amounts read back from the transcript.
 Besides examples, property tests (Kotest) check rules on thousands of random
 inputs: moving money never makes or loses any, an account spent down to zero
 keeps no ruble cost, an amount as shown reads back to the same kopecks, the
-mosaic covers its area without overlaps.
+kinds' tiles fit their block and stay readable.
 
 `./gradlew pitest` mutation-tests the domain against them: it breaks the code
 one small way at a time and reports every break no test noticed. CI fails
