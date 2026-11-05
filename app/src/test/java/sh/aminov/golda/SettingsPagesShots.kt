@@ -58,7 +58,7 @@ class SettingsPagesShots {
         val pages: List<Pair<String, @Composable () -> Unit>> = listOf<Pair<String, @Composable () -> Unit>>("contents" to { settings(null) }) +
             SettingsSection.entries.map { section -> section.name.lowercase() to @Composable { settings(section) } } +
             listOf<Pair<String, @Composable () -> Unit>>(
-                "theme" to { ThemeScreen("golda", "LIGHT", emptyList(), {}, {}, {}, {}, {}, spacing = "ROOMY") },
+                "theme" to { ThemeScreen("golda", "SYSTEM", emptyList(), {}, {}, {}, {}, {}, spacing = "ROOMY") },
                 "theme_own" to { OwnThemeScreen("golda", "LIGHT", emptyList(), {}, {}, {}, {}) },
             )
         var current by mutableIntStateOf(0)

@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   plate per tab, the hero tile, with its own inks, and the pace bar, the picked
   state and the action stand out against it. A theme picked before moves to
   the nearest new one (Закат to Сигнал, Леденец to Пиксель…), not to Golda.
+- **Settings in two levels.** The first screen is six rows with a sign and where
+  each stands: Валюты и курс, Тема, Голос и разборы, Копии и данные, Напоминания,
+  Язык; the rest is on the sections' pages, each going back to the contents.
+  Rows under a title say the value, no longer what the row is for. "Не разобрано:
+  N" shows on the contents too, so a failed voice note is not lost a level down.
+- **The Theme page leads with the pick.** Light or dark, one card for density,
+  coloured spending and pure black, the themes; the generator and its Save or
+  Delete moved a level down, to "Своя тема". Density opens a small sheet.
 - **Category colours are fixed to the category.** Еда is the same colour every
   month, in the mosaic, the day bars and the lists alike; income categories
   have colours of their own.
