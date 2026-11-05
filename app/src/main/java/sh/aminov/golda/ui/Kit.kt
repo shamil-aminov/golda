@@ -1472,6 +1472,8 @@ object Tags {
 
     /** Home's "· N дней до зарплаты". */
     const val HOME_RUNWAY = "home-runway"
+    /** The person over the tabs. */
+    const val MINE = "mine"
     const val HOME_PERIOD = "home-period"
 
     /** Settings' "Час на руки" value. */

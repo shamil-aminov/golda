@@ -21,7 +21,9 @@ class LanguageScenarioTest : GoldaUiTest() {
         val russianNow = AppLanguage.russian(app)
         val (from, to) = if (russianNow) Ui.RU to Ui.EN else Ui.EN to Ui.RU
 
-        compose.onNodeWithContentDescription(from.settings).performClick()
+        compose.onNodeWithContentDescription(from.mine).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(from.settings).performClick()
         compose.waitForIdle()
         openRow(from.languageRow)
         tap(to.optionName)
@@ -35,12 +37,14 @@ class LanguageScenarioTest : GoldaUiTest() {
         // window has focus): Home's controls speak the new language too.
         compose.onNodeWithContentDescription(to.back).performClick()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(to.home).assertExists()
+        compose.onNodeWithContentDescription(to.back).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(to.home).assertExists()
 
         scenario.recreate()
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(to.home).assertExists()
-        compose.onNodeWithContentDescription(to.settings).assertExists()
+        compose.onNodeWithText(to.home).assertExists()
+        compose.onNodeWithContentDescription(to.mine).assertExists()
     }
 
     /** Leaves the emulator's language as it found it. */
@@ -50,10 +54,10 @@ class LanguageScenarioTest : GoldaUiTest() {
         if (AppLanguage.tag(app) != tag) scenario.onActivity { AppLanguage.set(it, tag) }
     }
 
-    private class Ui(val tag: String, val home: String, val settings: String, val languageRow: String, val optionName: String, val back: String) {
+    private class Ui(val tag: String, val home: String, val mine: String, val settings: String, val languageRow: String, val optionName: String, val back: String) {
         companion object {
-            val RU = Ui("ru", "Главная", "Настройки", "Язык", "Русский", "Назад")
-            val EN = Ui("en", "Home", "Settings", "Language", "English", "Back")
+            val RU = Ui("ru", "Сегодня", "Моё", "Настройки", "Язык", "Русский", "Назад")
+            val EN = Ui("en", "Today", "Mine", "Settings", "Language", "English", "Back")
         }
     }
 }

@@ -421,9 +421,13 @@ private fun KindTitle(pick: InsightsPick, modifier: Modifier, style: androidx.co
 
 private fun kindName(kind: Bucket?): String = kind?.let(::bucketLabel) ?: tr("Все траты", "All spending")
 
-/** What the corner's pill says: the period, or the picked bar. */
+/** What the corner's pill says: the period in its menu's words, a range of your own by its dates, or the picked bar. */
 private fun periodWords(pick: InsightsPick, span: Period?, bar: Analytics.Bar, today: LocalDate): String = when {
-    span == null -> ReviewPrompt.short(pick.period(today), today)
+    span == null -> when (pick.kind) {
+        PeriodKind.WEEK -> tr("Неделя", "Week")
+        PeriodKind.MONTH -> tr("Месяц", "Month")
+        else -> ReviewPrompt.dates(pick.period(today), today)
+    }
     bar == Analytics.Bar.DAY -> ReviewPrompt.day(span.from)
     else -> ReviewPrompt.dates(span, today)
 }

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.first
@@ -33,7 +34,7 @@ class BaseCurrencyScenarioTest : GoldaUiTest() {
     }
 
     private fun openTab(name: String) {
-        compose.onNodeWithContentDescription(name).performClick()
+        compose.onNodeWithText(name).performClick()
         compose.waitForIdle()
     }
 
@@ -70,7 +71,7 @@ class BaseCurrencyScenarioTest : GoldaUiTest() {
 
         // Back to rubles: the old big number, and the same currencies under it. (The figures under it may
         // move by a kopeck's worth: the rates can refresh from the network while the test runs.)
-        openTab(tr("Главная", "Home"))
+        openTab(tr("Сегодня", "Today"))
         pickBase("₽ RUB")
         assertEquals(homeBefore, bigNumber(Tags.HOME_BIG))
         fun symbols(line: String) = line.split(" · ").map { it.substringAfterLast(' ') }

@@ -207,117 +207,52 @@ private fun describe(draft: Draft, data: AppData): String {
     return "$title ${Fmt.amount(draft.purchaseAmountMinor ?: draft.amountMinor, code)}"
 }
 
-/** A tab of the floating toolbar: the outline icon, the filled one when it is the current tab, and its name. */
-class ToolbarTab(@DrawableRes val icon: Int, @DrawableRes val selectedIcon: Int, val name: String)
-
 /**
- * The one bar at the bottom of every tab: an M3 Expressive floating toolbar, centred, floating over
- * the content. The tabs as icons (filled and on the picked colour when current), a hairline, "+" to
- * add by hand, and the mic as the toolbar's own FAB, the biggest mark of all, in the hero's lavender.
- * While the mic listens it shows the voice-reactive cookie with the stop square; while the note is
- * worked out, the loading indicator.
+ * The one bar at the bottom of every tab, floating over the content: the ways of writing something
+ * down as plain marks, all alike, the mic and "+". While the mic listens it shows the voice-reactive
+ * cookie with the stop square; while the note is worked out, the loading indicator.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun GoldaToolbar(
-    tabs: List<ToolbarTab>,
-    selected: Int,
-    position: () -> Float,
-    onSelect: (Int) -> Unit,
-    voice: VoiceControl,
-    onAdd: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
-    // The one action to take: gold, like every main action.
-    // Golda's gold: the one action to take.
-    val mic = actionColor()
-    val onMic = onActionColor()
     val label = when (voice.state) {
         VoiceState.Idle -> tr("Сказать", "Say it")
-        VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when done")
+        VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when you're done")
         VoiceState.Thinking -> tr("Разбираю", "Thinking")
     }
-    // The bar and the mic side by side, each with a soft shadow all round: Material's elevation
-    // drops the shadow below them.
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(Gap.s), verticalAlignment = Alignment.CenterVertically) {
-    // A pill, a soft shadow all round, no outline: it floats over the cards without a hard edge. The
-    // same room on every side of what is in it: the picked pill (48) sits [ToolbarInset] from the bar's
-    // top, bottom and end, so its round end is concentric with the bar's.
+    // A soft shadow lifts it over the cards without a hard edge.
     Surface(
-        Modifier.height(ToolbarHeight).softShadow(CircleShape),
+        modifier.height(ToolbarHeight).softShadow(CircleShape),
         shape = CircleShape,
         // A card in light; in dark a step up, or it melts into the cards it floats over.
         color = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
-        contentColor = scheme.onSurfaceVariant,
+        contentColor = scheme.onSurface,
     ) {
-    Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
-        // One pill rides under the tabs at the pager's exact position, so it follows the finger during
-        // a swipe and glides on a tap. Each icon takes the pill's ink and fills as the pill reaches it.
-        val picked = pickedColor()
-        val onPicked = onPickedColor()
-        val idle = scheme.onSurfaceVariant
-        Box {
-            Box(
-                Modifier
-                    // The pill is narrower than its slot, centred in it: air between the tabs.
-                    .offset { IntOffset((position() * ToolbarItemWidth.toPx() + (ToolbarItemWidth - PillWidth).toPx() / 2).roundToInt(), 0) }
-                    .size(PillWidth, ToolbarItemHeight)
-                    .background(picked, CircleShape),
-            )
-            Row(Modifier.selectableGroup()) {
-                tabs.forEachIndexed { index, tab ->
-                    val nearness = (1f - abs(position() - index)).coerceIn(0f, 1f)
-                    val press = remember { MutableInteractionSource() }
-                    IconButton(
-                        onClick = { onSelect(index) },
-                        interactionSource = press,
-                        // Wider and taller than the 40 dp default: the bar is used with a thumb, often on the move.
-                        modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(press).clip(CircleShape).semantics {
-                            role = Role.Tab
-                            this.selected = index == selected
-                        },
-                    ) {
-                        Icon(
-                            painterResource(if (nearness > 0.5f) tab.selectedIcon else tab.icon),
-                            tab.name,
-                            // The picked icon swells a little as the pill reaches it.
-                            Modifier.size(26.dp).graphicsLayer { scaleX = 1f + 0.12f * nearness; scaleY = 1f + 0.12f * nearness },
-                            tint = lerp(idle, onPicked, nearness),
-                        )
-                    }
+        Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
+            val micPress = remember { MutableInteractionSource() }
+            IconButton(
+                onClick = voice.toggle,
+                interactionSource = micPress,
+                modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(micPress).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
+            ) {
+                when (voice.state) {
+                    VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = scheme.onSurface)
+                    VoiceState.Recording -> Listening(voice.level, fill = actionColor(), ink = onActionColor())
+                    VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(26.dp))
                 }
             }
+            val addPress = remember { MutableInteractionSource() }
+            IconButton(onClick = onAdd, interactionSource = addPress, modifier = Modifier.size(ToolbarItemWidth, ToolbarItemHeight).squish(addPress)) {
+                Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp))
+            }
         }
-        VerticalDivider(Modifier.align(Alignment.CenterVertically).height(24.dp).padding(horizontal = Gap.xs), color = scheme.outlineVariant)
-        IconButton(onClick = onAdd, Modifier.size(ToolbarItemWidth, ToolbarItemHeight)) { Icon(painterResource(R.drawable.ic_add), tr("Записать вручную", "Add by hand"), Modifier.size(26.dp)) }
-    }
-    }
-    // As tall as the bar beside it, so the main action is also the easiest target; it gives under the thumb.
-    val micPress = remember { MutableInteractionSource() }
-    FloatingActionButton(
-        onClick = voice.toggle,
-        interactionSource = micPress,
-        modifier = Modifier.size(ToolbarHeight).squish(micPress).semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite },
-        // A rounded square, so the action reads apart from the round tabs beside it.
-        shape = RoundedCornerShape(20.dp),
-        containerColor = mic,
-        contentColor = onMic,
-        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
-    ) {
-        when (voice.state) {
-            VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = onMic)
-            VoiceState.Recording -> Listening(voice.level, fill = onMic, ink = mic)
-            VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(32.dp))
-        }
-    }
     }
 }
 
 private val ToolbarItemWidth = 72.dp
-private val PillWidth = ToolbarItemWidth
 private val ToolbarItemHeight = 48.dp
-/** The bar and the mic: 60, the 48 targets and [ToolbarInset] (6) round them on every side. */
+/** The bar: 60, the 48 targets and [ToolbarInset] (6) round them on every side. */
 internal val ToolbarHeight = 60.dp
 private val ToolbarInset = (ToolbarHeight - ToolbarItemHeight) / 2
 
