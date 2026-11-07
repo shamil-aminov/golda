@@ -60,9 +60,10 @@ loud is the moment you notice you are spending.
   that card asks "Новый месяц с …?" (on for a transfer from your own account,
   off for an income), so a friend's money never restarts the month; when the
   period ends, the next one of the same length begins.
-- **The period in one bar.** The solid fill shows the money left in the
-  existing pace colour. A lighter ghost extends to what should remain today
-  at an even pace. Below it, the remainder and daily plan sit on the left,
+- **The period in one bar.** The existing pace colour shows the remainder
+  against today's even plan. The solid fill reaches the smaller amount, and
+  a lighter ghost shows the deficit or reserve up to the larger one.
+  Below it, the remainder and daily plan sit on the left,
   spending and actual pace on the right. Measured by the card's balance,
   including days you wrote nothing down.
 - **Three buckets.** Everyday, regular (rent, phone, subscriptions) and
