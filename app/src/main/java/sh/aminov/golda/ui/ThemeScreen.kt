@@ -103,11 +103,17 @@ fun ThemeScreen(
     onColouredRows: (Boolean) -> Unit = {},
     spacing: String = Spacing.NORMAL.name,
     onSpacing: (String) -> Unit = {},
+    barMotion: String = "QUIET",
+    onBarMotion: (String) -> Unit = {},
+    barDifferenceEmphasis: Boolean = false,
+    onBarDifferenceEmphasis: (Boolean) -> Unit = {},
 ) {
     BackHandler(onBack = onBack)
     // The chips show the half the app is in now, so a pick looks the way it will.
     val dark = isDarkMode(mode, isSystemInDarkTheme())
     var pickingSpacing by remember { mutableStateOf(false) }
+    var pickingBarMotion by remember { mutableStateOf(false) }
+    var pickingBarEmphasis by remember { mutableStateOf(false) }
     val bar = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(bar.nestedScrollConnection),
@@ -127,6 +133,13 @@ fun ThemeScreen(
                 SettingItem(tr("Цветные траты", "Coloured spending"), checked = colouredRows) { onColouredRows(!colouredRows) },
                 SettingItem(tr("Чистый чёрный", "Pure black"), checked = oled) { onOled(!oled) },
             )
+            if (LocalBarExperiments.current) {
+                SettingsGroup(
+                    tr("Для разработки", "Development"),
+                    SettingItem(tr("Полоса", "Bar"), BarMotion.of(barMotion).label) { pickingBarMotion = true },
+                    SettingItem(tr("Акцент", "Emphasis"), if (barDifferenceEmphasis) tr("Разница", "Difference") else tr("Остаток", "Remainder")) { pickingBarEmphasis = true },
+                )
+            }
             // The ready themes in a grid, four to a row: twenty-odd do not fit a row to scroll.
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val chip = (maxWidth - Gap.s * 3) / 4
@@ -161,6 +174,20 @@ fun ThemeScreen(
         PickSheet(tr("Плотность списков", "List density"), { pickingSpacing = false }) {
             ChoiceGroup(Spacing.entries, Spacing.of(spacing), { onSpacing(it.name); pickingSpacing = false }, Modifier.fillMaxWidth()) {
                 ChoiceText(spacingLabel(it))
+            }
+        }
+    }
+    if (pickingBarMotion) {
+        PickSheet(tr("Полоса", "Bar"), { pickingBarMotion = false }) {
+            ChoiceGroup(BarMotion.entries, BarMotion.of(barMotion), { onBarMotion(it.name); pickingBarMotion = false }, Modifier.fillMaxWidth()) {
+                ChoiceText(it.label)
+            }
+        }
+    }
+    if (pickingBarEmphasis) {
+        PickSheet(tr("Акцент", "Emphasis"), { pickingBarEmphasis = false }) {
+            ChoiceGroup(listOf(false, true), barDifferenceEmphasis, { onBarDifferenceEmphasis(it); pickingBarEmphasis = false }, Modifier.fillMaxWidth()) {
+                ChoiceText(if (it) tr("Разница", "Difference") else tr("Остаток", "Remainder"))
             }
         }
     }

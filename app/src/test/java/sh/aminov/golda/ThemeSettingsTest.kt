@@ -35,6 +35,8 @@ class ThemeSettingsTest {
         assertEquals(Settings().oled, fresh.oled)
         assertEquals(false, fresh.oled)
         assertEquals(true, fresh.colouredRows)
+        assertEquals("QUIET", fresh.barMotion)
+        assertEquals(false, fresh.barDifferenceEmphasis)
 
         withStore(file) { it.update { s -> s.copy(palette = "marathon", oled = true, colouredRows = false) } }
         val again = withStore(file) { it.flow.first() }
@@ -42,5 +44,20 @@ class ThemeSettingsTest {
         assertEquals("marathon", again.palette)
         assertEquals(true, again.oled)
         assertEquals(false, again.colouredRows)
+    }
+
+    @Test
+    fun barExperimentsSurviveReopeningTheStore() {
+        val file = "bar-settings-test"
+        context.preferencesDataStoreFile(file).delete()
+        for (motion in listOf("WAVE", "SHIMMER", "QUIET")) {
+            for (difference in listOf(true, false)) {
+                withStore(file) { it.update { s -> s.copy(barMotion = motion, barDifferenceEmphasis = difference) } }
+                val again = withStore(file) { it.flow.first() }
+                assertEquals(motion, again.barMotion)
+                assertEquals(difference, again.barDifferenceEmphasis)
+            }
+        }
+        context.preferencesDataStoreFile(file).delete()
     }
 }

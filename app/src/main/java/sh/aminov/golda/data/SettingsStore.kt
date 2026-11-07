@@ -38,6 +38,8 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         val oled = booleanPreferencesKey("oled")
         val colouredRows = booleanPreferencesKey("colouredRows")
         val spacing = stringPreferencesKey("spacing")
+        val barMotion = stringPreferencesKey("barMotion")
+        val barDifferenceEmphasis = booleanPreferencesKey("barDifferenceEmphasis")
         val autoBackupFolder = stringPreferencesKey("autoBackupFolder")
         val lastAutoBackup = longPreferencesKey("lastAutoBackup")
         val savedThemes = stringPreferencesKey("savedThemes")
@@ -84,6 +86,8 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
             oled = this[K.oled] ?: d.oled,
             colouredRows = this[K.colouredRows] ?: d.colouredRows,
             spacing = this[K.spacing] ?: d.spacing,
+            barMotion = this[K.barMotion] ?: d.barMotion,
+            barDifferenceEmphasis = this[K.barDifferenceEmphasis] ?: d.barDifferenceEmphasis,
             autoBackupFolder = this[K.autoBackupFolder],
             lastAutoBackup = this[K.lastAutoBackup] ?: d.lastAutoBackup,
             savedThemes = this[K.savedThemes]?.split('|')?.filter { it.isNotBlank() } ?: d.savedThemes,
@@ -111,6 +115,8 @@ class SettingsStore(context: Context, private val store: DataStore<Preferences> 
         this[K.oled] = s.oled
         this[K.colouredRows] = s.colouredRows
         this[K.spacing] = s.spacing
+        this[K.barMotion] = s.barMotion
+        this[K.barDifferenceEmphasis] = s.barDifferenceEmphasis
         if (s.autoBackupFolder != null) this[K.autoBackupFolder] = s.autoBackupFolder else remove(K.autoBackupFolder)
         this[K.lastAutoBackup] = s.lastAutoBackup
         this[K.savedThemes] = s.savedThemes.joinToString("|")
