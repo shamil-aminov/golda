@@ -36,9 +36,9 @@ class TabBarTest {
     fun aWordOpensItsTabThePersonTheSettingsAndTheWordFollowsThePosition() {
         var picked = -1
         var settings = 0
-        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { TabBar(listOf("Сегодня", "Траты", "Счета"), { 0.8f }, { picked = it }, { settings++ }) } }
-        compose.onNodeWithText("Траты").assertIsSelected()
-        compose.onNodeWithText("Сегодня").assertIsNotSelected()
+        compose.setContent { GoldaTheme("golda", "LIGHT", "ROOMY") { TabBar(listOf("Главная", "Аналитика", "Счета"), { 0.8f }, { picked = it }, { settings++ }) } }
+        compose.onNodeWithText("Аналитика").assertIsSelected()
+        compose.onNodeWithText("Главная").assertIsNotSelected()
         compose.onNodeWithText("Счета").performClick()
         assertEquals(2, picked)
         compose.onNodeWithContentDescription("Настройки").performClick()

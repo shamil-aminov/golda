@@ -77,6 +77,7 @@ loud is the moment you notice you are spending.
 - **Debts.** Credit cards and loans have a rate, a payment day and a grace
   period. You get reminders, a payoff estimate, an early-repayment calculator
   and a hint on which debt to pay first.
+- **Navigation.** Home, Insights and Accounts tabs support taps and swipes. The gear opens settings.
 - **Insights.** One card: the kind of spending as a title with its menu, the period,
   the sum, bars stacked by category and a short legend; a second level holds the
   categories and a day's purchases. Income, how much currency exchange cost you

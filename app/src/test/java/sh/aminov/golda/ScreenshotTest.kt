@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -42,6 +44,8 @@ import sh.aminov.golda.ui.EntryRequest
 import sh.aminov.golda.ui.EntrySheet
 import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.HomeScreen
+import sh.aminov.golda.ui.TabBar
+import sh.aminov.golda.domain.tr
 import sh.aminov.golda.ui.SettingsScreen
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -71,7 +75,25 @@ class ScreenshotTest {
 
     private fun shot(name: String, palette: String = "golda", mode: String = "SYSTEM", spacing: String? = null, content: @Composable () -> Unit) {
         // The page's own background, as the app's scaffold gives it: a screen alone is transparent.
-        compose.setContent { GoldaTheme(palette, mode, spacing) { Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() } } }
+        compose.setContent {
+            GoldaTheme(palette, mode, spacing) {
+                val tab = when (name.substringBefore('_')) {
+                    "home" -> 0
+                    "insights" -> 1
+                    "accounts" -> 2
+                    else -> null
+                }
+                if (tab != null) {
+                    Scaffold(topBar = {
+                        TabBar(listOf(tr("Главная", "Home"), tr("Аналитика", "Insights"), tr("Счета", "Accounts")), { tab.toFloat() }, {}, {})
+                    }) { padding ->
+                        Box(Modifier.fillMaxSize().padding(padding)) { content() }
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { content() }
+                }
+            }
+        }
         compose.onRoot().captureRoboImage(
             "src/test/screenshots/$name.png",
             roborazziOptions = RoborazziOptions(compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.002f)),
