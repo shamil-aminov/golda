@@ -20,7 +20,7 @@ import kotlin.math.abs
 /** How near the norm reads as near it, in percent of the period's money. */
 private const val NEAR_NORM_PERCENT = 5L
 
-/** How the money goes against the even pace, the colour of what went on Home. */
+/** How the money goes against the even pace, the colour of what is left on Home. */
 enum class Light { GREEN, YELLOW, RED }
 
 data class Envelope(
@@ -104,6 +104,15 @@ data class Envelope(
         fundsMinor <= 0 -> if (spentMinor > 0) 1f else 0f
         else -> (spentMinor.toFloat() / fundsMinor).coerceIn(0f, 1f)
     }
+
+    /** The solid remainder on Home, with no artificial minimum or money when the period has none. */
+    val leftShare: Float get() = if (fundsMinor <= 0) 0f else (balanceMinor.toDouble() / fundsMinor).coerceIn(0.0, 1.0).toFloat()
+
+    /** What should remain by the end of today at the existing norm. */
+    val plannedLeftMinor: Long get() = (fundsMinor - normMinor).coerceAtLeast(0)
+
+    /** The ghost's end on the same track. The solid fill covers it when spending is ahead of plan. */
+    val plannedLeftShare: Float get() = if (fundsMinor <= 0) 0f else (plannedLeftMinor.toDouble() / fundsMinor).coerceIn(0.0, 1.0).toFloat()
 
     /** The period's length in words when it is one of the usual ones. */
     val length: Envelopes.Length? get() = Envelopes.Length.entries.firstOrNull { Envelopes.end(start, it) == end }

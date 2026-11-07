@@ -453,8 +453,8 @@ private fun MainScreen(
                     TabBar(
                         words = TabOrder.map {
                             when (it) {
-                                Tab.HOME -> tr("Сегодня", "Today")
-                                Tab.INSIGHTS -> tr("Траты", "Spending")
+                                Tab.HOME -> tr("Главная", "Home")
+                                Tab.INSIGHTS -> tr("Аналитика", "Insights")
                                 Tab.ACCOUNTS -> tr("Счета", "Accounts")
                             }
                         },

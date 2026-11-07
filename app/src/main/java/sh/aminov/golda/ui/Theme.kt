@@ -30,6 +30,8 @@ class ActionColors(val container: Color, val content: Color)
 
 private val LocalAction = staticCompositionLocalOf { ActionColors(Color.Unspecified, Color.Unspecified) }
 
+internal val LocalEntryColors = staticCompositionLocalOf { ActionColors(Color.Unspecified, Color.Unspecified) }
+
 /** The gold behind the one action on a screen or sheet. */
 @Composable
 @ReadOnlyComposable
@@ -76,7 +78,7 @@ fun GoldaTheme(tones: Tones, colouredRows: Boolean = true, spacing: String? = nu
             }
         }
     }
-    CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary), LocalTones provides tones, LocalColouredRows provides colouredRows, LocalSpacing provides Spacing.of(spacing)) {
+    CompositionLocalProvider(LocalAction provides ActionColors(base.primary, base.onPrimary), LocalEntryColors provides ActionColors(tones.entryContainer, tones.entryContent), LocalTones provides tones, LocalColouredRows provides colouredRows, LocalSpacing provides Spacing.of(spacing)) {
         MaterialExpressiveTheme(
             colorScheme = base.goldOnlyByName(),
             motionScheme = MotionScheme.expressive(),

@@ -86,7 +86,7 @@ class BugHuntScenarioTest : GoldaUiTest() {
     /** Polish: back on another tab goes Home, not out of the app. */
     @Test
     fun backOnAnotherTabGoesHome() {
-        compose.onNodeWithText(tr("Траты", "Spending")).performClick()
+        compose.onNodeWithText(tr("Аналитика", "Insights")).performClick()
         compose.waitForIdle()
         back()
         compose.waitUntil(5_000) { compose.onAllNodes(hasText(tr("Остаток дня", "Left today"))).fetchSemanticsNodes().isNotEmpty() }

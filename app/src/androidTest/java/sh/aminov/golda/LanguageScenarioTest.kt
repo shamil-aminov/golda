@@ -52,8 +52,8 @@ class LanguageScenarioTest : GoldaUiTest() {
 
     private class Ui(val tag: String, val home: String, val settings: String, val languageRow: String, val optionName: String, val back: String) {
         companion object {
-            val RU = Ui("ru", "Сегодня", "Настройки", "Язык", "Русский", "Назад")
-            val EN = Ui("en", "Today", "Settings", "Language", "English", "Back")
+            val RU = Ui("ru", "Главная", "Настройки", "Язык", "Русский", "Назад")
+            val EN = Ui("en", "Home", "Settings", "Language", "English", "Back")
         }
     }
 }

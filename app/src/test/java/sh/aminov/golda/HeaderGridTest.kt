@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
@@ -90,7 +91,11 @@ class HeaderGridTest {
         compose.onAllNodesWithText("Ещё ", substring = true, useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithContentDescription("Настройки").assertCountEquals(0)
         assertEquals(true, tagged(Tags.HOME_SPENT).top > tagged(Tags.HOME_BIG).bottom)
-        // Left the burn, right the day's plan, each its tile's one node.
+        // The period bar is one node. Left the day's plan, right the burn.
+        val description = compose.onNodeWithTag(Tags.HOME_SPENT).fetchSemanticsNode().config[SemanticsProperties.ContentDescription].single()
+        assertEquals("Осталось 1 026 ₾, по плану должно остаться 1 634 ₾", description.replace('\u202F', ' ').replace('\u00A0', ' '))
+        assertEquals(true, compose.onNodeWithText("Осталось", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left <
+            compose.onNodeWithText("Ушло", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left)
         compose.onAllNodesWithText("122 в день", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText("47 в день", useUnmergedTree = true).assertCountEquals(1)
         compose.onAllNodesWithText(" из 47", substring = true, useUnmergedTree = true).assertCountEquals(1)

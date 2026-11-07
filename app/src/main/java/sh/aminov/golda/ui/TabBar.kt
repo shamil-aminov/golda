@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.selection.selectableGroup
@@ -19,10 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -36,42 +39,47 @@ internal val TabBarHeight = 48.dp
 
 /**
  * The tabs as words over every screen, on the page's own colour so rows scroll under it unseen: a tap
- * or a swipe moves between them, and the word in bold follows the finger. The gear at the end opens
+ * or a swipe moves between them, and the tonal pill follows the selected word. The gear at the end opens
  * the settings.
  */
 @Composable
 fun TabBar(words: List<String>, position: () -> Float, onSelect: (Int) -> Unit, onSettings: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().background(scheme.background).statusBarsPadding().height(TabBarHeight).padding(horizontal = Gap.l),
+        Modifier.fillMaxWidth().background(scheme.background).statusBarsPadding().padding(top = Space.half).height(TabBarHeight).padding(horizontal = Gap.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(Gap.m)) {
+        Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(HeaderSpace.chartCaption)) {
             words.forEachIndexed { index, word ->
                 val nearness = (1f - abs(position() - index)).coerceIn(0f, 1f)
                 val style = TextRole.rowName
+                val picked = nearness > 0.5f
                 Box(
-                    Modifier.height(TabBarHeight).clickable { onSelect(index) }.semantics {
-                        role = Role.Tab
-                        selected = nearness > 0.5f
-                    },
-                    contentAlignment = Alignment.CenterStart,
+                    Modifier.height(TabBarHeight).clip(CircleShape)
+                        .background(if (picked) scheme.secondaryContainer else Color.Transparent)
+                        .clickable { onSelect(index) }.semantics {
+                            role = Role.Tab
+                            selected = picked
+                        }.padding(horizontal = Space.card),
+                    contentAlignment = Alignment.Center,
                 ) {
                     // The bold word holds the width, so its neighbours stay put as the weight turns.
-                    Text(word, style = style.copy(fontWeight = TextRole.Accent), color = Color.Transparent, maxLines = 1)
+                    Text(word, Modifier.clearAndSetSemantics {}, style = style.copy(fontWeight = TextRole.Accent), color = Color.Transparent, maxLines = 1)
                     Text(
                         word,
-                        style = if (nearness > 0.5f) style.copy(fontWeight = TextRole.Accent) else style,
-                        color = lerp(scheme.onSurfaceVariant, scheme.onSurface, nearness),
+                        style = if (picked) style.copy(fontWeight = TextRole.Accent) else style,
+                        color = if (picked) scheme.onSecondaryContainer else scheme.onSurfaceVariant,
                         maxLines = 1,
                     )
                 }
             }
         }
         Spacer(Modifier.weight(1f))
-        // Its glyph's right edge on the cards' text.
-        IconButton(onClick = onSettings, modifier = Modifier.offset(x = 12.dp)) {
-            Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onSurfaceVariant)
+        // Its glyph's right edge on the cards' outer edge, with the full touch target inside the page.
+        IconButton(onClick = onSettings, modifier = Modifier.size(TabBarHeight)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterEnd) {
+                Icon(painterResource(R.drawable.ic_settings), tr("Настройки", "Settings"), tint = scheme.onSurfaceVariant)
+            }
         }
     }
 }

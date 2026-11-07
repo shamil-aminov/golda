@@ -71,7 +71,7 @@ class BaseCurrencyScenarioTest : GoldaUiTest() {
 
         // Back to rubles: the old big number, and the same currencies under it. (The figures under it may
         // move by a kopeck's worth: the rates can refresh from the network while the test runs.)
-        openTab(tr("Сегодня", "Today"))
+        openTab(tr("Главная", "Home"))
         pickBase("₽ RUB")
         assertEquals(homeBefore, bigNumber(Tags.HOME_BIG))
         fun symbols(line: String) = line.split(" · ").map { it.substringAfterLast(' ') }

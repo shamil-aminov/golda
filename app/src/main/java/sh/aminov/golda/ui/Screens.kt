@@ -15,6 +15,7 @@ import sh.aminov.golda.domain.I18n
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.TextStyle
@@ -101,7 +102,7 @@ import java.time.LocalDate
 /** Keeps the last row clear of the floating toolbar (64 dp, 16 dp above the gesture bar) by 24 dp. */
 /** Over the floating toolbar at the end: its height, the 16 it floats above the bottom, and a card's gap. */
 @Composable
-fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + Gap.s, bottom = calculateBottomPadding() + ToolbarHeight + Gap.m + ListSpace.cards)
+fun PaddingValues.aboveActions() = PaddingValues(top = calculateTopPadding() + ListSpace.cards, bottom = calculateBottomPadding() + ToolbarHeight + Gap.m + ListSpace.cards)
 
 /** How tall the tiles of what went and what is left stand. */
 private val TileHeight = 32.dp
@@ -109,16 +110,9 @@ private val TileHeight = 32.dp
 /** Their corners, the bars' on Insights. */
 private val TileCorner = 6.dp
 
-/** Between the two. */
-private val TileGap = 4.dp
-
-/** The narrowest a tile gets: its width is the truth, this only keeps it from vanishing. */
-private val TileLeast = 6.dp
-
 /**
- * The period's money as two tiles, their widths its shares, no words on them: what went, in the
- * colour of how it goes against the norm ([Envelope.light]), and what is left. Under each its word
- * and its sum, on the tile's own edge.
+ * The period's remainder in its existing pace colour, with a lighter ghost up to today's norm.
+ * Ahead of plan the solid fill covers the ghost. The words keep the original card's spacing.
  */
 @Composable
 private fun SpentTiles(envelope: Envelope) {
@@ -131,20 +125,20 @@ private fun SpentTiles(envelope: Envelope) {
         Light.YELLOW -> paceColor(Pace.LASTS)
         Light.RED -> paceColor(Pace.OVER)
     }
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val room = maxWidth - TileGap
-        val share = envelope.spentShare
-        val went = (room * share).coerceIn(TileLeast, room - TileLeast)
-        Row(horizontalArrangement = Arrangement.spacedBy(TileGap)) {
-            Box(Modifier.width(went).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill).testTag(Tags.HOME_SPENT))
-            Box(Modifier.width(room - went).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(tones.soft))
-        }
+    val description = tr(
+        "Осталось ${whole(left, code)}, по плану должно остаться ${whole(envelope.plannedLeftMinor, code)}",
+        "Left ${whole(left, code)}, planned remainder ${whole(envelope.plannedLeftMinor, code)}",
+    )
+    Box(Modifier.fillMaxWidth().height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(tones.soft)
+        .testTag(Tags.HOME_SPENT).semantics { contentDescription = description }) {
+        Box(Modifier.fillMaxWidth(envelope.plannedLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill.copy(alpha = 0.35f)))
+        Box(Modifier.fillMaxWidth(envelope.leftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill))
     }
     VSpace(ChartSpace.tilesToWords)
     Row(Modifier.fillMaxWidth()) {
         fun pace(minor: Long) = tr("${Fmt.whole(minor, code)} в день", "${Fmt.whole(minor, code)} a day")
-        TileWords(tr("Ушло", "Gone"), whole(spent, code), envelope.burnMinor?.let(::pace), Alignment.Start, Modifier.weight(1f))
-        TileWords(tr("Осталось", "Left"), whole(left, code), pace(envelope.perDayMinor), Alignment.End, Modifier)
+        TileWords(tr("Осталось", "Left"), whole(left, code), pace(envelope.perDayMinor), Alignment.Start, Modifier.weight(1f))
+        TileWords(tr("Ушло", "Gone"), whole(spent, code), envelope.burnMinor?.let(::pace), Alignment.End, Modifier)
     }
     // A little more than the card's edge under a block of three lines.
     VSpace(ChartSpace.wordToSum)
@@ -185,7 +179,7 @@ fun HomeScreen(
             val ink = scheme.onPrimaryFixed
             // As the other tabs: a title, its caption, the figure, every text cut to its letters and every
             // gap a step of the header's row (HeaderSpace). The title names the figure, the caption says how the period goes.
-            HeroTile(Modifier.padding(horizontal = Gap.s), content = ink, vertical = HeaderSpace.edge) {
+            HeroTile(Modifier.padding(horizontal = Gap.s).testTag(Tags.HOME_CARD), content = ink, vertical = HeaderSpace.edge) {
                 // Read inside the tile: on a plate the caption's second ink is the plate's own.
                 val words = TextRole.caption
                 val cut = Modifier.letters(words.fontSize)
