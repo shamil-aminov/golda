@@ -1504,6 +1504,9 @@ object Tags {
     /** Home's big number, "На сегодня". */
     const val HOME_BIG = "home-big"
 
+    /** Home's header card, for alignment and spacing checks. */
+    const val HOME_CARD = "home-card"
+
     /** Accounts' big number, "Всего". */
     const val ACCOUNTS_TOTAL = "accounts-total"
 
