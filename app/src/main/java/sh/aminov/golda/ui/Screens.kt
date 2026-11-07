@@ -111,8 +111,8 @@ private val TileHeight = 32.dp
 private val TileCorner = 6.dp
 
 /**
- * The period's remainder in its existing pace colour, with a lighter ghost up to today's norm.
- * Ahead of plan the solid fill covers the ghost. The words keep the original card's spacing.
+ * The remainder and today's norm share one track in the existing pace colour.
+ * The lighter segment between them shows the deficit or reserve against plan.
  */
 @Composable
 private fun SpentTiles(envelope: Envelope) {
@@ -125,14 +125,17 @@ private fun SpentTiles(envelope: Envelope) {
         Light.YELLOW -> paceColor(Pace.LASTS)
         Light.RED -> paceColor(Pace.OVER)
     }
-    val description = tr(
+    val description = if (envelope.marginMinor > 0) tr(
+        "Осталось ${whole(left, code)}, запас к плану ${whole(envelope.marginMinor, code)}",
+        "Left ${whole(left, code)}, reserve against plan ${whole(envelope.marginMinor, code)}",
+    ) else tr(
         "Осталось ${whole(left, code)}, по плану должно остаться ${whole(envelope.plannedLeftMinor, code)}",
         "Left ${whole(left, code)}, planned remainder ${whole(envelope.plannedLeftMinor, code)}",
     )
     Box(Modifier.fillMaxWidth().height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(tones.soft)
         .testTag(Tags.HOME_SPENT).semantics { contentDescription = description }) {
-        Box(Modifier.fillMaxWidth(envelope.plannedLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill.copy(alpha = 0.35f)))
-        Box(Modifier.fillMaxWidth(envelope.leftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill))
+        Box(Modifier.fillMaxWidth(envelope.ghostLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill.copy(alpha = 0.35f)))
+        Box(Modifier.fillMaxWidth(envelope.solidLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill))
     }
     VSpace(ChartSpace.tilesToWords)
     Row(Modifier.fillMaxWidth()) {

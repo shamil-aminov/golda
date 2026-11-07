@@ -53,14 +53,11 @@ class Tones(
     val pace: Color? = null,
     /** A theme's own colours for the categories, in turn by category; null: each category's hue at [infoL] and [infoC]. */
     val swatches: List<Color>? = null,
-    /** The entry island follows the theme's raised surface unless a preset supplies its own pair. */
-    val entryContainer: Color = if (dark) soft else card,
-    val entryContent: Color = text,
 ) {
     /** The same set on another [page]: pure black for OLED screens. */
     fun onPage(page: Color) = Tones(
         dark, page, card, soft, line, muted, text, graphite, onGraphite, gold, onGold, error, onError, errorSoft, onErrorSoft,
-        infoL, infoC, seedHue, clearColours, plate, onPlate, onPlateMuted, pace, swatches, entryContainer, entryContent,
+        infoL, infoC, seedHue, clearColours, plate, onPlate, onPlateMuted, pace, swatches,
     )
 }
 
@@ -80,8 +77,6 @@ internal val GoldaLight = Tones(
     onError = Color(0xFFFFFFFF),
     errorSoft = Color(0xFFFEE2E2),
     onErrorSoft = Color(0xFF991B1B),
-    entryContainer = Color(0xFFDACBA5),
-    entryContent = Color(0xFF332C1A),
 )
 
 internal val GoldaDark = Tones(
@@ -100,8 +95,6 @@ internal val GoldaDark = Tones(
     onError = Color(0xFF450A0A),
     errorSoft = Color(0xFF4C1D1D),
     onErrorSoft = Color(0xFFFECACA),
-    entryContainer = Color(0xFF6B5D3E),
-    entryContent = Color(0xFFFFF4DA),
 )
 
 /** The Material scheme for a set of [Tones]: every role lands on one of its few colours. */

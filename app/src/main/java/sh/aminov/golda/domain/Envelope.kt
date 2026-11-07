@@ -105,14 +105,20 @@ data class Envelope(
         else -> (spentMinor.toFloat() / fundsMinor).coerceIn(0f, 1f)
     }
 
-    /** The solid remainder on Home, with no artificial minimum or money when the period has none. */
+    /** The actual remainder on Home, with no artificial minimum or money when the period has none. */
     val leftShare: Float get() = if (fundsMinor <= 0) 0f else (balanceMinor.toDouble() / fundsMinor).coerceIn(0.0, 1.0).toFloat()
 
     /** What should remain by the end of today at the existing norm. */
     val plannedLeftMinor: Long get() = (fundsMinor - normMinor).coerceAtLeast(0)
 
-    /** The ghost's end on the same track. The solid fill covers it when spending is ahead of plan. */
+    /** The planned remainder on the same track. */
     val plannedLeftShare: Float get() = if (fundsMinor <= 0) 0f else (plannedLeftMinor.toDouble() / fundsMinor).coerceIn(0.0, 1.0).toFloat()
+
+    /** Solid up to the remainder or the norm, whichever comes first. */
+    val solidLeftShare: Float get() = minOf(leftShare, plannedLeftShare)
+
+    /** The lighter segment reaches the other end, showing either a deficit or a reserve. */
+    val ghostLeftShare: Float get() = maxOf(leftShare, plannedLeftShare)
 
     /** The period's length in words when it is one of the usual ones. */
     val length: Envelopes.Length? get() = Envelopes.Length.entries.firstOrNull { Envelopes.end(start, it) == end }

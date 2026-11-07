@@ -1,4 +1,4 @@
-﻿param([ValidateSet('tabs', 'gold', 'island', 'mana', 'tabs2', 'mana2', 'mana2-states', 'final')][string]$Frame = 'tabs')
+﻿param([ValidateSet('tabs', 'gold', 'island', 'mana', 'tabs2', 'mana2', 'mana2-states', 'final', 'round4')][string]$Frame = 'tabs')
 
 Add-Type -AssemblyName System.Drawing
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
@@ -10,6 +10,11 @@ $height = 680
 $secondTop = $null
 
 switch ($Frame) {
+    'round4' {
+        $labels = @('Главная · до', 'Главная · отставание', 'Главная · запас', 'Аналитика · после')
+        $captions = @('Текущий main, 676c3fa', 'Призрак от остатка до нормы', 'Призрак от нормы до остатка', 'Нейтральный островок')
+        $height = 936
+    }
     'final' {
         $labels = @('Главная · до (9163c6a)', 'Главная · после', 'Главная · в пределах плана', 'Аналитика · после', 'Счета · после')
         $captions = @('Исходники 9163c6a, прежние вкладки', 'Остаток и призрачный план', 'Расход ниже нормы, прежний зелёный', 'Тональная пилюля', 'Тональная пилюля')
@@ -73,7 +78,7 @@ for ($i = 0; $i -lt $labels.Count; $i++) {
     $graphics.DrawString($labels[$i], $bold, [Drawing.Brushes]::Black, $x, 9)
     $index = if ($Frame -eq 'gold') { $i + 1 } else { $i }
     $suffix = if ($Frame -eq 'island') { '_rest' } else { '' }
-    $sourceName = if ($Frame -eq 'final') { @('final_before', 'final_home', 'final_green', 'final_insights', 'final_accounts')[$i] } else { "${Frame}_${index}${suffix}" }
+    $sourceName = if ($Frame -eq 'round4') { @('round4_before', 'final_home', 'final_green', 'final_insights')[$i] } elseif ($Frame -eq 'final') { @('final_before', 'final_home', 'final_green', 'final_insights', 'final_accounts')[$i] } else { "${Frame}_${index}${suffix}" }
     $source = [Drawing.Image]::FromFile((Join-Path $raw "$sourceName.png"))
     $graphics.DrawImage($source, [Drawing.Rectangle]::new($x, $header, $width, $height), [Drawing.Rectangle]::new(0, $top, $width, $height), [Drawing.GraphicsUnit]::Pixel)
     $source.Dispose()

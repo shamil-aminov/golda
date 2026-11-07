@@ -25,25 +25,6 @@ import kotlin.random.Random
 
 class ThemeGenTest {
     @Test
-    fun entryIslandKeepsItsPresetColoursAndContrast() {
-        listOf(false, true).forEach { dark ->
-            val golda = tonesFor("golda", dark)
-            assertEquals(if (dark) 0xFF6B5D3E.toInt() else 0xFFDACBA5.toInt(), golda.entryContainer.toArgb())
-            assertEquals(if (dark) 0xFFFFF4DA.toInt() else 0xFF332C1A.toInt(), golda.entryContent.toArgb())
-            assertTrue(ratio(golda.entryContent, golda.entryContainer) >= 4.5)
-            assertEquals(golda.entryContainer, tonesFor("golda", dark, oled = true).entryContainer)
-            Palette.entries.filter { it != Palette.GOLDA }.forEach { preset ->
-                val t = preset.tones(dark)
-                assertEquals(if (dark) t.soft else t.card, t.entryContainer)
-                assertEquals(t.text, t.entryContent)
-            }
-            val custom = tonesFor(ThemeSpec(212).key, dark)
-            assertEquals(if (dark) custom.soft else custom.card, custom.entryContainer)
-            assertEquals(custom.text, custom.entryContent)
-        }
-    }
-
-    @Test
     fun aSpecSurvivesItsKey() {
         val spec = ThemeSpec(212, ThemeStyle.EXPRESSIVE, ThemeMode.DARK, 2)
         assertEquals(spec, ThemeSpec.parse(spec.key))

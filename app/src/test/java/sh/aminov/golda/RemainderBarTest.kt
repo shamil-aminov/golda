@@ -38,17 +38,30 @@ class RemainderBarTest {
             val plan = envelope(funds, 0).normMinor
             val e = envelope(funds, plan + funds / 10)
             assertTrue(e.leftShare < e.plannedLeftShare)
+            assertEquals(e.leftShare, e.solidLeftShare, 0f)
+            assertEquals(e.plannedLeftShare, e.ghostLeftShare, 0f)
             assertEquals((e.spentMinor - e.normMinor).toFloat() / funds, e.plannedLeftShare - e.leftShare, 0.000001f)
         }
     }
 
-    @Test fun aheadOfPlanTheSolidFillCoversTheGhostAndOnPlanTheirEndsMeet() = prop {
+    @Test fun aheadOfPlanTheGhostShowsTheReserveAfterTheNorm() = prop {
         checkAll(Arb.long(1_000L..100_000_000L)) { funds ->
             val plan = envelope(funds, 0).normMinor
             val ahead = envelope(funds, plan - funds / 10)
             assertTrue(ahead.leftShare > ahead.plannedLeftShare)
+            assertEquals(ahead.plannedLeftShare, ahead.solidLeftShare, 0f)
+            assertEquals(ahead.leftShare, ahead.ghostLeftShare, 0f)
+            assertEquals(ahead.marginMinor.toFloat() / funds, ahead.ghostLeftShare - ahead.solidLeftShare, 0.000001f)
+        }
+    }
+
+    @Test fun onPlanThereIsOnlySolidFill() = prop {
+        checkAll(Arb.long(1_000L..100_000_000L)) { funds ->
+            val plan = envelope(funds, 0).normMinor
             val onPlan = envelope(funds, plan)
             assertEquals(onPlan.leftShare, onPlan.plannedLeftShare, 0f)
+            assertEquals(onPlan.leftShare, onPlan.solidLeftShare, 0f)
+            assertEquals(onPlan.solidLeftShare, onPlan.ghostLeftShare, 0f)
         }
     }
 
@@ -65,14 +78,18 @@ class RemainderBarTest {
         assertEquals((96_590.0 / 241_200).toFloat(), e.leftShare, 0f)
         assertEquals(e.leftShare, e.copy(leftTodayMinor = 3_200).leftShare, 0f)
         assertTrue(e.plannedLeftShare > e.leftShare)
+        assertEquals(e.leftShare, e.solidLeftShare, 0f)
+        assertEquals(e.plannedLeftShare, e.ghostLeftShare, 0f)
     }
 
-    @Test fun atTheStartTheFillIsFullAndTheNormAlreadyIncludesToday() = prop {
+    @Test fun atTheStartTheGhostCompletesTheFullRemainderAfterTodaysNorm() = prop {
         checkAll(Arb.long(31L..100_000_000L)) { funds ->
             val e = envelope(funds, 0, daysLeft = 31)
             assertEquals(1f, e.leftShare, 0f)
             assertEquals(funds - funds / 31, e.plannedLeftMinor)
             assertEquals(((funds - funds / 31).toDouble() / funds).toFloat(), e.plannedLeftShare, 0f)
+            assertEquals(e.plannedLeftShare, e.solidLeftShare, 0f)
+            assertEquals(1f, e.ghostLeftShare, 0f)
         }
     }
 
@@ -81,6 +98,8 @@ class RemainderBarTest {
             assertEquals(0f, it.leftShare, 0f)
             assertEquals(0L, it.plannedLeftMinor)
             assertEquals(0f, it.plannedLeftShare, 0f)
+            assertEquals(0f, it.solidLeftShare, 0f)
+            assertEquals(0f, it.ghostLeftShare, 0f)
         }
         assertEquals(0f, envelope(100, 100).leftShare, 0f)
         assertEquals(0f, envelope(100, 200).leftShare, 0f)
