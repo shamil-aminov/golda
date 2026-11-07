@@ -43,6 +43,9 @@ data class Settings(
     val colouredRows: Boolean = true,
     /** How much air the lists have (see ui.Spacing): "COMPACT", "NORMAL" or "ROOMY". */
     val spacing: String = "NORMAL",
+    /** Home bar experiments, applied only in the dev build. */
+    val barMotion: String = "QUIET",
+    val barDifferenceEmphasis: Boolean = false,
     /** The folder a weekly backup goes to (a document tree the person picked); null: none. */
     val autoBackupFolder: String? = null,
     /** When the last weekly backup was written, epoch millis; 0: never. */

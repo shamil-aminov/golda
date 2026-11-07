@@ -1,4 +1,4 @@
-﻿param([ValidateSet('tabs', 'gold', 'island', 'mana', 'tabs2', 'mana2', 'mana2-states', 'final', 'round4')][string]$Frame = 'tabs')
+﻿param([ValidateSet('tabs', 'gold', 'island', 'mana', 'tabs2', 'mana2', 'mana2-states', 'final', 'round4', 'accent', 'motion')][string]$Frame = 'tabs')
 
 Add-Type -AssemblyName System.Drawing
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../../..')).Path
@@ -10,6 +10,18 @@ $height = 680
 $secondTop = $null
 
 switch ($Frame) {
+    'accent' {
+        $labels = @('Отставание · остаток', 'Отставание · разница', 'Запас · остаток', 'Запас · разница')
+        $captions = @('Текущий акцент', 'Сильный цвет на недостатке', 'Текущий акцент', 'Сильный цвет на запасе')
+        $width = 416
+        $height = 260
+    }
+    'motion' {
+        $labels = @('Отставание · тихая', 'Отставание · волна', 'Отставание · перелив', 'Запас · тихая', 'Запас · волна', 'Запас · перелив')
+        $captions = @('Акцент на разнице', 'M3 Expressive, первый кадр', 'AGSL, первый кадр', 'Акцент на разнице', 'M3 Expressive, первый кадр', 'AGSL, первый кадр')
+        $width = 416
+        $height = 260
+    }
     'round4' {
         $labels = @('Главная · до', 'Главная · отставание', 'Главная · запас', 'Аналитика · после')
         $captions = @('Текущий main, 676c3fa', 'Призрак от остатка до нормы', 'Призрак от нормы до остатка', 'Нейтральный островок')
@@ -62,7 +74,7 @@ switch ($Frame) {
     }
 }
 
-$width = 432
+if ($Frame -notin @('accent', 'motion')) { $width = 432 }
 $gap = 14
 $header = 42
 $footer = 70
@@ -78,7 +90,7 @@ for ($i = 0; $i -lt $labels.Count; $i++) {
     $graphics.DrawString($labels[$i], $bold, [Drawing.Brushes]::Black, $x, 9)
     $index = if ($Frame -eq 'gold') { $i + 1 } else { $i }
     $suffix = if ($Frame -eq 'island') { '_rest' } else { '' }
-    $sourceName = if ($Frame -eq 'round4') { @('round4_before', 'final_home', 'final_green', 'final_insights')[$i] } elseif ($Frame -eq 'final') { @('final_before', 'final_home', 'final_green', 'final_insights', 'final_accounts')[$i] } else { "${Frame}_${index}${suffix}" }
+    $sourceName = if ($Frame -eq 'motion') { @('accent_1', 'wave_behind', 'shimmer_behind', 'accent_3', 'wave_ahead', 'shimmer_ahead')[$i] } elseif ($Frame -eq 'round4') { @('round4_before', 'final_home', 'final_green', 'final_insights')[$i] } elseif ($Frame -eq 'final') { @('final_before', 'final_home', 'final_green', 'final_insights', 'final_accounts')[$i] } else { "${Frame}_${index}${suffix}" }
     $source = [Drawing.Image]::FromFile((Join-Path $raw "$sourceName.png"))
     $graphics.DrawImage($source, [Drawing.Rectangle]::new($x, $header, $width, $height), [Drawing.Rectangle]::new(0, $top, $width, $height), [Drawing.GraphicsUnit]::Pixel)
     $source.Dispose()

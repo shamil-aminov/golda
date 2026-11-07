@@ -370,6 +370,10 @@ private fun MainScreen(
                 colouredRows = data.settings.colouredRows,
                 onColouredRows = { on -> change { it.copy(colouredRows = on) } },
                 onSpacing = { spacing -> change { it.copy(spacing = spacing) } },
+                barMotion = data.settings.barMotion,
+                onBarMotion = { motion -> change { it.copy(barMotion = motion) } },
+                barDifferenceEmphasis = data.settings.barDifferenceEmphasis,
+                onBarDifferenceEmphasis = { difference -> change { it.copy(barDifferenceEmphasis = difference) } },
                 onOwn = { page = Page.OwnTheme },
                 onForget = { key -> change { it.copy(savedThemes = it.savedThemes - key) } },
             )

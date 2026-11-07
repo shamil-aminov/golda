@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -94,6 +95,7 @@ import sh.aminov.golda.domain.Currencies
 import sh.aminov.golda.domain.Debts
 import sh.aminov.golda.domain.Envelope
 import sh.aminov.golda.domain.Light
+import sh.aminov.golda.domain.Settings
 import sh.aminov.golda.domain.Fmt
 import sh.aminov.golda.domain.plural
 import sh.aminov.golda.domain.tr
@@ -115,7 +117,7 @@ private val TileCorner = 6.dp
  * The lighter segment between them shows the deficit or reserve against plan.
  */
 @Composable
-private fun SpentTiles(envelope: Envelope) {
+private fun SpentTiles(envelope: Envelope, settings: Settings) {
     val tones = LocalTones.current
     val code = envelope.currency
     val spent = envelope.spentMinor.coerceAtLeast(0)
@@ -125,6 +127,11 @@ private fun SpentTiles(envelope: Envelope) {
         Light.YELLOW -> paceColor(Pace.LASTS)
         Light.RED -> paceColor(Pace.OVER)
     }
+    val differenceEmphasis = LocalBarExperiments.current && settings.barDifferenceEmphasis
+    val gapColor = if (differenceEmphasis) {
+        if (envelope.marginMinor > 0) leitmotifColor(2, tones) else paceColor(Pace.OVER)
+    } else fill.copy(alpha = 0.35f)
+    val remainderColor = if (differenceEmphasis) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.18f).compositeOver(tones.soft) else fill
     val description = if (envelope.marginMinor > 0) tr(
         "Осталось ${whole(left, code)}, запас к плану ${whole(envelope.marginMinor, code)}",
         "Left ${whole(left, code)}, reserve against plan ${whole(envelope.marginMinor, code)}",
@@ -134,8 +141,12 @@ private fun SpentTiles(envelope: Envelope) {
     )
     Box(Modifier.fillMaxWidth().height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(tones.soft)
         .testTag(Tags.HOME_SPENT).semantics { contentDescription = description }) {
-        Box(Modifier.fillMaxWidth(envelope.ghostLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill.copy(alpha = 0.35f)))
-        Box(Modifier.fillMaxWidth(envelope.solidLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(fill))
+        Box(Modifier.fillMaxWidth(envelope.ghostLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(gapColor)) {
+            if (envelope.ghostLeftShare > 0f) {
+                GapMotion(settings.barMotion, envelope.solidLeftShare / envelope.ghostLeftShare, 1f, gapColor, Modifier.matchParentSize())
+            }
+        }
+        Box(Modifier.fillMaxWidth(envelope.solidLeftShare).height(TileHeight).clip(RoundedCornerShape(TileCorner)).background(remainderColor))
     }
     VSpace(ChartSpace.tilesToWords)
     Row(Modifier.fillMaxWidth()) {
@@ -214,7 +225,7 @@ fun HomeScreen(
                 }
                 if (envelope == null || code == null) return@HeroTile
                 VSpace(HeaderSpace.block)
-                SpentTiles(envelope)
+                SpentTiles(envelope, data.settings)
                 data.states.values.mapNotNull { graceWarning(data, it, today) }.forEach {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ink, modifier = Modifier.padding(top = Gap.xs))
                 }
