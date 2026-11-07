@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FabPosition
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -45,6 +46,9 @@ import sh.aminov.golda.ui.EntrySheet
 import sh.aminov.golda.ui.GoldaTheme
 import sh.aminov.golda.ui.HomeScreen
 import sh.aminov.golda.ui.TabBar
+import sh.aminov.golda.ui.EntryBar
+import sh.aminov.golda.ui.VoiceControl
+import sh.aminov.golda.ui.VoiceState
 import sh.aminov.golda.domain.tr
 import sh.aminov.golda.ui.SettingsScreen
 import java.time.LocalDate
@@ -86,6 +90,8 @@ class ScreenshotTest {
                 if (tab != null) {
                     Scaffold(topBar = {
                         TabBar(listOf(tr("Главная", "Home"), tr("Аналитика", "Insights"), tr("Счета", "Accounts")), { tab.toFloat() }, {}, {})
+                    }, floatingActionButtonPosition = FabPosition.Center, floatingActionButton = {
+                        EntryBar(VoiceControl(VoiceState.Idle, {}, camera = {}), {})
                     }) { padding ->
                         Box(Modifier.fillMaxSize().padding(padding)) { content() }
                     }

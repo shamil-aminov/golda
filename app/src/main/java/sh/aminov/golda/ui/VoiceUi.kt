@@ -248,7 +248,7 @@ private fun describe(draft: Draft, data: AppData): String {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
+    val colors = LocalEntryColors.current
     val label = when (voice.state) {
         VoiceState.Idle -> tr("Сказать", "Say it")
         VoiceState.Recording -> tr("Слушаю. Нажми, когда закончишь", "Listening. Tap when you're done")
@@ -258,9 +258,8 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
     Surface(
         modifier.height(ToolbarHeight).softShadow(CircleShape),
         shape = CircleShape,
-        // A card in light; in dark a step up, or it melts into the cards it floats over.
-        color = if (isDark()) scheme.surfaceContainerHighest else scheme.surfaceContainerHigh,
-        contentColor = scheme.onSurface,
+        color = colors.container,
+        contentColor = colors.content,
     ) {
         Row(Modifier.padding(ToolbarInset), verticalAlignment = Alignment.CenterVertically) {
             if (voice.state == VoiceState.Recording) {
@@ -272,7 +271,7 @@ fun EntryBar(voice: VoiceControl, onAdd: () -> Unit, modifier: Modifier = Modifi
             }
             BarMark(voice.toggle, Modifier.semantics { contentDescription = label; liveRegion = LiveRegionMode.Polite }) {
                 when (voice.state) {
-                    VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = scheme.onSurface)
+                    VoiceState.Thinking -> LoadingIndicator(Modifier.size(36.dp), color = colors.content)
                     VoiceState.Recording -> Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(BarIcon))
                     VoiceState.Idle -> Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(BarIcon))
                 }
