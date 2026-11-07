@@ -46,7 +46,7 @@ internal val TabBarHeight = 48.dp
 fun TabBar(words: List<String>, position: () -> Float, onSelect: (Int) -> Unit, onSettings: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().background(scheme.background).statusBarsPadding().height(TabBarHeight).padding(horizontal = Gap.s),
+        Modifier.fillMaxWidth().background(scheme.background).statusBarsPadding().padding(top = Space.half).height(TabBarHeight).padding(horizontal = Gap.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(HeaderSpace.chartCaption)) {
